@@ -181,24 +181,30 @@ export const scenarios: Scenario[] = [
     ctx.longSection = section;
   }],
 
-  ['long PDF: chapter picker shows a tree with token sum', async (ctx) => {
+  ['long PDF: unimplemented strategies are greyed out and cannot be picked', async (ctx) => {
     const section: Element = ctx.longSection;
-    const radio = section.querySelector('.seekchat-strategy[data-strategy="chapters"] input') as HTMLInputElement;
-    radio.click();
-    const tree = await waitFor('chapter tree', () => section.querySelector('.seekchat-chapters'));
-    const boxes = Array.from(tree.querySelectorAll('input[type="checkbox"]')) as HTMLInputElement[];
-    assert(boxes.length === 7, `expected 4 chapters + 3 sections from the PDF bookmarks, got ${boxes.length}: ${tree.textContent}`);
-    const source = section.querySelector('.seekchat-strategy-panel .seekchat-hint')?.textContent || '';
-    assert(source.includes('Inhaltsverzeichnis des PDFs'), `outline not read from the PDF: ${source}`);
-    assert(tree.textContent!.includes('Ergebnisse') && tree.textContent!.includes('S. 20–35'), `chapter ranges wrong: ${tree.textContent}`);
-    const sum = section.querySelector('.seekchat-chapter-sum')!;
-    const before = sum.textContent;
-    boxes[1].click();
-    await waitFor('sum updates', () => sum.textContent !== before);
-    assert(!sum.textContent!.includes('~0 von'), `sum still zero: ${sum.textContent}`);
-    await screenshot(ctx, 'chapters');
-    (section.querySelector('.seekchat-strategy[data-strategy="keywords"] input') as HTMLInputElement).click();
-    await waitFor('chapter panel closed', () => !section.querySelector('.seekchat-chapters'));
+    for (const id of ['vector', 'chapters']) {
+      const row = section.querySelector(`.seekchat-strategy[data-strategy="${id}"]`) as HTMLElement;
+      const radio = row.querySelector('input') as HTMLInputElement;
+      assert(radio.disabled && row.classList.contains('disabled'), `${id} is not disabled`);
+      row.click();
+      radio.click();
+      assert(!radio.checked, `${id} could be selected`);
+      assert(row.textContent!.includes(' noch ohne Funktion'), `badge text not separated: ${row.textContent}`);
+    }
+    const checked = section.querySelector('.seekchat-strategy input:checked') as HTMLInputElement;
+    assert(checked?.value === 'keywords', `selection changed to ${checked?.value}`);
+    assert(!section.querySelector('.seekchat-chapters'), 'chapter panel shown');
+    await screenshot(ctx, 'strategies');
+  }],
+
+  ['long PDF: outline is read from the PDF bookmarks', async (ctx) => {
+    const outline = await new PdfContextProvider(ctx.longAttachment).outline();
+    assert(outline.source === 'pdf', `outline source ${outline.source}`);
+    assert(outline.nodes.length === 4 && outline.nodes.reduce((n, c) => n + c.children.length, 0) === 3,
+      `unexpected tree: ${JSON.stringify(outline.nodes.map((n) => [n.title, n.children.length]))}`);
+    const results = outline.nodes.find((n) => n.title === 'Ergebnisse');
+    assert(results?.pageStart === 20 && results.pageEnd === 35, `chapter range ${results?.pageStart}–${results?.pageEnd}`);
   }],
 
   ['long PDF: model keywords find the matching page', async (ctx) => {

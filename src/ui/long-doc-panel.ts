@@ -25,7 +25,7 @@ const STRATEGIES: { id: LongDocStrategy; label: string; description: string }[] 
   {
     id: 'keywords',
     label: 'Stichwort-Erweiterung durch das Modell',
-    description: 'Das Modell erzeugt zu jeder Frage Suchbegriffe (Synonyme, Fachbegriffe, Deutsch/Englisch). ' +
+    description: 'Das Modell erzeugt zu jeder Frage Suchbegriffe (Synonyme, Fachbegriffe) in der Sprache des Dokuments. ' +
       'Die passendsten Seiten gehen mit, so viele in den Kontext passen – nur Seiten mit Treffern und ihre Nachbarn.',
   },
   {
@@ -106,16 +106,18 @@ export class LongDocPanel {
 
   private renderStrategy(s: ChatSession, st: (typeof STRATEGIES)[number]): HTMLElement {
     const implemented = IMPLEMENTED_STRATEGIES.includes(st.id);
-    const row = this.el('label', 'seekchat-strategy');
+    const row = this.el('label', implemented ? 'seekchat-strategy' : 'seekchat-strategy disabled');
     const radio = this.el('input') as HTMLInputElement;
     radio.type = 'radio';
     radio.name = `seekchat-strategy-${s.provider.key}`;
     radio.value = st.id;
     radio.checked = s.strategy === st.id;
-    radio.addEventListener('change', () => s.setStrategy(st.id));
+    // Not yet implemented strategies are shown (so users know what is coming) but cannot be picked.
+    radio.disabled = !implemented;
+    if (implemented) radio.addEventListener('change', () => s.setStrategy(st.id));
     const text = this.el('span');
     text.append(this.el('b', '', st.label));
-    if (!implemented) text.append(this.el('span', 'seekchat-badge', 'noch ohne Funktion'));
+    if (!implemented) text.append(this.doc.createTextNode(' '), this.el('span', 'seekchat-badge', 'noch ohne Funktion'));
     text.append(this.el('div', 'seekchat-hint', st.description));
     row.append(radio, text);
     row.dataset.strategy = st.id;

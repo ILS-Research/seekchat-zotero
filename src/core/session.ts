@@ -80,6 +80,7 @@ export class ChatSession {
   }
 
   setStrategy(strategy: LongDocStrategy): void {
+    if (!IMPLEMENTED_STRATEGIES.includes(strategy)) return;
     this.strategy = strategy;
     this.notify();
   }

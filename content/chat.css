@@ -21,7 +21,8 @@
 .seekchat-strategies { display: flex; flex-direction: column; gap: 4px; }
 .seekchat-strategy { display: flex; gap: 6px; align-items: flex-start; cursor: pointer; }
 .seekchat-strategy input { margin-top: 2px; }
-.seekchat-badge { margin-left: 6px; padding: 0 4px; border-radius: 3px; font-size: 10px; background: var(--fill-quinary); color: var(--fill-secondary); }
+.seekchat-strategy.disabled { opacity: 0.55; cursor: default; }
+.seekchat-badge { margin-left: 2px; padding: 0 4px; border-radius: 3px; font-size: 10px; background: var(--fill-quinary); color: var(--fill-secondary); }
 .seekchat-strategy-panel { border-top: 1px solid var(--fill-quinary); padding-top: 6px; display: flex; flex-direction: column; gap: 4px; }
 .seekchat-chapters, .seekchat-chapters ul { list-style: none; margin: 0; padding-left: 0; }
 .seekchat-chapters ul { padding-left: 18px; }
