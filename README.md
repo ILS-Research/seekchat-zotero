@@ -49,7 +49,10 @@ Everything runs in Docker (`docker/Dockerfile`, Node 22); the host needs only Do
 ./build.sh shell    # shell in the build container
 ```
 
-The version comes from `package.json`. Full output of each run: `logs/build.log`.
+The version comes from `package.json`.
+
+Release: `scripts/publish.py <portal>/data/downloads` copies `dist/seekchat-<version>.xpi` to
+`downloads/seekchat/` and regenerates `updates.json`; installed copies update themselves. Full output of each run: `logs/build.log`.
 
 ## E2E tests
 

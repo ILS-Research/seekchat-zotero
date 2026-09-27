@@ -17,11 +17,15 @@ they use `docker` or fall back to `sudo docker`, and run containers with the cal
 | E2E build only (`dist/seekchat-<v>-e2e.xpi`) | `./build.sh e2e` | `logs/build.log` |
 | E2E run (real Zotero under Xvfb + mock LLM) | `./e2e/run.sh` | `logs/e2e.log`, `e2e/out/` |
 | Shell in build container | `./build.sh shell` | |
+| Publish built xpi to the portal downloads | `scripts/publish.py ../zotero_seflhost_src/data/downloads` | |
 
 - Scripts write their **full output** to `logs/*.log` (tee, line-buffered). Run them with output
   discarded and read the log tail: `./e2e/run.sh >/dev/null 2>&1; tail -12 logs/e2e.log`.
 - The version comes from `package.json` only; `manifest.json` keeps `0.0.0` and is stamped at build.
-- `manifest.json` has `update_url` pointing to our server; the E2E profile disables updates.
+- `manifest.json` has `update_url` → `<portal>/downloads/seekchat/updates.json`; `scripts/publish.py` copies the
+  xpi there and regenerates `updates.json` from all published versions (host python3, no Docker needed).
+  The portal serves `data/downloads/` publicly (see the selfhost README, section Downloads). The E2E profile
+  disables updates.
 - Never commit unless asked. Git repo on branch `master`.
 
 ## Layout
