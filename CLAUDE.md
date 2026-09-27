@@ -1,0 +1,79 @@
+# SeekChat (Zotero plugin)
+
+Chat with a PDF in Zotero 7–10 using a self-hosted model (Ollama native API or any
+OpenAI-compatible server). Plan and status: `../ideas-zotseek.md` (German) — keep it updated
+when scope or decisions change. User-facing UI text is German.
+
+## Commands
+
+The host (production server) has no usable Node. **Everything runs in Docker** via the scripts;
+they use `docker` or fall back to `sudo docker`, and run containers with the caller's uid.
+
+| Task | Command | Log |
+|---|---|---|
+| Deps, unit tests, typecheck, build, `dist/seekchat-<v>.xpi` | `./build.sh` | `logs/build.log` |
+| Unit tests only | `./build.sh test` | `logs/build.log` |
+| Build + xpi only | `./build.sh build` | `logs/build.log` |
+| E2E build only (`dist/seekchat-<v>-e2e.xpi`) | `./build.sh e2e` | `logs/build.log` |
+| E2E run (real Zotero under Xvfb + mock LLM) | `./e2e/run.sh` | `logs/e2e.log`, `e2e/out/` |
+| Shell in build container | `./build.sh shell` | |
+
+- Scripts write their **full output** to `logs/*.log` (tee, line-buffered). Run them with output
+  discarded and read the log tail: `./e2e/run.sh >/dev/null 2>&1; tail -12 logs/e2e.log`.
+- The version comes from `package.json` only; `manifest.json` keeps `0.0.0` and is stamped at build.
+- `manifest.json` has `update_url` pointing to our server; the E2E profile disables updates.
+- Never commit unless asked. Git repo on branch `master`.
+
+## Layout
+
+| Path | Purpose |
+|---|---|
+| `bootstrap.js` | Registers chrome (`chrome://seekchat/`), loads `content/scripts/seekchat.js` into a sandbox, calls `Zotero.SeekChat.startup/shutdown` |
+| `src/index.ts` | Plugin object `Zotero.SeekChat`: window hooks (FTL + `content/chat.css`), section + pref pane registration |
+| `src/prefs.ts` | Typed prefs `extensions.zotero.seekchat.*` (defaults in `prefs.js`) |
+| `src/core/host-guard.ts` | Loopback + explicit allow-list for model hosts (same rules as `../zotseek-src` fork) |
+| `src/core/llm/` | `OllamaClient` (`/api/chat`, sets `num_ctx`), `OpenAiClient` (`/chat/completions`), stream parsers, HTTP with host check and `redirect: 'error'` |
+| `src/core/context/` | `ContextProvider` interface; `pdf-context.ts` (PDF worker text, split on `\f`), `page-selection.ts` (full text or page 1 + BM25 pages) |
+| `src/core/prompt.ts`, `citations.ts` | Messages (system prompt + document), `[S. N]` citation parsing |
+| `src/core/session.ts` | One `ChatSession` per provider key, streaming, abort; in memory only |
+| `src/ui/chat-section.ts` | Item pane section via `Zotero.ItemPaneManager.registerSection` (library + reader context pane) |
+| `src/ui/preferences.ts`, `content/preferences.xhtml` | Settings pane (fields wired manually, not via `preference=` binding) |
+| `test/*.test.ts` | Unit tests (Node test runner, bundled by esbuild), no Zotero |
+| `test/e2e/` | E2E harness + scenarios, compiled **into** the E2E build only (`test/e2e/entry.ts`) |
+| `e2e/` | E2E image (Zotero tarball, Xvfb, mock LLM, fixture PDF generator), `run.sh`, `run-in-container.sh` |
+
+Extending: new sources (ZotSeek passages for library chat, collections) are new `ContextProvider`s;
+session, prompt and UI stay. The ZotSeek integration should use its REST `/zotseek/search`
+(`granularity=passages`, text in `matchedChunk.snippet`), see `../ideas-zotseek.md`.
+
+## Pitfalls (learned the hard way)
+
+- **`Zotero.Prefs.get/set(key, true)` means "global": no `extensions.zotero.` prefix.** Use the
+  default (no second argument) so keys match `prefs.js` and `user.js`. ZotSeek upstream uses
+  `true` everywhere, so its real keys are `zotseek.*`, not what its `prefs.js` declares.
+- The plugin runs in a bootstrap sandbox: `AbortController`, `TextDecoder`, sometimes `fetch` are
+  missing. Use `src/util/env.ts`, which borrows them from the main window.
+- `Zotero.Reader.open(itemID, { pageIndex })` is 0-based; citations `[S. N]` are physical pages
+  (1-based), not printed page labels.
+- Item pane sections render lazily; in the reader the context pane starts **collapsed** in a fresh
+  profile. E2E scenarios open it (`ZoteroContextPane.collapsed = false`) and scroll to the pane.
+- Find the section by the namespaced id from `getRegisteredPaneID()` on any `[data-pane]` element,
+  not by a fixed element name.
+- The section header needs Fluent ids (`locale/*/seekchat-main.ftl`, inserted per window);
+  everything else in the UI is plain German text.
+- Ollama's `/v1` endpoint ignores `num_ctx`; with its small default context the PDF is silently
+  truncated. Keep Ollama on the native API.
+
+## E2E
+
+- `e2e/run.sh` → builds the E2E xpi, builds image `seekchat-e2e` (Zotero version pinned by
+  `ZOTERO_VERSION` in `e2e/Dockerfile`), runs a fresh profile with the xpi sideloaded, the mock
+  LLM on `127.0.0.1:11434` and prefs `seekchat.e2e.*` set in `user.js`.
+- The harness waits for the main window, runs `test/e2e/scenarios.ts` in order, writes
+  `e2e/out/results.json`, screenshots (`screenshot-final.png`, one per failure) and quits Zotero.
+  `e2e/out/zotero.log` has Zotero's debug output (grep `SeekChat`).
+- No results usually means Zotero hung on a modal dialog (e.g. missing data dir) — check the
+  first lines of `zotero.log`. Timeout: `E2E_TIMEOUT` (seconds, default 240).
+- Scenarios share state through `ctx`; add new ones at the end. Use `waitFor` and include
+  diagnostics in failure messages (see `describePanes`).
+- Tests run against the mock only; the real model server is not reachable from this host.

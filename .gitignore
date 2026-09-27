@@ -1,0 +1,9 @@
+node_modules/
+build/
+dist/
+.test-build/
+build-e2e/
+e2e/out/
+logs/
+# Real PDFs for local tests (large; check licenses): not committed, not baked into images
+test/assets/

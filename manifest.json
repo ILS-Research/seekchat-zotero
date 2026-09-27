@@ -1,0 +1,19 @@
+{
+  "manifest_version": 2,
+  "name": "SeekChat",
+  "version": "0.0.0",
+  "description": "Chat with your PDFs in Zotero using a self-hosted LLM (Ollama or OpenAI-compatible).",
+  "author": "ILS",
+  "icons": {
+    "48": "content/icons/seekchat.svg",
+    "96": "content/icons/seekchat.svg"
+  },
+  "applications": {
+    "zotero": {
+      "id": "seekchat@ils-forschung.de",
+      "update_url": "https://zotero.ils-geomonitoring.de/plugins/seekchat/updates.json",
+      "strict_min_version": "7.0",
+      "strict_max_version": "10.0.*"
+    }
+  }
+}

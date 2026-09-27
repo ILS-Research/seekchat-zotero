@@ -1,0 +1,33 @@
+/* SeekChat item-pane section. Colors come from Zotero's theme variables. */
+.seekchat { display: flex; flex-direction: column; gap: 6px; padding: 2px 0; font-size: 13px; }
+.seekchat-target { font-size: 11px; color: var(--fill-secondary); overflow-wrap: anywhere; }
+.seekchat-messages { display: flex; flex-direction: column; gap: 8px; max-height: 480px; overflow-y: auto; }
+.seekchat-messages:empty { display: none; }
+.seekchat-msg { padding: 6px 8px; border-radius: 6px; white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.4; user-select: text; }
+.seekchat-msg.user { background: var(--fill-quinary); align-self: flex-end; max-width: 90%; }
+.seekchat-msg.assistant { border: 1px solid var(--fill-quinary); }
+.seekchat-msg.error { border-color: var(--accent-red, #c62828); color: var(--accent-red, #c62828); }
+.seekchat-meta { display: block; font-size: 10px; color: var(--fill-secondary); margin-bottom: 4px; white-space: pre-line; }
+.seekchat-cite { color: var(--accent-blue); cursor: pointer; text-decoration: underline; }
+.seekchat-input { width: 100%; box-sizing: border-box; min-height: 3.5em; resize: vertical; font: inherit; }
+.seekchat-actions { display: flex; gap: 6px; align-items: center; }
+.seekchat-actions .spacer { flex: 1; }
+.seekchat-hint { font-size: 11px; color: var(--fill-secondary); }
+.seekchat-longdoc:empty { display: none; }
+.seekchat-longdoc { font-size: 12px; }
+.seekchat-longdoc.warning { border: 1px solid var(--accent-orange, #e8a200); border-radius: 6px; padding: 6px 8px; display: flex; flex-direction: column; gap: 6px; }
+.seekchat-longdoc.error { color: var(--accent-red, #c62828); }
+.seekchat-longdoc-title { font-weight: bold; }
+.seekchat-strategies { display: flex; flex-direction: column; gap: 4px; }
+.seekchat-strategy { display: flex; gap: 6px; align-items: flex-start; cursor: pointer; }
+.seekchat-strategy input { margin-top: 2px; }
+.seekchat-badge { margin-left: 6px; padding: 0 4px; border-radius: 3px; font-size: 10px; background: var(--fill-quinary); color: var(--fill-secondary); }
+.seekchat-strategy-panel { border-top: 1px solid var(--fill-quinary); padding-top: 6px; display: flex; flex-direction: column; gap: 4px; }
+.seekchat-chapters, .seekchat-chapters ul { list-style: none; margin: 0; padding-left: 0; }
+.seekchat-chapters ul { padding-left: 18px; }
+.seekchat-chapters { max-height: 240px; overflow-y: auto; }
+.seekchat-chapter { display: flex; gap: 6px; align-items: baseline; }
+.seekchat-chapter-title { flex: 1; overflow-wrap: anywhere; }
+.seekchat-chapter-meta { font-size: 10px; color: var(--fill-secondary); white-space: nowrap; }
+.seekchat-chapter-sum { font-weight: bold; }
+.seekchat-chapter-sum.over { color: var(--accent-red, #c62828); }

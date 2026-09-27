@@ -1,0 +1,75 @@
+<vbox id="seekchat-preferences"
+      xmlns:html="http://www.w3.org/1999/xhtml"
+      onload="Zotero.SeekChat?.onPrefsLoad(window)">
+<html:style>
+  #seekchat-preferences .row { display: grid; grid-template-columns: 170px 1fr; gap: 6px 10px; align-items: center; max-width: 640px; }
+  #seekchat-preferences .row input, #seekchat-preferences .row select { width: 100%; box-sizing: border-box; }
+  #seekchat-preferences .help { font-size: 11px; color: var(--fill-secondary); margin: 2px 0 8px 0; }
+  #seekchat-preferences textarea { width: 100%; max-width: 640px; box-sizing: border-box; min-height: 6em; font: inherit; }
+  #seekchat-preferences .danger { margin-top: 10px; padding: 8px; border: 1px solid #c62828; border-radius: 4px; max-width: 640px; }
+  #seekchat-preferences .danger b { color: #c62828; }
+</html:style>
+
+<groupbox>
+  <label><html:h2>Chat-Server</html:h2></label>
+  <html:div class="row">
+    <html:label for="seekchat-provider">Schnittstelle:</html:label>
+    <html:select id="seekchat-provider">
+      <html:option value="ollama">Ollama (nativ, Kontextfenster einstellbar)</html:option>
+      <html:option value="openai">OpenAI-kompatibel (/v1)</html:option>
+    </html:select>
+    <html:label for="seekchat-baseUrl">Server-URL:</html:label>
+    <html:input type="text" id="seekchat-baseUrl" placeholder="http://127.0.0.1:11434"/>
+    <html:label for="seekchat-apiKey">API-Key (optional):</html:label>
+    <html:input type="password" id="seekchat-apiKey"/>
+    <html:span/>
+    <html:div><html:button id="seekchat-test">Verbindung testen</html:button> <html:span id="seekchat-status" class="help"/></html:div>
+    <html:label for="seekchat-model">Chat-Modell:</html:label>
+    <html:select id="seekchat-model"/>
+  </html:div>
+  <html:p class="help">
+    Ollama: Server-Wurzel, z. B. https://ollama.example.local. OpenAI-kompatibel: Basis inkl. /v1,
+    z. B. https://llm.example.local/v1. Der API-Key wird unverschlüsselt in den Zotero-Einstellungen gespeichert.
+  </html:p>
+
+  <html:div class="danger">
+    <html:p style="margin: 0 0 6px 0;"><html:b>Erlaubte entfernte Hosts (Vorsicht)</html:b></html:p>
+    <html:p class="help" style="color: inherit;">
+      Ohne Eintrag spricht SeekChat nur mit einem Server auf diesem Rechner (127.0.0.1, localhost).
+      Hier eingetragene Hosts (kommagetrennt, ohne http:// und Port, z. B. ollama.example.local)
+      erhalten bei jeder Frage den Text des PDFs bzw. der ausgewählten Seiten, die Frage und den
+      bisherigen Chatverlauf. Wer diesen Host betreibt, administriert oder seine Logs lesen kann,
+      kann diese Inhalte lesen; bei http:// statt https:// zusätzlich jeder im Netzwerk dazwischen.
+      Nur Hosts im eigenen, vertrauenswürdigen Netz eintragen, an die diese Daten gehen dürfen.
+    </html:p>
+    <html:div class="row">
+      <html:label for="seekchat-allowedRemoteHosts">Erlaubte Hosts:</html:label>
+      <html:input type="text" id="seekchat-allowedRemoteHosts" placeholder="ollama.example.local"/>
+    </html:div>
+    <html:p id="seekchat-remote-status" class="help"/>
+  </html:div>
+</groupbox>
+
+<groupbox>
+  <label><html:h2>Antwort und Kontext</html:h2></label>
+  <html:div class="row">
+    <html:label for="seekchat-temperaturePercent">Temperatur (%):</html:label>
+    <html:input type="number" id="seekchat-temperaturePercent" min="0" max="200"/>
+    <html:label for="seekchat-numCtx">Kontextfenster (Tokens):</html:label>
+    <html:input type="number" id="seekchat-numCtx" min="1024" step="1024"/>
+    <html:label for="seekchat-contextChars">PDF-Text pro Frage (Zeichen):</html:label>
+    <html:input type="number" id="seekchat-contextChars" min="2000" step="1000"/>
+    <html:label for="seekchat-maxTokens">Max. Antwortlänge (Tokens):</html:label>
+    <html:input type="number" id="seekchat-maxTokens" min="64" step="64"/>
+    <html:label for="seekchat-historyTurns">Mitgesendete Vorfragen:</html:label>
+    <html:input type="number" id="seekchat-historyTurns" min="0" max="50"/>
+  </html:div>
+  <html:p class="help">
+    Das Kontextfenster gilt nur für Ollama (num_ctx); bei OpenAI-kompatiblen Servern legt es der Server fest.
+    Faustregel: PDF-Text (Zeichen) ÷ 3,5 + Antwortlänge + Verlauf muss ins Kontextfenster passen.
+    Längere PDFs werden auf die zur Frage passendsten Seiten gekürzt.
+  </html:p>
+  <html:label for="seekchat-systemPrompt">System-Prompt (leer = Standard):</html:label>
+  <html:textarea id="seekchat-systemPrompt"/>
+</groupbox>
+</vbox>
