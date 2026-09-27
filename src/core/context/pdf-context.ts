@@ -1,6 +1,8 @@
 import { formatPages } from '../prompt';
 import { analyzeFit, type FitInfo } from './fit';
-import { buildOutline, type Outline, type ReaderOutlineItem } from './outline';
+import { buildOutline, type Outline } from './outline';
+import { readPdfOutline } from './pdf-outline';
+import { logError } from '../../util/log';
 import { buildTerms, selectPagesByTerms } from './page-selection';
 import type { BuildOptions, ContextBlock, ContextProvider, Page } from './types';
 
@@ -45,21 +47,6 @@ export function describeItem(attachment: any): string {
   return head ? `${head} – ${title}` : title;
 }
 
-/**
- * The PDF outline (bookmarks) from an open reader tab for this attachment.
- * Zotero exposes no public API for it; the reader's internal state holds it
- * once the PDF has loaded. Null if no reader is open or the PDF has no outline.
- */
-function readerOutline(attachmentID: number): ReaderOutlineItem[] | null {
-  try {
-    const reader = (Zotero.Reader._readers || []).find((r: any) => r.itemID === attachmentID);
-    const outline = reader?._internalReader?._state?.outline;
-    return Array.isArray(outline) ? outline : null;
-  } catch {
-    return null;
-  }
-}
-
 export class PdfContextProvider implements ContextProvider {
   readonly key: string;
 
@@ -71,12 +58,36 @@ export class PdfContextProvider implements ContextProvider {
     return describeItem(this.attachment);
   }
 
+  metadataLanguage(): string {
+    const item = this.attachment.parentItem || this.attachment;
+    try {
+      return String(item.getField('language') || '');
+    } catch {
+      // item type without a language field
+      return '';
+    }
+  }
+
+  async sampleText(maxChars: number): Promise<string> {
+    const pages = (await getPdfPages(this.attachment)).filter((p) => p.text).slice(0, 3);
+    const perPage = Math.floor(maxChars / Math.max(1, pages.length));
+    return pages.map((p) => p.text.slice(0, perPage)).join('\n\n');
+  }
+
   async analyze(budgetChars: number): Promise<FitInfo> {
     return analyzeFit(await getPdfPages(this.attachment), budgetChars);
   }
 
   async outline(): Promise<Outline> {
-    return buildOutline(await getPdfPages(this.attachment), readerOutline(this.attachment.id));
+    const pages = await getPdfPages(this.attachment);
+    let bookmarks = null;
+    try {
+      bookmarks = await readPdfOutline(this.attachment);
+    } catch (e) {
+      // Fall back to headings / page blocks; the tree says which source it used.
+      logError(e);
+    }
+    return buildOutline(pages, bookmarks);
   }
 
   async build(query: string, budgetChars: number, opts: BuildOptions = {}): Promise<ContextBlock> {

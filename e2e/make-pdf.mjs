@@ -6,7 +6,8 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-function writePdf(file, pages) {
+/** outline: optional [{ title, page (0-based), children: [{ title, page }] }] written as /Outlines (bookmarks). */
+function writePdf(file, pages, outline = null) {
   const esc = (s) => s.replace(/[\\()]/g, (c) => '\\' + c);
   const objects = [];
   const add = (body) => { objects.push(body); return objects.length; };
@@ -19,7 +20,26 @@ function writePdf(file, pages) {
     const content = add(`<< /Length ${Buffer.byteLength(ops)} >>\nstream\n${ops}\nendstream`);
     kids.push(add(`<< /Type /Page /Parent ${pagesObj} 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 ${font} 0 R >> >> /Contents ${content} 0 R >>`));
   }
-  objects[catalog - 1] = `<< /Type /Catalog /Pages ${pagesObj} 0 R >>`;
+  let outlinesRef = '';
+  if (outline?.length) {
+    const root = add(null);
+    const writeLevel = (entries, parent) => {
+      const ids = entries.map(() => add(null));
+      entries.forEach((e, i) => {
+        const kids = e.children?.length ? writeLevel(e.children, ids[i]) : null;
+        objects[ids[i] - 1] = `<< /Title (${esc(e.title)}) /Parent ${parent} 0 R` +
+          (i > 0 ? ` /Prev ${ids[i - 1]} 0 R` : '') + (i < ids.length - 1 ? ` /Next ${ids[i + 1]} 0 R` : '') +
+          (kids ? ` /First ${kids[0]} 0 R /Last ${kids[kids.length - 1]} 0 R /Count ${kids.length}` : '') +
+          ` /Dest [${kidsRef(e.page)} /Fit] >>`;
+      });
+      return ids;
+    };
+    const kidsRef = (page) => `${kids[page]} 0 R`;
+    const top = writeLevel(outline, root);
+    objects[root - 1] = `<< /Type /Outlines /First ${top[0]} 0 R /Last ${top[top.length - 1]} 0 R /Count ${top.length} >>`;
+    outlinesRef = ` /Outlines ${root} 0 R /PageMode /UseOutlines`;
+  }
+  objects[catalog - 1] = `<< /Type /Catalog /Pages ${pagesObj} 0 R${outlinesRef} >>`;
   objects[pagesObj - 1] = `<< /Type /Pages /Kids [${kids.map((k) => `${k} 0 R`).join(' ')}] /Count ${kids.length} >>`;
   let out = '%PDF-1.4\n';
   const offsets = [];
@@ -50,4 +70,9 @@ long[0] = ['SeekChat E2E Langes Buch', 'Ein Testbuch mit vielen Seiten.', ...bod
 long[4] = ['Kapitel 1 Grundlagen', ...body(39)];
 long[19] = ['Kapitel 2 Ergebnisse', ...body(39)];
 long[26] = ['Waermeinseln in dicht bebauten Quartieren erhoehen die naechtlichen Temperaturen.', ...body(39)];
-writePdf(path.join(dir, 'seekchat-long.pdf'), long);
+writePdf(path.join(dir, 'seekchat-long.pdf'), long, [
+  { title: 'Einleitung', page: 0 },
+  { title: 'Grundlagen', page: 4, children: [{ title: 'Begriffe', page: 4 }, { title: 'Stand der Forschung', page: 10 }] },
+  { title: 'Ergebnisse', page: 19, children: [{ title: 'Waermeinseln', page: 26 }] },
+  { title: 'Fazit', page: 35 },
+]);

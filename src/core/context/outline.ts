@@ -58,6 +58,9 @@ function fromEntries(
 }
 
 export function outlineFromReader(items: ReaderOutlineItem[] | null | undefined, pages: Page[]): Outline | null {
+  // Many manuals have one root entry (the document title) holding all chapters:
+  // show the chapters instead of a single box covering the whole document.
+  while (items?.length === 1 && items[0].items?.length) items = items[0].items;
   if (!items?.length) return null;
   const page = (it: ReaderOutlineItem) => (it.location?.position?.pageIndex ?? -1) + 1;
   const entries = items

@@ -7,6 +7,10 @@ import { stripThinking } from './llm/stream-parsers';
 import { buildMessages, describeContext, type HistoryTurn } from './prompt';
 import { UserFacingError } from './context/pdf-context';
 import { buildKeywordMessages, parseKeywords } from './context/keywords';
+import {
+  buildLanguageMessages, guessLanguage, normalizeLanguage, parseLanguageReply,
+  type Language, type LanguageSource,
+} from './context/language';
 import type { FitInfo } from './context/fit';
 import type { ContextProvider, LongDocStrategy } from './context/types';
 import type { LlmClient } from './llm/types';
@@ -32,6 +36,8 @@ export class ChatSession {
   fit: FitInfo | null = null;
   fitError: string | null = null;
   strategy: LongDocStrategy = 'keywords';
+  /** Detected document language (model or guess), cached per session; metadata wins when present. */
+  private language: { lang: Language | null; source: LanguageSource | null } | null = null;
   private fitBudget = -1;
   private abortCtrl: AbortController | null = null;
   private listeners = new Set<() => void>();
@@ -94,19 +100,50 @@ export class ChatSession {
     return done.slice(Math.max(0, done.length - maxTurns * 2)).map((t) => ({ role: t.role, content: t.content }));
   }
 
+  /**
+   * Language of the document: the item's "Language" field, else a short model
+   * call on the first pages, else a local stopword guess. Resolved once.
+   */
+  private async resolveLanguage(
+    client: LlmClient,
+    prefs: SeekChatPrefs,
+    signal: AbortSignal,
+  ): Promise<{ lang: Language | null; source: LanguageSource | null }> {
+    // Metadata is read every time, so a language entered later applies at once;
+    // only the detected language is cached.
+    const fromMetadata = normalizeLanguage(this.provider.metadataLanguage());
+    if (fromMetadata) return { lang: fromMetadata, source: 'metadata' };
+    if (this.language) return this.language;
+    const sample = await this.provider.sampleText(3000);
+    try {
+      const reply = await client.streamChat(
+        { model: prefs.model, messages: buildLanguageMessages(sample), temperature: 0, maxTokens: 64, numCtx: 4096, signal },
+        () => {},
+      );
+      const fromModel = parseLanguageReply(reply);
+      if (fromModel) return (this.language = { lang: fromModel, source: 'model' });
+    } catch (e) {
+      if (signal.aborted) throw e;
+      logError(e);
+    }
+    const guessed = guessLanguage(sample);
+    return (this.language = { lang: guessed, source: guessed ? 'guess' : null });
+  }
+
   /** Strategy "keywords": one short, low-temperature model call that expands the question into search terms. */
   private async expandKeywords(
     client: LlmClient,
     prefs: SeekChatPrefs,
     question: string,
     previousQuestion: string,
+    language: Language | null,
     signal: AbortSignal,
   ): Promise<string[]> {
     try {
       const reply = await client.streamChat(
         {
           model: prefs.model,
-          messages: buildKeywordMessages({ question, previousQuestion, docTitle: this.provider.describe() }),
+          messages: buildKeywordMessages({ question, previousQuestion, docTitle: this.provider.describe(), language }),
           temperature: 0.2,
           maxTokens: 512,
           numCtx: 4096,
@@ -147,9 +184,14 @@ export class ChatSession {
         if (!IMPLEMENTED_STRATEGIES.includes(this.strategy)) {
           notes.push('Gewählte Strategie noch nicht verfügbar, nutze Stichwort-Erweiterung.');
         }
+        answer.meta = 'Bestimme Dokumentsprache …';
+        this.notify();
+        const { lang, source } = await this.resolveLanguage(client, prefs, ctrl.signal);
+        const sourceText = source === 'metadata' ? 'aus Metadaten' : source === 'model' ? 'vom Modell erkannt' : 'geschätzt';
+        notes.push(lang ? `Dokumentsprache: ${lang.name} (${sourceText})` : 'Dokumentsprache unbekannt, Suchbegriffe auf Deutsch und Englisch.');
         answer.meta = 'Erzeuge Suchbegriffe …';
         this.notify();
-        keywords = await this.expandKeywords(client, prefs, question.trim(), lastQuestion, ctrl.signal);
+        keywords = await this.expandKeywords(client, prefs, question.trim(), lastQuestion, lang, ctrl.signal);
         notes.push(keywords.length ? `Suchbegriffe: ${keywords.join(', ')}` : 'Keine Suchbegriffe erhalten, suche nur mit der Frage.');
       }
       const context = await this.provider.build(`${question}\n${lastQuestion}`, prefs.contextChars, { keywords });

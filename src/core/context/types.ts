@@ -39,6 +39,10 @@ export interface ContextProvider {
   /** Short description of the source for prompts and the UI. */
   describe(): string;
   analyze(budgetChars: number): Promise<FitInfo>;
+  /** Raw value of the item's "Language" field ('' if empty). */
+  metadataLanguage(): string;
+  /** Beginning of the document (first pages, each shortened) for language detection. */
+  sampleText(maxChars: number): Promise<string>;
   outline(): Promise<Outline>;
   build(query: string, budgetChars: number, opts?: BuildOptions): Promise<ContextBlock>;
 }

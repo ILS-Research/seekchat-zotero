@@ -1,7 +1,8 @@
 // Minimal Ollama stand-in for E2E tests: /api/tags, streaming /api/chat,
 // GET /__requests (all chat requests so far) and GET /__last.
-// A request whose system prompt asks for search terms ("Suchbegriffe") gets a
-// JSON keyword list; every other request gets a fixed answer with a citation.
+// Replies by request kind (from the system prompt): language detection ("Sprache
+// des folgenden Textauszugs") -> "de", search terms ("Suchbegriffe") -> JSON
+// keyword list, anything else -> a fixed answer with a citation.
 import http from 'node:http';
 
 const ANSWER = 'Laut Dokument fuehren Starkregenereignisse in Staedten zu Ueberflutungen [S. 2].';
@@ -30,8 +31,9 @@ const server = http.createServer(async (req, res) => {
     for await (const chunk of req) body += chunk;
     const parsed = JSON.parse(body);
     requests.push(parsed);
-    const isKeywordRequest = parsed.messages?.[0]?.content?.includes('Suchbegriffe');
-    return stream(res, isKeywordRequest ? KEYWORDS : ANSWER);
+    const system = parsed.messages?.[0]?.content || '';
+    if (system.includes('Sprache des folgenden Textauszugs')) return stream(res, 'de');
+    return stream(res, system.includes('Suchbegriffe') ? KEYWORDS : ANSWER);
   }
   res.writeHead(404);
   res.end();

@@ -8,12 +8,22 @@ import { stripThinking } from '../llm/stream-parsers';
 
 export const MAX_KEYWORDS = 20;
 
-export function buildKeywordMessages(opts: { question: string; previousQuestion?: string; docTitle: string }): ChatMessage[] {
+export function buildKeywordMessages(opts: {
+  question: string;
+  previousQuestion?: string;
+  docTitle: string;
+  /** Language of the document; keywords are generated in it only. Null: German and English. */
+  language?: { name: string } | null;
+}): ChatMessage[] {
   const system =
     'Du erzeugst Suchbegriffe für eine Stichwortsuche in einem langen wissenschaftlichen Dokument. ' +
-    'Gib 8 bis 15 Begriffe zurück: zentrale Begriffe der Frage, Synonyme, Fachbegriffe, verwandte Begriffe ' +
-    'und Übersetzungen (Deutsch und Englisch). Einzelwörter oder kurze Wortgruppen, keine Sätze. ' +
-    'Antworte nur mit einem JSON-Array von Strings, z. B. ["Starkregen", "heavy rainfall", "Überflutung"].';
+    'Gib 8 bis 15 Begriffe zurück: zentrale Begriffe der Frage, Synonyme, Fachbegriffe und verwandte Begriffe. ' +
+    (opts.language
+      ? `Das Dokument ist auf ${opts.language.name}: Alle Begriffe ausschließlich auf ${opts.language.name}, ` +
+        'so wie sie im Dokument stehen würden; übersetze die Frage dafür, falls nötig. '
+      : 'Jeweils auf Deutsch und Englisch. ') +
+    'Einzelwörter oder kurze Wortgruppen, keine Sätze. ' +
+    'Antworte nur mit einem JSON-Array von Strings, z. B. ["Starkregen", "Überflutung", "Niederschlag"].';
   const context = opts.previousQuestion ? `Vorherige Frage (Kontext): ${opts.previousQuestion}\n` : '';
   // "/no_think" switches off Qwen 3's reasoning; other models read it as noise.
   const user = `Dokument: ${opts.docTitle}\n${context}Frage: ${opts.question}\n/no_think`;

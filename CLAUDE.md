@@ -61,6 +61,14 @@ session, prompt and UI stay. The ZotSeek integration should use its REST `/zotse
   not by a fixed element name.
 - The section header needs Fluent ids (`locale/*/seekchat-main.ftl`, inserted per window);
   everything else in the UI is plain German text.
+- **PDF outline:** Zotero 10's reader loads the outline only while its sidebar shows the outline view,
+  so `reader._internalReader._state.outline` stays `null` otherwise. `src/core/context/pdf-outline.ts`
+  reads it from the file instead, with Zotero's own pdf.js (`resource://zotero/reader/pdf/build/pdf.mjs`)
+  imported into the main window via `win.eval("import(...)")` (the sandbox lacks DOM/Worker APIs).
+- Zotero's PDF worker joins lines of the same font into running text; headings rarely sit on their
+  own line. Running page headers/footers (title, page number, license) precede every page's text.
+- Real-document checks: put PDFs into `test/assets/` (ignored by git); the E2E scenario
+  "assets" writes `e2e/out/assets-report.json` (pages, timings, fit, outline, keyword selection).
 - Ollama's `/v1` endpoint ignores `num_ctx`; with its small default context the PDF is silently
   truncated. Keep Ollama on the native API.
 

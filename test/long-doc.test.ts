@@ -88,3 +88,50 @@ test('headings: own line, or start of running text (as Zotero extracts it)', () 
   assert.equal(detectHeading('3 Methoden Die Daten stammen aus'), '3 Methoden');
   assert.equal(detectHeading('Die Untersuchung betrachtet Verwaltung'), null);
 });
+
+test('outline: a single root entry is unwrapped to its chapters', () => {
+  const at = (pageIndex: number) => ({ position: { pageIndex } });
+  const items = [{ title: 'Handbuch', location: at(0), items: [
+    { title: 'Teil A', location: at(0), items: [{ title: 'A.1', location: at(2) }] },
+    { title: 'Teil B', location: at(20) },
+  ] }];
+  const o = outlineFromReader(items, book)!;
+  assert.deepEqual(o.nodes.map((n) => n.title), ['Teil A', 'Teil B']);
+  assert.deepEqual(o.nodes[0].children.map((c) => c.title), ['A.1']);
+});
+
+import { buildLanguageMessages, guessLanguage, normalizeLanguage, parseLanguageReply } from '../src/core/context/language';
+
+test('language: metadata values are normalized', () => {
+  assert.deepEqual(normalizeLanguage('de-DE'), { code: 'de', name: 'Deutsch' });
+  assert.equal(normalizeLanguage('German')?.code, 'de');
+  assert.equal(normalizeLanguage('Deutsch; Englisch')?.code, 'de');
+  assert.equal(normalizeLanguage('en_US')?.code, 'en');
+  assert.equal(normalizeLanguage('eng')?.code, 'en');
+  assert.equal(normalizeLanguage(''), null);
+  assert.equal(normalizeLanguage('Klingonisch'), null);
+});
+
+test('language: model replies are parsed, thinking ignored', () => {
+  assert.equal(parseLanguageReply('<think>looks english</think>\nen')?.code, 'en');
+  assert.equal(parseLanguageReply('Die Sprache ist: de')?.code, 'de');
+  assert.equal(parseLanguageReply('English')?.code, 'en');
+  assert.equal(parseLanguageReply('???'), null);
+  assert.ok(buildLanguageMessages('Text').at(-1)!.content.includes('Text'));
+});
+
+test('language: local guess from stopwords', () => {
+  const en = 'This guide explains how you can configure the board and the workflow for your team. '.repeat(4);
+  const de = 'Die Untersuchung zeigt, dass sich die Planung auf eine Beteiligung der Bürger und der Verwaltung stützt. '.repeat(4);
+  assert.equal(guessLanguage(en)?.code, 'en');
+  assert.equal(guessLanguage(de)?.code, 'de');
+  assert.equal(guessLanguage('zu kurz'), null);
+});
+
+test('keywords: prompt restricts terms to the document language', () => {
+  const withLang = buildKeywordMessages({ question: 'Wie plane ich einen Sprint?', docTitle: 'Jira', language: { name: 'Englisch' } });
+  assert.ok(withLang[0].content.includes('ausschließlich auf Englisch'));
+  assert.ok(!withLang[0].content.includes('Deutsch und Englisch'));
+  const without = buildKeywordMessages({ question: 'x', docTitle: 'y' });
+  assert.ok(without[0].content.includes('Deutsch und Englisch'));
+});

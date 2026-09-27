@@ -187,16 +187,15 @@ export const scenarios: Scenario[] = [
     radio.click();
     const tree = await waitFor('chapter tree', () => section.querySelector('.seekchat-chapters'));
     const boxes = Array.from(tree.querySelectorAll('input[type="checkbox"]')) as HTMLInputElement[];
-    assert(boxes.length >= 2, `expected chapters, got ${boxes.length}: ${tree.textContent}`);
+    assert(boxes.length === 7, `expected 4 chapters + 3 sections from the PDF bookmarks, got ${boxes.length}: ${tree.textContent}`);
+    const source = section.querySelector('.seekchat-strategy-panel .seekchat-hint')?.textContent || '';
+    assert(source.includes('Inhaltsverzeichnis des PDFs'), `outline not read from the PDF: ${source}`);
+    assert(tree.textContent!.includes('Ergebnisse') && tree.textContent!.includes('S. 20–35'), `chapter ranges wrong: ${tree.textContent}`);
     const sum = section.querySelector('.seekchat-chapter-sum')!;
     const before = sum.textContent;
     boxes[1].click();
     await waitFor('sum updates', () => sum.textContent !== before);
     assert(!sum.textContent!.includes('~0 von'), `sum still zero: ${sum.textContent}`);
-    ctx.chapterSource = section.querySelector('.seekchat-strategy-panel .seekchat-hint')?.textContent;
-    Zotero.debug(`[SeekChat E2E] chapter source: ${ctx.chapterSource}`);
-    const p5 = (await getPdfPages(ctx.longAttachment))[4].text;
-    Zotero.debug(`[SeekChat E2E] page 5 starts: ${JSON.stringify(p5.slice(0, 160))}`);
     await screenshot(ctx, 'chapters');
     (section.querySelector('.seekchat-strategy[data-strategy="keywords"] input') as HTMLInputElement).click();
     await waitFor('chapter panel closed', () => !section.querySelector('.seekchat-chapters'));
@@ -209,14 +208,36 @@ export const scenarios: Scenario[] = [
     const answer = session.turns[session.turns.length - 1];
     assert(!answer.error, `answer is an error: ${answer.content}`);
     assert(answer.meta?.includes('Suchbegriffe: Waermeinseln'), `keywords missing in meta: ${answer.meta}`);
+    assert(answer.meta?.includes('Dokumentsprache: Deutsch (vom Modell erkannt)'), `language missing in meta: ${answer.meta}`);
     const reqs = (await mockRequests()).slice(before);
-    assert(reqs.length === 2, `expected keyword + answer request, got ${reqs.length}`);
-    assert(reqs[0].messages[0].content.includes('Suchbegriffe'), 'first request is not the keyword request');
-    const system: string = reqs[1].messages[0].content;
+    assert(reqs.length === 3, `expected language + keyword + answer request, got ${reqs.length}`);
+    assert(reqs[0].messages[0].content.includes('Sprache des folgenden Textauszugs'), 'first request is not the language request');
+    assert(reqs[0].messages[1].content.includes('Kapitel 1') || reqs[0].messages[1].content.includes('Langes Buch'), 'language sample lacks the first pages');
+    assert(reqs[1].messages[0].content.includes('ausschließlich auf Deutsch'), 'keyword request not restricted to the document language');
+    const system: string = reqs[2].messages[0].content;
     assert(system.includes('[Seite 27]') && system.includes('Waermeinseln'), 'matching page 27 not sent');
-    assert(system.includes('Auszüge') || system.includes('zu lang'), 'excerpt note missing');
     const pagesSent = (system.match(/\[Seite \d+\]/g) || []).length;
     assert(pagesSent < 40, `whole book sent (${pagesSent} pages)`);
+    ctx.longSession = session;
+  }],
+
+  ['long PDF: detected language is reused, metadata language wins', async (ctx) => {
+    const session = ctx.longSession;
+    let before = (await mockRequests()).length;
+    await session.ask('Und was steht im Fazit?');
+    let reqs = (await mockRequests()).slice(before);
+    assert(reqs.length === 2, `language detected again: ${reqs.length} requests`);
+
+    const parent = Zotero.Items.get(ctx.longParentID);
+    parent.setField('language', 'en-GB');
+    await parent.saveTx();
+    before = (await mockRequests()).length;
+    await session.ask('Was steht zu Hitze?');
+    reqs = (await mockRequests()).slice(before);
+    assert(reqs.length === 2, `expected keyword + answer request, got ${reqs.length}`);
+    assert(reqs[0].messages[0].content.includes('ausschließlich auf Englisch'), 'metadata language not used for keywords');
+    const meta = session.turns[session.turns.length - 1].meta;
+    assert(meta?.includes('Dokumentsprache: Englisch (aus Metadaten)'), `unexpected meta: ${meta}`);
     session.clear();
   }],
 
@@ -241,37 +262,9 @@ export const scenarios: Scenario[] = [
       const extractMs = Date.now() - t0;
       const fit = analyzeFit(pages, readPrefs().contextChars);
       const textOutline = buildOutline(pages);
-      const reader = await Zotero.Reader.open(attachment.id);
-      // Diagnostics: where does the reader keep the PDF outline?
-      const probe = () => {
-        const ir = reader?._internalReader;
-        const st = ir?._state;
-        const o = st?.outline;
-        return {
-          internalReader: typeof ir,
-          stateType: typeof st,
-          stateKeys: st ? Object.keys(st).slice(0, 60).join(',') : null,
-          outlineType: o === null ? 'null' : typeof o,
-          outlineIsArray: Array.isArray(o),
-          outlineLength: o?.length,
-          baseViewOutline: typeof ir?._baseViewOutline,
-          primaryViewOutline: typeof ir?._primaryView?._outline,
-          primaryViewOutlineLen: ir?._primaryView?._outline?.length,
-          firstItem: o?.[0] ? JSON.stringify(o[0]).slice(0, 300) : null,
-        };
-      };
-      await waitFor('2s', () => false, 2000).catch(() => {});
-      Zotero.debug(`[SeekChat E2E] outline probe before activation: ${JSON.stringify(probe())}`);
-      // The reader loads the outline only while its sidebar shows the outline view;
-      // trigger the loading directly, without touching the visible UI.
-      reader?._internalReader?._primaryView?._documentData?.setOutlineActive(true);
-      for (const t of [2, 10]) {
-        await waitFor(`${t}s`, () => false, t * 1000).catch(() => {});
-        Zotero.debug(`[SeekChat E2E] outline probe after +${t}s: ${JSON.stringify(probe())}`);
-      }
-      const o = reader?._internalReader?._state?.outline;
-      const readerItems = o && o.length !== undefined ? Array.from(o as any[]) : null;
-      const pdfOutline = buildOutline(pages, readerItems);
+      const t2 = Date.now();
+      const pdfOutline = await new PdfContextProvider(attachment).outline();
+      const outlineMs = Date.now() - t2;
       const t1 = Date.now();
       const sel = await new PdfContextProvider(attachment).build('Wie konfiguriere ich einen Workflow?', readPrefs().contextChars,
         { keywords: ['workflow', 'transition', 'status', 'Arbeitsablauf'] });
@@ -283,12 +276,11 @@ export const scenarios: Scenario[] = [
         fit,
         firstPages: pages.slice(0, 3).map((p) => p.text.slice(0, 200)),
         samplePages: [0.25, 0.5, 0.75].map((f) => pages[Math.floor(pages.length * f)]?.text.slice(0, 300)),
-        readerOutlineItems: readerItems?.length ?? null,
+        outlineMs,
         outline: { source: pdfOutline.source, count: pdfOutline.nodes.length, nodes: brief(pdfOutline.nodes) },
         textOutline: { source: textOutline.source, count: textOutline.nodes.length, nodes: brief(textOutline.nodes) },
         keywordSelection: { ms: Date.now() - t1, mode: sel.mode, pages: sel.includedPages, matched: sel.matchedPages, noMatches: sel.noMatches },
       });
-      win.Zotero_Tabs.close(reader.tabID);
     }
     await Zotero.File.putContentsAsync(`${ctx.outDir}/assets-report.json`, JSON.stringify(report, null, 2));
   }],
