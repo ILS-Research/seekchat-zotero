@@ -583,7 +583,7 @@ export const scenarios: Scenario[] = [
       const zsBox = doc.getElementById('seekchat-source-zotseek') as HTMLInputElement;
       const booksBox = doc.getElementById('seekchat-source-books') as HTMLInputElement;
       assert(zsBox?.checked && !zsBox.disabled, 'ZotSeek source not on by default');
-      assert((zsBox.parentElement as HTMLElement).title.includes('Max chunks per paper'), 'ZotSeek tooltip missing');
+      assert(doc.querySelector('.seekchat-library-note')?.textContent?.includes('Literaturverzeichnis'), 'note on ZotSeek limits missing');
       assert(booksBox && booksBox.disabled && !booksBox.checked, 'books source not greyed out');
       zsBox.click();
       await waitFor('input disabled without source', () => (doc.querySelector('textarea.seekchat-input') as HTMLTextAreaElement).disabled

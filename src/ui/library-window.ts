@@ -113,20 +113,11 @@ class LibraryChatView {
       this.useZotSeek = on;
       this.render();
     });
-    this.zotseekBox.parentElement!.title =
-      'Textabschnitte aus dem ZotSeek-Index. Einschränkungen bei Büchern und langen Dokumenten:\n' +
-      '• Bücher nur, wenn in ZotSeek „Bücher ausschließen“ aus ist, PDF-Inhalte nur im Modus „full“.\n' +
-      '• Pro Eintrag höchstens „Max chunks per paper“ Abschnitte (Standard 100, max. 200) – ' +
-      'meist nur die ersten 20–70 Seiten eines Buchs.\n' +
-      '• ZotSeek hört beim ersten Literaturverzeichnis auf (bei Sammelbänden oft nach Kapitel 1).\n' +
-      '• PDFs ohne übergeordneten Eintrag werden nicht indexiert.\n' +
-      'Für ganze Bücher: den Chat mit dem PDF im Eintragsbereich nutzen.';
     // Planned: own vector index for whole books (ZotSeek only indexes the beginning of long documents).
     const booksBox = this.checkbox('seekchat-source-books', 'Bücher (eigener Index)', false, () => {});
     booksBox.disabled = true;
     const books = booksBox.parentElement!;
     books.classList.add('disabled');
-    books.title = 'Geplant: eigener Vektorindex für ganze Bücher. ZotSeek indexiert bei langen Dokumenten nur den Anfang.';
     books.append(this.doc.createTextNode(' '), this.el('span', 'seekchat-badge', 'noch ohne Funktion'));
     this.messages = this.el('div', 'seekchat-messages');
     this.input = this.el('textarea', 'seekchat-input') as HTMLTextAreaElement;
@@ -143,6 +134,12 @@ class LibraryChatView {
     root.replaceChildren(
       row('Umfang:', this.scopeEl, this.statusEl),
       row('Quellen:', this.zotseekBox.parentElement!, books),
+      // Plain text instead of a tooltip: title tooltips do not show in this chrome window.
+      row('', this.el('div', 'seekchat-library-note',
+        'ZotSeek ist für Paper gebaut: Bücher nur, wenn dort „Bücher ausschließen“ aus ist, und PDF-Inhalte nur im ' +
+        'Modus „full“. Pro Eintrag höchstens 100–200 Abschnitte (bei Büchern meist nur die ersten Kapitel); Schluss ' +
+        'beim ersten Literaturverzeichnis; PDFs ohne übergeordneten Eintrag fehlen. Ganze Bücher: Chat mit dem PDF ' +
+        'im Eintragsbereich. Ein eigener Index für Bücher ist geplant.')),
       row('Modell:', this.modelEl),
       this.messages,
       inputRow,

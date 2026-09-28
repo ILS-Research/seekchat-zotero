@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.4.4 – 2026-09-28
+
+- Library chat window: ZotSeek's limits for books are shown as a short note under the source checkboxes
+  (tooltips do not appear in this window).
+
 ## 0.4.3 – 2026-09-28
 
 - Library chat window: row "Quellen" with the checkboxes "ZotSeek" (on; tooltip lists ZotSeek's limits for
