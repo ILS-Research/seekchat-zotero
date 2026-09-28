@@ -17,6 +17,7 @@ import { describeCoverage, scopeCoverage } from '../core/library/coverage';
 import { readPrefs } from '../prefs';
 import { logError } from '../util/log';
 import { renderTurn } from './turn-view';
+import { saveChat } from './save-chat';
 
 const HTML_NS = 'http://www.w3.org/1999/xhtml';
 const WINDOW_URL = 'chrome://seekchat/content/libraryChat.xhtml';
@@ -123,6 +124,7 @@ class LibraryChatView {
   private input: HTMLTextAreaElement;
   private sendBtn: HTMLButtonElement;
   private clearBtn: HTMLButtonElement;
+  private saveBtn: HTMLButtonElement;
   private session: ChatSession | null = null;
   private scope: LibraryScope | null = null;
   private status: ZotSeekStatus | null = null;
@@ -167,7 +169,11 @@ class LibraryChatView {
     this.input.style.flex = '1';
     inputRow.append(this.input, this.sendBtn);
     const footer = this.el('div', 'seekchat-library-footer');
-    footer.append(settings, this.el('span', 'spacer'), this.clearBtn, close);
+    this.saveBtn = this.button('⤓ Chat als .md', () => {
+      if (this.session && this.scope) void saveChat(this.session, this.scope.label, this.win);
+    });
+    this.saveBtn.className = 'seekchat-save';
+    footer.append(settings, this.saveBtn, this.el('span', 'spacer'), this.clearBtn, close);
     root.replaceChildren(
       row('Umfang:', this.scopeEl, this.statusEl),
       row('', this.coverageEl),
@@ -300,6 +306,7 @@ class LibraryChatView {
     this.sendBtn.disabled = !available && !s?.busy;
     this.sendBtn.textContent = s?.busy ? 'Stopp' : 'Senden';
     this.clearBtn.disabled = !s || s.turns.length === 0;
+    this.saveBtn.disabled = !s || s.busy || s.turns.length === 0;
 
     const atBottom = this.messages.scrollHeight - this.messages.scrollTop - this.messages.clientHeight < 40;
     const turns = s?.turns || [];

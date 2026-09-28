@@ -7,6 +7,7 @@ import { describeItem, PdfContextProvider } from '../core/context/pdf-context';
 import { getSession, type ChatSession } from '../core/session';
 import { LongDocPanel } from './long-doc-panel';
 import { renderTurn } from './turn-view';
+import { saveChat } from './save-chat';
 import { readPrefs } from '../prefs';
 import { logError } from '../util/log';
 
@@ -43,6 +44,7 @@ class ChatView {
   private input: HTMLTextAreaElement;
   private sendBtn: HTMLButtonElement;
   private clearBtn: HTMLButtonElement;
+  private saveBtn: HTMLButtonElement;
   private session: ChatSession | null = null;
   private attachment: any = null;
   private unsubscribe: (() => void) | null = null;
@@ -62,7 +64,15 @@ class ChatView {
     const hint = this.el('span', 'seekchat-hint');
     const spacer = this.el('span', 'spacer');
     actions.append(hint, spacer, this.clearBtn, this.sendBtn);
-    this.root.append(this.target, this.longDoc.root, this.messages, this.input, actions);
+    // Small, at the very bottom: download the whole chat as Markdown.
+    this.saveBtn = this.el('button', 'seekchat-save') as HTMLButtonElement;
+    this.saveBtn.textContent = '⤓ Chat als .md speichern';
+    this.saveBtn.addEventListener('click', () => {
+      if (this.session && this.attachment) void saveChat(this.session, `PDF ${describeItem(this.attachment)}`, this.doc.defaultView);
+    });
+    const saveRow = this.el('div', 'seekchat-save-row');
+    saveRow.append(this.saveBtn);
+    this.root.append(this.target, this.longDoc.root, this.messages, this.input, actions, saveRow);
     body.replaceChildren(this.root);
 
     this.input.addEventListener('keydown', (e) => {
@@ -126,6 +136,7 @@ class ChatView {
     this.sendBtn.disabled = !s;
     this.sendBtn.textContent = s?.busy ? 'Stopp' : 'Senden';
     this.clearBtn.disabled = !s || s.turns.length === 0;
+    this.saveBtn.disabled = !s || s.busy || s.turns.length === 0;
     this.longDoc.render();
     this.hintEl.textContent = prefs.model ? `Modell: ${prefs.model}` : 'Kein Modell gewählt – siehe Einstellungen → SeekChat';
 

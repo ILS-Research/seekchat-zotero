@@ -16,6 +16,7 @@ import { collectionScope, itemsScope, libraryScope, LibraryContextProvider } fro
 import { openSourceCitation } from '../../src/core/library/zotero-items';
 import { getLibraryChatWindow } from '../../src/ui/library-window';
 import { getToolbarButton } from '../../src/ui/toolbar-button';
+import { setSaveChatTestPath } from '../../src/ui/save-chat';
 import { splitSourceCitations } from '../../src/core/citations';
 import { assert, screenshot, SkipError, waitFor, type E2EContext } from './harness';
 
@@ -616,6 +617,21 @@ export const scenarios: Scenario[] = [
       assert(doc.querySelector('.seekchat-sources-title')?.textContent === 'Quellen (2 von 2 zitiert)',
         `source list title: ${doc.querySelector('.seekchat-sources-title')?.textContent}`);
       assert(sourceItems[1].textContent?.includes('SeekChat E2E Langes Buch – S. 27'), `source 2: ${sourceItems[1].textContent}`);
+      // "Chat als .md" writes the whole history (file picker skipped in tests).
+      const mdPath = `${ctx.outDir}/chat-export.md`;
+      setSaveChatTestPath(mdPath);
+      (doc.querySelector('.seekchat-library-footer .seekchat-save') as HTMLButtonElement).click();
+      const exported = await waitFor('exported chat', async () => {
+        try {
+          const text: string = await Zotero.File.getContentsAsync(mdPath);
+          return text.includes('Quellen:') ? text : null;
+        } catch {
+          return null;
+        }
+      }, 5000);
+      setSaveChatTestPath(null);
+      assert(exported.startsWith('# SeekChat – 2 ausgewählte Einträge') && exported.includes('> Was sagen die beiden')
+        && exported.includes('2. Muster 2021 – SeekChat E2E Langes Buch – S. 27'), `export: ${exported.slice(0, 400)}`);
       const cite = answer.querySelectorAll('.seekchat-md .seekchat-cite')[1] as HTMLElement;
       assert(cite.textContent === '[2, S. 27]', `second citation: ${cite.textContent}`);
       cite.click();

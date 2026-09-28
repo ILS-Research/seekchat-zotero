@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.5.1 – 2026-09-28
+
+- Both chats can save the whole history as Markdown: small button "⤓ Chat als .md speichern" at the
+  bottom of the PDF section, "⤓ Chat als .md" in the library window's footer. Questions are quoted,
+  answers kept as Markdown, with meta lines and (library chat) the numbered sources.
+
 ## 0.5.0 – 2026-09-28
 
 Library chat complete (stage 1).
