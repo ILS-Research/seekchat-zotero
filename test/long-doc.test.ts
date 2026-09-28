@@ -2,7 +2,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { analyzeFit, formatCount } from '../src/core/context/fit';
 import { buildKeywordMessages, parseKeywords } from '../src/core/context/keywords';
-import { buildOutline, detectHeading, outlineFromBlocks, outlineFromHeadings, outlineFromReader } from '../src/core/context/outline';
+import { buildOutline, chapterScope, detectHeading, outlineFromBlocks, outlineFromHeadings, outlineFromReader } from '../src/core/context/outline';
+import { buildMessages, describeContext } from '../src/core/prompt';
 import { buildTerms, selectPagesByTerms } from '../src/core/context/page-selection';
 
 const filler = (n: number) => 'lorem ipsum dolor sit amet '.repeat(n);
@@ -134,4 +135,31 @@ test('keywords: prompt restricts terms to the document language', () => {
   assert.ok(!withLang[0].content.includes('Deutsch und Englisch'));
   const without = buildKeywordMessages({ question: 'x', docTitle: 'y' });
   assert.ok(without[0].content.includes('Deutsch und Englisch'));
+});
+
+test('chapter scope: a chapter covers its sections, pages are merged', () => {
+  const node = (id: string, title: string, pageStart: number, pageEnd: number, tokens: number, children: any[] = []) =>
+    ({ id, title, pageStart, pageEnd, tokens, children });
+  const outline = {
+    source: 'pdf' as const,
+    nodes: [
+      node('0', 'Einleitung', 1, 4, 400),
+      node('1', 'Ergebnisse', 5, 9, 900, [node('1.0', 'Hitze', 5, 6, 300), node('1.1', 'Regen', 7, 9, 600)]),
+      node('2', 'Fazit', 10, 11, 200),
+    ],
+  };
+  assert.equal(chapterScope(outline, new Set()), null);
+  assert.deepEqual(chapterScope(outline, new Set(['1', '1.0', '1.1', '2'])),
+    { titles: ['Ergebnisse', 'Fazit'], pages: [5, 6, 7, 8, 9, 10, 11], tokens: 1100 });
+  assert.deepEqual(chapterScope(outline, new Set(['1.1'])), { titles: ['Regen'], pages: [7, 8, 9], tokens: 600 });
+});
+
+test('chapter context is described and announced to the model', () => {
+  const base = { title: 'Buch', body: '[Seite 5]\nx', mode: 'excerpt' as const, includedPages: [5, 6, 7], totalPages: 40 };
+  const whole = { ...base, chapters: { titles: ['Ergebnisse'], complete: true } };
+  assert.equal(describeContext(whole), 'Kapitel „Ergebnisse“ vollständig: S. 5–7 von 40 Seiten');
+  const system = buildMessages({ context: whole, history: [], question: 'q' })[0].content;
+  assert.match(system, /nur die vom Nutzer ausgewählten Teile/);
+  const part = { ...base, matchedPages: 2, chapters: { titles: ['A', 'B'], complete: false } };
+  assert.equal(describeContext(part), 'Kapitel „A“, „B“, Auszüge: S. 5–7 von 40 Seiten (2 Seiten mit Treffern)');
 });

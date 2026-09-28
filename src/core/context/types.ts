@@ -23,11 +23,20 @@ export interface ContextBlock {
   /** Excerpt mode: pages with a keyword hit, and whether nothing matched at all. */
   matchedPages?: number;
   noMatches?: boolean;
+  /** Strategy "chapters": titles of the chosen chapters, and whether they were sent completely. */
+  chapters?: { titles: string[]; complete: boolean };
 }
 
 export interface BuildOptions {
   /** Extra search terms from the model (long-document strategy "keywords"). */
   keywords?: string[];
+  /** Strategy "chapters": search only these pages (1-based); titles are for prompt and UI. */
+  chapters?: ChapterScope;
+}
+
+export interface ChapterScope {
+  titles: string[];
+  pages: number[];
 }
 
 /** How to deal with documents that do not fit into the context. */

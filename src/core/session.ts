@@ -12,7 +12,8 @@ import {
   type Language, type LanguageSource,
 } from './context/language';
 import type { FitInfo } from './context/fit';
-import type { ContextProvider, LongDocStrategy } from './context/types';
+import { chapterScope, type Outline } from './context/outline';
+import type { ChapterScope, ContextProvider, LongDocStrategy } from './context/types';
 import type { LlmClient } from './llm/types';
 import { readPrefs, type SeekChatPrefs } from '../prefs';
 import { newAbortController } from '../util/env';
@@ -27,8 +28,8 @@ export interface Turn {
   pending?: boolean;
 }
 
-/** Strategies the user can pick for long documents; only "keywords" is implemented so far. */
-export const IMPLEMENTED_STRATEGIES: LongDocStrategy[] = ['keywords'];
+/** Strategies the user can pick for long documents; "vector" is not implemented yet. */
+export const IMPLEMENTED_STRATEGIES: LongDocStrategy[] = ['keywords', 'chapters'];
 
 export class ChatSession {
   turns: Turn[] = [];
@@ -36,6 +37,9 @@ export class ChatSession {
   fit: FitInfo | null = null;
   fitError: string | null = null;
   strategy: LongDocStrategy = 'keywords';
+  /** Strategy "chapters": ids of checked outline nodes (see outline.ts). */
+  readonly selectedChapters = new Set<string>();
+  private outlinePromise: Promise<Outline> | null = null;
   /** Detected document language (model or guess), cached per session; metadata wins when present. */
   private language: { lang: Language | null; source: LanguageSource | null } | null = null;
   private fitBudget = -1;
@@ -82,6 +86,20 @@ export class ChatSession {
   setStrategy(strategy: LongDocStrategy): void {
     if (!IMPLEMENTED_STRATEGIES.includes(strategy)) return;
     this.strategy = strategy;
+    this.notify();
+  }
+
+  /** Table of contents of the document, loaded once per session. */
+  outline(): Promise<Outline> {
+    this.outlinePromise ??= this.provider.outline().catch((e) => {
+      this.outlinePromise = null;
+      throw e;
+    });
+    return this.outlinePromise;
+  }
+
+  /** Called by the chapter tree after the selection changed. */
+  chaptersChanged(): void {
     this.notify();
   }
 
@@ -181,7 +199,17 @@ export class ChatSession {
       const fit = this.fit ?? (await this.provider.analyze(prefs.contextChars));
       const notes: string[] = [];
       let keywords: string[] = [];
-      if (!fit.fits) {
+      let chapters: ChapterScope | undefined;
+      // Chapters that fit into the budget are sent whole, without the keyword call.
+      let needKeywords = !fit.fits;
+      if (!fit.fits && this.strategy === 'chapters') {
+        const scope = chapterScope(await this.outline(), this.selectedChapters);
+        if (!scope) throw new UserFacingError('Keine Kapitel ausgewählt. Bitte oben im Inhaltsverzeichnis Kapitel ankreuzen.');
+        chapters = { titles: scope.titles, pages: scope.pages };
+        needKeywords = scope.tokens > fit.budgetTokens;
+        if (needKeywords) notes.push('Auswahl größer als das Budget: Suche innerhalb der Kapitel.');
+      }
+      if (needKeywords) {
         if (!IMPLEMENTED_STRATEGIES.includes(this.strategy)) {
           notes.push('Gewählte Strategie noch nicht verfügbar, nutze Stichwort-Erweiterung.');
         }
@@ -195,7 +223,7 @@ export class ChatSession {
         keywords = await this.expandKeywords(client, prefs, question.trim(), lastQuestion, lang, ctrl.signal);
         notes.push(keywords.length ? `Suchbegriffe: ${keywords.join(', ')}` : 'Keine Suchbegriffe erhalten, suche nur mit der Frage.');
       }
-      const context = await this.provider.build(`${question}\n${lastQuestion}`, prefs.contextChars, { keywords });
+      const context = await this.provider.build(`${question}\n${lastQuestion}`, prefs.contextChars, { keywords, chapters });
       answer.meta = [`${prefs.model} · ${describeContext(context)}`, ...notes].join('\n');
       this.notify();
       await client.streamChat(

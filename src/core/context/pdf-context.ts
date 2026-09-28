@@ -92,15 +92,19 @@ export class PdfContextProvider implements ContextProvider {
 
   async build(query: string, budgetChars: number, opts: BuildOptions = {}): Promise<ContextBlock> {
     const pages = await getPdfPages(this.attachment);
-    const selection = selectPagesByTerms(pages, buildTerms(query, opts.keywords), budgetChars);
+    const allowed = opts.chapters && new Set(opts.chapters.pages);
+    const pool = allowed ? pages.filter((p) => allowed.has(p.pageNumber)) : pages;
+    const selection = selectPagesByTerms(pool, buildTerms(query, opts.keywords), budgetChars);
     return {
       title: this.describe(),
       body: formatPages(selection.pages),
-      mode: selection.mode,
+      // Whole chapters are still only part of the document.
+      mode: allowed ? 'excerpt' : selection.mode,
       includedPages: selection.pages.map((p) => p.pageNumber),
       totalPages: pages.length,
       matchedPages: selection.matchedPages,
       noMatches: selection.noMatches,
+      chapters: opts.chapters && { titles: opts.chapters.titles, complete: selection.mode === 'full' },
     };
   }
 }

@@ -138,3 +138,25 @@ export function outlineFromBlocks(pages: Page[], blockSize = 20): Outline {
 export function buildOutline(pages: Page[], readerItems?: ReaderOutlineItem[] | null): Outline {
   return outlineFromReader(readerItems, pages) || outlineFromHeadings(pages) || outlineFromBlocks(pages);
 }
+
+export function descendants(node: OutlineNode): OutlineNode[] {
+  return node.children.flatMap((c) => [c, ...descendants(c)]);
+}
+
+/** Selected nodes without those inside a selected parent (a chapter covers its sections). */
+export function topSelected(nodes: OutlineNode[], selected: Set<string>): OutlineNode[] {
+  return nodes.flatMap((n) => (selected.has(n.id) ? [n] : topSelected(n.children, selected)));
+}
+
+/** Titles and pages (sorted, without duplicates) of a chapter selection; null if nothing is selected. */
+export function chapterScope(outline: Outline, selected: Set<string>): { titles: string[]; pages: number[]; tokens: number } | null {
+  const nodes = topSelected(outline.nodes, selected);
+  if (!nodes.length) return null;
+  const pages = new Set<number>();
+  for (const n of nodes) for (let p = n.pageStart; p <= n.pageEnd; p++) pages.add(p);
+  return {
+    titles: nodes.map((n) => n.title),
+    pages: Array.from(pages).sort((a, b) => a - b),
+    tokens: nodes.reduce((s, n) => s + n.tokens, 0),
+  };
+}

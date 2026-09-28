@@ -18,8 +18,16 @@ export function formatPages(pages: { pageNumber: number; text: string }[]): stri
 
 export function describeContext(ctx: ContextBlock): string {
   if (ctx.mode === 'full') return `vollständiger Text, ${ctx.totalPages} Seiten`;
+  if (ctx.chapters?.complete) {
+    return `${chapterList(ctx.chapters.titles)} vollständig: S. ${compressRanges(ctx.includedPages)} von ${ctx.totalPages} Seiten`;
+  }
+  const scope = ctx.chapters ? `${chapterList(ctx.chapters.titles)}, ` : '';
   const how = ctx.noMatches ? 'keine Treffer, verteilte Seiten' : `${ctx.matchedPages ?? 0} Seiten mit Treffern`;
-  return `Auszüge: S. ${compressRanges(ctx.includedPages)} von ${ctx.totalPages} Seiten (${how})`;
+  return `${scope}Auszüge: S. ${compressRanges(ctx.includedPages)} von ${ctx.totalPages} Seiten (${how})`;
+}
+
+function chapterList(titles: string[]): string {
+  return `Kapitel ${titles.map((t) => `„${t}“`).join(', ')}`;
 }
 
 /** [1,2,3,5,7,8] -> "1–3, 5, 7–8" */
@@ -43,6 +51,9 @@ export function buildMessages(opts: {
   const { context } = opts;
   const note = context.mode === 'full'
     ? 'Es folgt der vollständige Text des Dokuments.'
+    : context.chapters?.complete
+    ? `Das Dokument ist zu lang für den Kontext. Es folgen nur die vom Nutzer ausgewählten Teile (${describeContext(context)}). ` +
+      'Wenn die Antwort in anderen Teilen des Dokuments stehen könnte, weise darauf hin.'
     : `Das Dokument ist zu lang für den Kontext. Es folgen die zur Frage passendsten Seiten (${describeContext(context)}). ` +
       'Wenn die Antwort auf anderen Seiten stehen könnte, weise darauf hin.';
   const system =

@@ -47,6 +47,19 @@ async function reportLive(ctx: E2EContext, entry: Record<string, unknown>): Prom
   await Zotero.File.putContentsAsync(`${ctx.outDir}/live-report.json`, JSON.stringify(ctx.live, null, 2));
 }
 
+/** Checkbox of the chapter with this title in the tree. */
+function chapterBox(section: Element, title: string): HTMLInputElement {
+  const row = Array.from(section.querySelectorAll('.seekchat-chapter'))
+    .find((r) => r.querySelector('.seekchat-chapter-title')?.textContent === title);
+  assert(row, `chapter ${title} not in tree`);
+  return row.querySelector('input') as HTMLInputElement;
+}
+
+/** Page numbers marked [Seite N] in a system prompt. */
+function sentPages(system: string): number[] {
+  return [...system.matchAll(/\[Seite (\d+)\]/g)].map((m) => Number(m[1]));
+}
+
 const CITED_PAGES = /\[S\. (\d+)\]/g;
 
 async function importFixture(title: string, file: string): Promise<{ parentID: number; attachment: any }> {
@@ -199,14 +212,14 @@ export const scenarios: Scenario[] = [
     assert(strategies.map((e) => e.dataset.strategy).join() === 'vector,keywords,chapters', 'strategies missing or out of order');
     const checked = panel.querySelector('input[type="radio"]:checked') as HTMLInputElement | null;
     assert(checked?.value === 'keywords', 'keywords is not the default strategy');
-    assert(strategies[0].querySelector('.seekchat-badge') && strategies[2].querySelector('.seekchat-badge') && !strategies[1].querySelector('.seekchat-badge'),
+    assert(strategies[0].querySelector('.seekchat-badge') && !strategies[1].querySelector('.seekchat-badge') && !strategies[2].querySelector('.seekchat-badge'),
       'placeholder badges wrong');
     ctx.longSection = section;
   }],
 
-  ['long PDF: unimplemented strategies are greyed out and cannot be picked', async (ctx) => {
+  ['long PDF: unimplemented strategy is greyed out and cannot be picked', async (ctx) => {
     const section: Element = ctx.longSection;
-    for (const id of ['vector', 'chapters']) {
+    for (const id of ['vector']) {
       const row = section.querySelector(`.seekchat-strategy[data-strategy="${id}"]`) as HTMLElement;
       const radio = row.querySelector('input') as HTMLInputElement;
       assert(radio.disabled && row.classList.contains('disabled'), `${id} is not disabled`);
@@ -267,6 +280,55 @@ export const scenarios: Scenario[] = [
     assert(reqs[0].messages[0].content.includes('ausschließlich auf Englisch'), 'metadata language not used for keywords');
     const meta = session.turns[session.turns.length - 1].meta;
     assert(meta?.includes('Dokumentsprache: Englisch (aus Metadaten)'), `unexpected meta: ${meta}`);
+    session.clear();
+  }],
+
+  ['long PDF: selected chapters that fit are sent whole, without keyword call', async (ctx) => {
+    const section = await openSectionInLibrary(ctx.longParentID);
+    const radio = await waitFor('chapters radio', () => section.querySelector('.seekchat-strategy[data-strategy="chapters"] input') as HTMLInputElement | null);
+    assert(!radio.disabled, 'chapters strategy still disabled');
+    radio.click();
+    await waitFor('chapter tree', () => section.querySelector('.seekchat-chapters'), 10000);
+    const sum = () => section.querySelector('.seekchat-chapter-sum')?.textContent || '';
+    assert(sum().includes('Noch kein Kapitel'), `unexpected sum: ${sum()}`);
+    const session = getSession(new PdfContextProvider(ctx.longAttachment));
+    session.clear();
+    await session.ask('Was steht im Fazit?');
+    let answer = session.turns[session.turns.length - 1];
+    assert(answer.error && answer.content.includes('Keine Kapitel ausgewählt'), `no-selection error missing: ${answer.content}`);
+
+    chapterBox(section, 'Fazit').click();
+    assert(sum().includes('geht vollständig mit'), `unexpected sum: ${sum()}`);
+    const before = (await mockRequests()).length;
+    await session.ask('Was steht im Fazit?');
+    answer = session.turns[session.turns.length - 1];
+    assert(!answer.error, `answer is an error: ${answer.content}`);
+    assert(answer.meta?.includes('Kapitel „Fazit“ vollständig: S. 36–40'), `unexpected meta: ${answer.meta}`);
+    const reqs = (await mockRequests()).slice(before);
+    assert(reqs.length === 1, `expected only the answer request, got ${reqs.length}`);
+    const sent = sentPages(reqs[0].messages[0].content);
+    assert(sent.join() === '36,37,38,39,40', `pages sent: ${sent}`);
+    await screenshot(ctx, 'chapters');
+    ctx.chapterSection = section;
+  }],
+
+  ['long PDF: chapters larger than the budget are searched with keywords', async (ctx) => {
+    const section: Element = ctx.chapterSection;
+    chapterBox(section, 'Fazit').click();
+    chapterBox(section, 'Ergebnisse').click();
+    const sum = section.querySelector('.seekchat-chapter-sum')?.textContent || '';
+    assert(sum.includes('innerhalb der Auswahl'), `unexpected sum: ${sum}`);
+    const session = getSession(new PdfContextProvider(ctx.longAttachment));
+    const before = (await mockRequests()).length;
+    await session.ask('Was sagt das Buch zum Stadtklima?');
+    const answer = session.turns[session.turns.length - 1];
+    assert(!answer.error, `answer is an error: ${answer.content}`);
+    assert(answer.meta?.includes('Kapitel „Ergebnisse“, Auszüge'), `unexpected meta: ${answer.meta}`);
+    const reqs = (await mockRequests()).slice(before);
+    assert(reqs.length === 2, `expected keyword + answer request, got ${reqs.length}`);
+    const sent = sentPages(reqs[1].messages[0].content);
+    assert(sent.includes(27), `page 27 not sent: ${sent}`);
+    assert(sent.every((p) => p >= 20 && p <= 35), `pages outside the chapter: ${sent}`);
     session.clear();
   }],
 

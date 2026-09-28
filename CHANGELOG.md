@@ -1,7 +1,11 @@
 # Changelog
 
-## Unreleased
+## 0.4.0 – 2026-09-28
 
+- Long documents: strategy "Nur in ausgewählten Kapiteln suchen" works. Chapters are ticked in the
+  table of contents (PDF bookmarks, else headings or page blocks); if they fit into the budget they
+  are sent whole without the keyword call, otherwise the keyword search runs inside them only. The
+  meta line and the prompt name the chapters. The selection is kept per document for the session.
 - Page search for long documents matches umlaut spellings and common endings
   (model keyword "Wärmeinsel" finds "Waermeinseln"); found by the first live E2E run.
 - E2E: optional live scenarios against a real model server (`E2E_LIVE_URL`, `E2E_LIVE_MODEL`,
