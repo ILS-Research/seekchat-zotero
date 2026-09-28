@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.5.2 – 2026-09-28
+
+- Markdown export includes every request sent to the model per answer (language detection, search terms,
+  answer) as collapsible blocks: purpose, model, temperature, max. tokens, num_ctx, size, and all messages
+  verbatim (system prompt with the document text or sources, history, question).
+
 ## 0.5.1 – 2026-09-28
 
 - Both chats can save the whole history as Markdown: small button "⤓ Chat als .md speichern" at the

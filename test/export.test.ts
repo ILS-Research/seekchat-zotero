@@ -28,3 +28,19 @@ test('export file name is safe for all systems', () => {
   assert.equal(exportFileName('PDF Muster 2021 – Titel: "A/B"?', date), 'SeekChat 2026-09-28 PDF Muster 2021 – Titel AB.md');
   assert.equal(exportFileName('Bibliothek „Meine Bibliothek“', date), 'SeekChat 2026-09-28 Bibliothek Meine Bibliothek.md');
 });
+
+test('model requests are exported verbatim in collapsible blocks', () => {
+  const md = chatToMarkdown([
+    { role: 'user', content: 'Frage' },
+    {
+      role: 'assistant', content: 'Antwort', requests: [
+        { purpose: 'Suchbegriffe', model: 'm', temperature: 0.2, maxTokens: 512, numCtx: 4096, messages: [{ role: 'system', content: 'Liste ```json``` Suchbegriffe' }] },
+        { purpose: 'Antwort', model: 'm', temperature: 0.2, maxTokens: 2048, messages: [{ role: 'system', content: 'Doku' }, { role: 'user', content: 'Frage' }] },
+      ],
+    },
+  ], { subject: 'PDF X', model: 'm', date });
+  assert.ok(md.includes('<summary>Anfrage 1 an das Modell: Suchbegriffe (Modell m, Temperatur 0.2, max. 512 Tokens, num_ctx 4096; 29 Zeichen)</summary>'));
+  assert.ok(md.includes('**system:**\n\n````text\nListe ```json``` Suchbegriffe\n````'), 'fence longer than the backticks inside');
+  assert.ok(md.includes('<summary>Anfrage 2 an das Modell: Antwort (Modell m, Temperatur 0.2, max. 2048 Tokens; 9 Zeichen)</summary>'));
+  assert.ok(md.trimEnd().endsWith('</details>'));
+});

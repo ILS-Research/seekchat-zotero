@@ -631,7 +631,8 @@ export const scenarios: Scenario[] = [
       }, 5000);
       setSaveChatTestPath(null);
       assert(exported.startsWith('# SeekChat – 2 ausgewählte Einträge') && exported.includes('> Was sagen die beiden')
-        && exported.includes('2. Muster 2021 – SeekChat E2E Langes Buch – S. 27'), `export: ${exported.slice(0, 400)}`);
+        && exported.includes('2. Muster 2021 – SeekChat E2E Langes Buch – S. 27')
+        && exported.includes('Anfrage 1 an das Modell: Antwort') && exported.includes('<quellen>'), `export: ${exported.slice(0, 400)}`);
       const cite = answer.querySelectorAll('.seekchat-md .seekchat-cite')[1] as HTMLElement;
       assert(cite.textContent === '[2, S. 27]', `second citation: ${cite.textContent}`);
       cite.click();

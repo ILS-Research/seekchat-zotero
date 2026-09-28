@@ -29,6 +29,18 @@ export interface Turn {
   pending?: boolean;
   /** Library chat: the numbered sources the answer cites. */
   sources?: LibrarySource[];
+  /** Every request sent to the model for this answer, in order (for the Markdown export). */
+  requests?: LlmRequestLog[];
+}
+
+export interface LlmRequestLog {
+  /** 'Spracherkennung' | 'Suchbegriffe' | 'Antwort' */
+  purpose: string;
+  model: string;
+  temperature: number;
+  maxTokens: number;
+  numCtx?: number;
+  messages: { role: string; content: string }[];
 }
 
 /** Strategies the user can pick for long documents; "vector" is not implemented yet. */
@@ -182,6 +194,24 @@ export class ChatSession {
     }
   }
 
+  /** Model client that records each request into the answer turn. */
+  private recordingClient(client: LlmClient, answer: Turn, purpose: () => string): LlmClient {
+    return {
+      listModels: (signal) => client.listModels(signal),
+      streamChat: (req, onDelta) => {
+        (answer.requests ??= []).push({
+          purpose: purpose(),
+          model: req.model,
+          temperature: req.temperature,
+          maxTokens: req.maxTokens,
+          numCtx: req.numCtx,
+          messages: req.messages.map((m) => ({ role: m.role, content: m.content })),
+        });
+        return client.streamChat(req, onDelta);
+      },
+    };
+  }
+
   async ask(question: string): Promise<void> {
     if (this.busy || !question.trim()) return;
     const prefs = readPrefs();
@@ -198,7 +228,8 @@ export class ChatSession {
     let raw = '';
     try {
       if (!prefs.model) throw new UserFacingError('Kein Chat-Modell gewählt (SeekChat-Einstellungen).');
-      const client = createClient(prefs);
+      let purpose = 'Antwort';
+      const client = this.recordingClient(createClient(prefs), answer, () => purpose);
       const fit = this.fit ?? (await this.provider.analyze(prefs.contextChars));
       const notes: string[] = [];
       let keywords: string[] = [];
@@ -218,14 +249,17 @@ export class ChatSession {
         }
         answer.meta = 'Bestimme Dokumentsprache …';
         this.notify();
+        purpose = 'Spracherkennung';
         const { lang, source } = await this.resolveLanguage(client, prefs, ctrl.signal);
         const sourceText = source === 'metadata' ? 'aus Metadaten' : source === 'model' ? 'vom Modell erkannt' : 'geschätzt';
         notes.push(lang ? `Dokumentsprache: ${lang.name} (${sourceText})` : 'Dokumentsprache unbekannt, Suchbegriffe auf Deutsch und Englisch.');
         answer.meta = 'Erzeuge Suchbegriffe …';
         this.notify();
+        purpose = 'Suchbegriffe';
         keywords = await this.expandKeywords(client, prefs, question.trim(), lastQuestion, lang, ctrl.signal);
         notes.push(keywords.length ? `Suchbegriffe: ${keywords.join(', ')}` : 'Keine Suchbegriffe erhalten, suche nur mit der Frage.');
       }
+      purpose = 'Antwort';
       const context = await this.provider.build(`${question}\n${lastQuestion}`, prefs.contextChars, { keywords, chapters });
       answer.meta = [`${prefs.model} · ${describeContext(context)}`, ...notes].join('\n');
       answer.sources = context.library?.sources;

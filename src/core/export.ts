@@ -3,7 +3,7 @@
  * section and the library chat window. Answers are already Markdown; the
  * library chat's sources are appended as a numbered list per answer.
  */
-import type { Turn } from './session';
+import type { LlmRequestLog, Turn } from './session';
 
 export interface ExportInfo {
   /** "PDF: Muster 2021 – Titel" or "Bibliothek „Meine Bibliothek“" */
@@ -48,6 +48,7 @@ export function chatToMarkdown(turns: Turn[], info: ExportInfo): string {
         out.push(`${s.n}. ${s.label}${pages.length ? ` – S. ${pages.join(', ')}` : ''}`);
       }
     }
+    if (t.requests?.length) out.push('', ...requestsToMarkdown(t.requests));
   }
   return out.join('\n').trimEnd() + '\n';
 }
@@ -57,4 +58,31 @@ export function exportFileName(subject: string, date: Date): string {
   const safe = subject.replace(/[\\/:*?"<>|„“”]/g, '').replace(/\s+/g, ' ').trim().slice(0, 80) || 'Chat';
   const stamp = `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
   return `SeekChat ${stamp} ${safe}.md`;
+}
+
+/** Longest run of backticks in a text, so the fence around it can be one longer. */
+function fence(text: string): string {
+  const longest = Math.max(2, ...(text.match(/`+/g) || []).map((m) => m.length));
+  return '`'.repeat(longest + 1);
+}
+
+/**
+ * The model requests of one answer as collapsible blocks: purpose, parameters
+ * and every message verbatim (system prompt with the document text, history, question).
+ */
+export function requestsToMarkdown(requests: LlmRequestLog[]): string[] {
+  const out: string[] = [];
+  requests.forEach((r, i) => {
+    const params = [`Modell ${r.model}`, `Temperatur ${r.temperature}`, `max. ${r.maxTokens} Tokens`];
+    if (r.numCtx) params.push(`num_ctx ${r.numCtx}`);
+    const chars = r.messages.reduce((n, m) => n + m.content.length, 0);
+    out.push('<details>', `<summary>Anfrage ${i + 1} an das Modell: ${r.purpose} (${params.join(', ')}; ${chars} Zeichen)</summary>`, '');
+    for (const m of r.messages) {
+      const f = fence(m.content);
+      out.push(`**${m.role}:**`, '', `${f}text`, m.content, f, '');
+    }
+    out.push('</details>', '');
+  });
+  if (out[out.length - 1] === '') out.pop();
+  return out;
 }
