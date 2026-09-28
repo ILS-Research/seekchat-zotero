@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.6.1 – 2026-09-28
+
+- E2E live tests: optional `E2E_LIVE_API_KEY` (bearer key for servers that need one); the live report only
+  says whether a key was set. New live scenario for the books source. The long-PDF live scenario pins small
+  manual limits, since with automatic limits the 40-page test book fits whole and skips the keyword search.
+
 ## 0.6.0 – 2026-09-28
 
 - Library chat window: new source "Bücher (Stichwortsuche, ohne Index)". Every book with a PDF in the

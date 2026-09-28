@@ -20,10 +20,11 @@ mkdir -p e2e/out test/assets
 
 # Optional live scenarios against a real model server, e.g.
 #   E2E_LIVE_URL=https://ollama.ils.local E2E_LIVE_MODEL=qwen3_8_27b_128k:latest ./e2e/run.sh
-# (E2E_LIVE_PROVIDER=openai for /v1 servers). Without E2E_LIVE_URL they are skipped.
+# (E2E_LIVE_PROVIDER=openai for /v1 servers, E2E_LIVE_API_KEY for servers that need a bearer key).
+# Without E2E_LIVE_URL they are skipped.
 LIVE=()
 if [ -n "${E2E_LIVE_URL:-}" ]; then
-  LIVE=(-e E2E_LIVE_URL -e E2E_LIVE_MODEL -e E2E_LIVE_PROVIDER)
+  LIVE=(-e E2E_LIVE_URL -e E2E_LIVE_MODEL -e E2E_LIVE_PROVIDER -e E2E_LIVE_API_KEY)
   # Resolve the host here, in case the container's DNS does not know internal names.
   live_host=$(echo "$E2E_LIVE_URL" | sed -E 's#^[a-z]+://([^/:]+).*#\1#')
   live_ip=$(getent hosts "$live_host" | awk '{print $1; exit}')

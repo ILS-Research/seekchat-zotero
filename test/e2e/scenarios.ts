@@ -45,6 +45,7 @@ function useLiveServer(ctx: E2EContext): void {
   setPref('provider', Zotero.Prefs.get('seekchat.e2e.liveProvider') || 'ollama');
   setPref('baseUrl', url);
   setPref('model', Zotero.Prefs.get('seekchat.e2e.liveModel') || '');
+  setPref('apiKey', Zotero.Prefs.get('seekchat.e2e.liveApiKey') || '');
   setPref('allowedRemoteHosts', new URL(url).hostname);
   ctx.live ??= [];
 }
@@ -889,7 +890,8 @@ export const scenarios: Scenario[] = [
     useLiveServer(ctx);
     const prefs = readPrefs();
     const models = await createClient(prefs).listModels();
-    await reportLive(ctx, { step: 'models', url: prefs.baseUrl, models });
+    // Only whether a key was set, never the key itself.
+    await reportLive(ctx, { step: 'models', url: prefs.baseUrl, apiKey: prefs.apiKey ? `gesetzt (${prefs.apiKey.length} Zeichen)` : 'keiner', models });
     assert(prefs.model, `no model set; server offers: ${models.join(', ')}`);
     assert(models.includes(prefs.model), `model ${prefs.model} not on server; offers: ${models.join(', ')}`);
   }],
@@ -916,10 +918,13 @@ export const scenarios: Scenario[] = [
     const parent = Zotero.Items.get(ctx.longParentID);
     parent.setField('language', 'de');
     await parent.saveTx();
+    // With automatic limits (~100k tokens) the 40-page book fits whole; small manual limits force the keyword search.
+    setPref('limitsMode', 'manual');
+    setPref('contextChars', 40000);
     const session = getSession(new PdfContextProvider(ctx.longAttachment));
     session.clear();
     const t0 = Date.now();
-    await session.ask('Was sagt das Buch zum Stadtklima?');
+    await session.ask('Was sagt das Buch zum Stadtklima?').finally(() => setPref('limitsMode', 'auto'));
     const answer = session.turns[session.turns.length - 1];
     await reportLive(ctx, { step: 'long', ms: Date.now() - t0, meta: answer.meta, answer: answer.content });
     assert(!answer.error, `answer is an error: ${answer.content}`);
@@ -932,6 +937,22 @@ export const scenarios: Scenario[] = [
     });
     assert(sent, `page 27 not sent: ${answer.meta}`);
     assert(answer.content.trim().length > 20, `answer too short: ${answer.content}`);
+    session.clear();
+  }],
+
+  ['live: books are asked one by one (library chat without ZotSeek)', async (ctx) => {
+    useLiveServer(ctx);
+    const b = Zotero.Items.get(ctx.longParentID);
+    const session = getSession(new LibraryContextProvider(itemsScope([b])));
+    session.clear();
+    const t0 = Date.now();
+    await session.ask('Was sagt das Buch zum Stadtklima?', { zotseek: false, books: [{ attachment: ctx.longAttachment, label: 'SeekChat E2E Langes Buch' }] });
+    const book = session.turns[session.turns.length - 1];
+    await session.ask('Was steht im Buch über Vulkane?', { zotseek: false, books: [{ attachment: ctx.longAttachment, label: 'SeekChat E2E Langes Buch' }] });
+    const none = session.turns[session.turns.length - 1];
+    await reportLive(ctx, { step: 'books', ms: Date.now() - t0, meta: book.meta, answer: book.content, noMatch: { meta: none.meta, answer: none.content, flagged: !!none.noMatch } });
+    assert(!book.error && book.book && /\[S\. \d+\]/.test(book.content), `book answer: ${book.content}`);
+    assert(!none.error, `no-match question failed: ${none.content}`);
     session.clear();
   }],
 ];

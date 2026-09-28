@@ -105,6 +105,7 @@ Extending: new sources are new `ContextProvider`s; session, prompt and turn rend
 - Scenarios run against the mock. The last ones are **optional live scenarios** against a real server,
   skipped (reported as `skip`) unless `E2E_LIVE_URL` is set:
   `E2E_LIVE_URL=https://ollama.ils.local E2E_LIVE_MODEL=qwen3_8_27b_128k:latest ./e2e/run.sh`
+  (optional `E2E_LIVE_PROVIDER=openai`, `E2E_LIVE_API_KEY=…` for servers with a bearer key)
   (timeout then defaults to 600 s; answers land in `e2e/out/live-report.json`). Optional scenarios
   throw `SkipError` from `test/e2e/harness.ts` when a prerequisite is missing.
 - In-house CAs: `e2e/certs/*.crt` (currently `ils-gum-ca.crt`, CN=ILS_GuM, signs `*.ils.local`) go into the
