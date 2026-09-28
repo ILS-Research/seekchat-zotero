@@ -181,6 +181,8 @@ export function buildSources(
       source.excerpts = source.excerpts.filter((x) => !norm.includes(normalized(x.text)));
       source.excerpts.push(excerpt);
       source.attachmentID ??= e.attachmentID;
+      // A book that ZotSeek also found counts as book: its pre-read passages are in it.
+      if (e.origin === 'book') source.origin = 'book';
     } else {
       byItem.set(id, {
         n: numberOf(id),

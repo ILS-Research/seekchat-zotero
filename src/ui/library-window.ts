@@ -129,6 +129,8 @@ class LibraryChatView {
   /** Source "books by keyword search": each book in the scope is asked like in the PDF chat. */
   private useBooks = false;
   private books: BookTarget[] | null = null;
+  /** Running book search of the current scope (send() waits for it). */
+  private booksReady: Promise<void> = Promise.resolve();
   private booksEl!: HTMLElement;
   private statusEl: HTMLElement;
   private modelEl: HTMLElement;
@@ -257,7 +259,7 @@ class LibraryChatView {
     this.render();
     void this.checkStatus();
     void this.checkCoverage(scope);
-    void this.findBooks(scope);
+    this.booksReady = this.findBooks(scope);
   }
 
   private fillScopes(): void {
@@ -310,6 +312,8 @@ class LibraryChatView {
     const q = this.input.value.trim();
     if (!q || !this.session || this.session.busy) return;
     const zotseek = this.useZotSeek && (await this.checkStatus());
+    // The book search may still run right after opening; without waiting the books would silently be left out.
+    if (this.useBooks && this.books === null) await this.booksReady;
     const books = this.useBooks ? this.books || [] : [];
     if (!zotseek && !books.length) return;
     this.input.value = '';
