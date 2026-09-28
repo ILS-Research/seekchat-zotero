@@ -1,6 +1,8 @@
 # Changelog
 
-## Unreleased
+## 0.4.1 – 2026-09-28
+
+Groundwork for the library chat; no visible change yet (the UI follows in 0.5.0).
 
 - ZotSeek client (groundwork for the library chat, no UI yet): status check (plugin, local HTTP server,
   "AI Agent Access", index) with German hints, passage search over `/zotseek/search`. Deliberately no
