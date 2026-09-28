@@ -27,6 +27,9 @@ export async function waitFor<T>(what: string, fn: () => T | Promise<T>, timeout
   throw new Error(`Timeout waiting for ${what}${lastError ? ` (last error: ${lastError})` : ''}`);
 }
 
+/** Thrown by optional scenarios whose prerequisites are missing; reported as "skip", not as failure. */
+export class SkipError extends Error {}
+
 export function assert(cond: unknown, msg: string): asserts cond {
   if (!cond) throw new Error(msg);
 }
@@ -54,7 +57,7 @@ export async function runAll(): Promise<void> {
     fixturesDir: Zotero.Prefs.get('seekchat.e2e.fixturesDir'),
     outDir: Zotero.Prefs.get('seekchat.e2e.outDir'),
   };
-  const results: { name: string; ok: boolean; ms: number; error?: string }[] = [];
+  const results: { name: string; ok: boolean; ms: number; skipped?: string; error?: string }[] = [];
   try {
     Zotero.debug('[SeekChat E2E] waiting for the main window');
     await waitFor('main window with ZoteroPane', () => Zotero.getMainWindow()?.ZoteroPane?.itemsView, 60000);
@@ -66,10 +69,15 @@ export async function runAll(): Promise<void> {
         await fn(ctx);
         results.push({ name, ok: true, ms: Date.now() - t0 });
       } catch (e: any) {
-        results.push({ name, ok: false, ms: Date.now() - t0, error: String(e?.message || e) });
-        await screenshot(ctx, name.replace(/\W+/g, '_'));
+        if (e instanceof SkipError) {
+          results.push({ name, ok: true, ms: Date.now() - t0, skipped: e.message });
+        } else {
+          results.push({ name, ok: false, ms: Date.now() - t0, error: String(e?.message || e) });
+          await screenshot(ctx, name.replace(/\W+/g, '_'));
+        }
       }
-      Zotero.debug(`[SeekChat E2E] ${results[results.length - 1].ok ? 'ok' : 'FAIL'} ${name}`);
+      const last = results[results.length - 1];
+      Zotero.debug(`[SeekChat E2E] ${last.skipped ? 'skip' : last.ok ? 'ok' : 'FAIL'} ${name}`);
     }
     await screenshot(ctx, 'final');
   } catch (e: any) {

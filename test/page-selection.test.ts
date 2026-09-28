@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { selectPages, tokenize } from '../src/core/context/page-selection';
+import { buildTerms, searchKey, selectPages, selectPagesByTerms, tokenize } from '../src/core/context/page-selection';
 
 const filler = (n: number) => 'lorem ipsum dolor sit amet '.repeat(n);
 const pages = [
@@ -36,4 +36,19 @@ test('without usable terms, pages are spread over the document', () => {
 
 test('tokenize drops stopwords and short tokens, keeps umlauts', () => {
   assert.deepEqual(tokenize('Was ist die Überflutung im Jahr 2021?'), ['überflutung', 'jahr', '2021']);
+});
+
+test('search keys match umlaut spellings and plural endings', () => {
+  assert.equal(searchKey('wärmeinsel'), searchKey('waermeinseln'));
+  assert.equal(searchKey('überflutungen'), searchKey('ueberflutung'));
+  assert.equal(searchKey('climates'), searchKey('climate'));
+  assert.equal(searchKey('hitze'), 'hitz');
+  assert.equal(searchKey('rot'), 'rot', 'short words keep their ending');
+});
+
+test('a model keyword in another spelling still finds its page', () => {
+  const doc = [...pages, { pageNumber: 6, text: 'Waermeinseln in dicht bebauten Quartieren ' + filler(36) }];
+  const budget = doc[0].text.length + doc[5].text.length + 10;
+  const sel = selectPagesByTerms(doc, buildTerms('Was sagt der Text zum Stadtklima?', ['Wärmeinsel']), budget);
+  assert.deepEqual(sel.pages.map((p) => p.pageNumber), [1, 6]);
 });

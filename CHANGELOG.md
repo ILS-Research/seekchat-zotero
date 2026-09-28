@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+- Page search for long documents matches umlaut spellings and common endings
+  (model keyword "Wärmeinsel" finds "Waermeinseln"); found by the first live E2E run.
+- E2E: optional live scenarios against a real model server (`E2E_LIVE_URL`, `E2E_LIVE_MODEL`,
+  `E2E_LIVE_PROVIDER`), skipped otherwise; report in `e2e/out/live-report.json`.
+- E2E image trusts the in-house CAs from `e2e/certs/` (system store and Zotero's NSS profile),
+  so `https://ollama.ils.local` works.
+
 ## 0.3.3 – 2026-09-27
 
 - Updates from the ILS portal: `update_url` now points to

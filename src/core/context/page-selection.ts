@@ -43,9 +43,22 @@ export function tokenize(text: string): string[] {
   return (text.toLowerCase().match(/[\p{L}\p{N}]{3,}/gu) || []).filter((t) => !STOPWORDS.has(t));
 }
 
+const UMLAUTS: Record<string, string> = { ä: 'ae', ö: 'oe', ü: 'ue', ß: 'ss' };
+const SUFFIXES = ['ern', 'en', 'er', 'es', 'e', 'n', 's'];
+
+/**
+ * Matching key of a token: umlauts spelled out (Wärme = Waerme) and a common
+ * German/English ending dropped (Wärmeinseln = Wärmeinsel, climates = climate).
+ */
+export function searchKey(token: string): string {
+  const folded = token.replace(/[äöüß]/g, (c) => UMLAUTS[c]);
+  const suffix = SUFFIXES.find((s) => folded.endsWith(s) && folded.length - s.length >= 4);
+  return suffix ? folded.slice(0, -suffix.length) : folded;
+}
+
 function scorePages(pages: Page[], terms: WeightedTerm[]): number[] {
   if (terms.length === 0) return pages.map(() => 0);
-  const tokenized = pages.map((p) => tokenize(p.text));
+  const tokenized = pages.map((p) => tokenize(p.text).map(searchKey));
   const avgLen = tokenized.reduce((s, t) => s + t.length, 0) / Math.max(1, tokenized.length) || 1;
   const df = new Map<string, number>();
   for (const tokens of tokenized) {
@@ -76,7 +89,7 @@ function scorePages(pages: Page[], terms: WeightedTerm[]): number[] {
 export function buildTerms(question: string, keywords: string[] = []): WeightedTerm[] {
   const weights = new Map<string, number>();
   const add = (text: string, w: number) => {
-    for (const t of tokenize(text)) weights.set(t, Math.max(weights.get(t) || 0, w));
+    for (const t of tokenize(text).map(searchKey)) weights.set(t, Math.max(weights.get(t) || 0, w));
   };
   add(question, 1);
   for (const k of keywords) add(k, 0.6);

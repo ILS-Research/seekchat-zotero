@@ -10,7 +10,8 @@ import { readPrefs } from '../../src/prefs';
 import { getSession } from '../../src/core/session';
 import { setPref } from '../../src/prefs';
 import { getRegisteredPaneID } from '../../src/ui/chat-section';
-import { assert, screenshot, waitFor, type E2EContext } from './harness';
+import { createClient } from '../../src/core/llm';
+import { assert, screenshot, SkipError, waitFor, type E2EContext } from './harness';
 
 type Scenario = [string, (ctx: E2EContext) => Promise<void>];
 
@@ -25,6 +26,28 @@ async function mockRequests(): Promise<any[]> {
   const resp = await Zotero.getMainWindow().fetch(`${MOCK}/__requests`);
   return resp.json();
 }
+
+/**
+ * Optional live scenarios against a real model server (E2E_LIVE_URL in e2e/run.sh).
+ * Points SeekChat at it, or skips when no server is configured.
+ */
+function useLiveServer(ctx: E2EContext): void {
+  const url: string = Zotero.Prefs.get('seekchat.e2e.liveUrl') || '';
+  if (!url) throw new SkipError('E2E_LIVE_URL not set');
+  setPref('provider', Zotero.Prefs.get('seekchat.e2e.liveProvider') || 'ollama');
+  setPref('baseUrl', url);
+  setPref('model', Zotero.Prefs.get('seekchat.e2e.liveModel') || '');
+  setPref('allowedRemoteHosts', new URL(url).hostname);
+  ctx.live ??= [];
+}
+
+/** Appends a record to e2e/out/live-report.json (answers are not asserted verbatim). */
+async function reportLive(ctx: E2EContext, entry: Record<string, unknown>): Promise<void> {
+  ctx.live.push(entry);
+  await Zotero.File.putContentsAsync(`${ctx.outDir}/live-report.json`, JSON.stringify(ctx.live, null, 2));
+}
+
+const CITED_PAGES = /\[S\. (\d+)\]/g;
 
 async function importFixture(title: string, file: string): Promise<{ parentID: number; attachment: any }> {
   const item = new Zotero.Item('book');
@@ -289,5 +312,56 @@ export const scenarios: Scenario[] = [
       });
     }
     await Zotero.File.putContentsAsync(`${ctx.outDir}/assets-report.json`, JSON.stringify(report, null, 2));
+  }],
+
+  // Optional: real model server. Skipped unless e2e/run.sh gets E2E_LIVE_URL.
+  ['live: model server lists the configured model', async (ctx) => {
+    useLiveServer(ctx);
+    const prefs = readPrefs();
+    const models = await createClient(prefs).listModels();
+    await reportLive(ctx, { step: 'models', url: prefs.baseUrl, models });
+    assert(prefs.model, `no model set; server offers: ${models.join(', ')}`);
+    assert(models.includes(prefs.model), `model ${prefs.model} not on server; offers: ${models.join(', ')}`);
+  }],
+
+  ['live: short PDF is answered with a page citation', async (ctx) => {
+    useLiveServer(ctx);
+    const session = getSession(new PdfContextProvider(ctx.attachment));
+    session.clear();
+    const t0 = Date.now();
+    await session.ask('Was steht im Dokument zu Starkregen? Antworte in zwei Sätzen.');
+    const answer = session.turns[session.turns.length - 1];
+    const cited = [...answer.content.matchAll(CITED_PAGES)].map((m) => Number(m[1]));
+    await reportLive(ctx, { step: 'short', ms: Date.now() - t0, meta: answer.meta, cited, answer: answer.content });
+    assert(!answer.error, `answer is an error: ${answer.content}`);
+    assert(!answer.content.includes('<think>'), 'thinking block not stripped');
+    assert(cited.length > 0, `answer lacks a [S. N] citation: ${answer.content}`);
+    assert(cited.every((p) => p >= 1 && p <= 3), `citation outside the 3-page PDF: ${cited}`);
+    session.clear();
+  }],
+
+  ['live: long PDF gets model keywords and an answer', async (ctx) => {
+    useLiveServer(ctx);
+    // An earlier scenario set the (German) book's language to en-GB; undo so keywords come in German.
+    const parent = Zotero.Items.get(ctx.longParentID);
+    parent.setField('language', 'de');
+    await parent.saveTx();
+    const session = getSession(new PdfContextProvider(ctx.longAttachment));
+    session.clear();
+    const t0 = Date.now();
+    await session.ask('Was sagt das Buch zum Stadtklima?');
+    const answer = session.turns[session.turns.length - 1];
+    await reportLive(ctx, { step: 'long', ms: Date.now() - t0, meta: answer.meta, answer: answer.content });
+    assert(!answer.error, `answer is an error: ${answer.content}`);
+    assert(/Suchbegriffe: \S/.test(answer.meta || ''), `model produced no keywords: ${answer.meta}`);
+    // Page 27 is the only page on urban heat ("Waermeinseln"); the model's keywords must reach it.
+    const ranges = (answer.meta || '').match(/Auszüge: S\. ([^\n]*?) von/)?.[1] || '';
+    const sent = ranges.split(',').some((r) => {
+      const [a, b = a] = r.trim().split('–').map(Number);
+      return a <= 27 && 27 <= b;
+    });
+    assert(sent, `page 27 not sent: ${answer.meta}`);
+    assert(answer.content.trim().length > 20, `answer too short: ${answer.content}`);
+    session.clear();
   }],
 ];

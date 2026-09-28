@@ -17,8 +17,22 @@ if ! docker info >/dev/null 2>&1; then DOCKER=(sudo docker); fi
 ./build.sh e2e
 "${DOCKER[@]}" build --progress=plain -t seekchat-e2e:latest e2e/
 mkdir -p e2e/out test/assets
+
+# Optional live scenarios against a real model server, e.g.
+#   E2E_LIVE_URL=https://ollama.ils.local E2E_LIVE_MODEL=qwen3_8_27b_128k:latest ./e2e/run.sh
+# (E2E_LIVE_PROVIDER=openai for /v1 servers). Without E2E_LIVE_URL they are skipped.
+LIVE=()
+if [ -n "${E2E_LIVE_URL:-}" ]; then
+  LIVE=(-e E2E_LIVE_URL -e E2E_LIVE_MODEL -e E2E_LIVE_PROVIDER)
+  # Resolve the host here, in case the container's DNS does not know internal names.
+  live_host=$(echo "$E2E_LIVE_URL" | sed -E 's#^[a-z]+://([^/:]+).*#\1#')
+  live_ip=$(getent hosts "$live_host" | awk '{print $1; exit}')
+  [ -n "$live_ip" ] && LIVE+=(--add-host "$live_host:$live_ip")
+fi
+
 "${DOCKER[@]}" run --rm -u "$(id -u):$(id -g)" \
   -v "$PWD/dist":/dist:ro -v "$PWD/e2e/out":/out \
   -v "$PWD/test/assets":/assets:ro \
-  -e E2E_TIMEOUT="${E2E_TIMEOUT:-240}" \
+  -e E2E_TIMEOUT="${E2E_TIMEOUT:-$([ -n "${E2E_LIVE_URL:-}" ] && echo 600 || echo 240)}" \
+  "${LIVE[@]}" \
   seekchat-e2e:latest
