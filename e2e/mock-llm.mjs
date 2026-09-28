@@ -39,6 +39,9 @@ const server = http.createServer(async (req, res) => {
     requests.push(parsed);
     const system = parsed.messages?.[0]?.content || '';
     if (system.includes('Sprache des folgenden Textauszugs')) return stream(res, 'de');
+    const question = parsed.messages?.[parsed.messages.length - 1]?.content || '';
+    // Book answers ("mehreren Büchern" in the system prompt): no match for questions about "Vulkane".
+    if (system.includes('mehreren Büchern') && question.includes('Vulkane')) return stream(res, 'KEINE ANGABE');
     if (system.includes('<quellen>')) return stream(res, LIBRARY_ANSWER);
     return stream(res, system.includes('Suchbegriffe') ? KEYWORDS : ANSWER);
   }

@@ -71,3 +71,9 @@ test('library context: meta line and prompt name scope and sources', () => {
   assert.ok(system.startsWith(DEFAULT_LIBRARY_PROMPT));
   assert.match(system, /<quellen>\n\[1\] Muster 2021 – Titel A\n\(S\. 12\)\nText A\n<\/quellen>/);
 });
+
+test('book answers: the no-match marker is recognised with quotes or a period', async () => {
+  const { isNoMatch } = await import('../src/core/prompt');
+  for (const a of ['KEINE ANGABE', '„KEINE ANGABE“', 'Keine Angabe.', ' **KEINE ANGABE** ']) assert.ok(isNoMatch(a), a);
+  assert.ok(!isNoMatch('Keine Angabe zu Hitze, aber zu Regen [S. 3].'));
+});

@@ -39,6 +39,7 @@ export function chatToMarkdown(turns: Turn[], info: ExportInfo): string {
       out.push('', `## Frage ${n}`, '', quote(t.content));
       continue;
     }
+    if (t.book) out.push('', `### Buch: ${t.book.label}`);
     out.push('', t.error ? `**${t.content.trim()}**` : t.content.trim());
     if (t.meta) out.push('', ...t.meta.split('\n').map((l) => `*${l.trim()}*  `));
     if (t.sources?.length) {

@@ -14,7 +14,7 @@ import { createClient } from '../../src/core/llm';
 import { getZotSeekStatus, searchPassages, ZotSeekUnavailableError } from '../../src/core/zotseek/client';
 import { collectionScope, itemsScope, libraryScope, LibraryContextProvider } from '../../src/core/library/library-context';
 import { openSourceCitation } from '../../src/core/library/zotero-items';
-import { getLibraryChatWindow, getPrefsPaneID } from '../../src/ui/library-window';
+import { getLibraryChatWindow, getPrefsPaneID, openLibraryChat } from '../../src/ui/library-window';
 import { getToolbarButton } from '../../src/ui/toolbar-button';
 import { setSaveChatTestPath } from '../../src/ui/save-chat';
 import { addLegacyMenu, chatWithFile, chatWithSelection, menuState, registerMenus, removeLegacyMenu, unregisterMenus } from '../../src/ui/context-menu';
@@ -593,7 +593,7 @@ export const scenarios: Scenario[] = [
       const zsBox = doc.getElementById('seekchat-source-zotseek') as HTMLInputElement;
       const booksBox = doc.getElementById('seekchat-source-books') as HTMLInputElement;
       assert(zsBox?.checked && !zsBox.disabled, 'ZotSeek source not on by default');
-      assert(doc.querySelector('.seekchat-library-note:not(.seekchat-library-coverage)')?.textContent?.includes('Literaturverzeichnis'), 'note on ZotSeek limits missing');
+      assert(doc.querySelector('.seekchat-library-note:not(.seekchat-library-coverage):not(.seekchat-library-books)')?.textContent?.includes('Literaturverzeichnis'), 'note on ZotSeek limits missing');
       assert(booksBox && booksBox.disabled && !booksBox.checked, 'books source not greyed out');
       zsBox.click();
       await waitFor('input disabled without source', () => (doc.querySelector('textarea.seekchat-input') as HTMLTextAreaElement).disabled
@@ -790,6 +790,54 @@ export const scenarios: Scenario[] = [
       removeLegacyMenu(win);
       registerMenus(Zotero.SeekChat.info.id, `${Zotero.SeekChat.info.rootURI}content/icons/seekchat.svg`);
     }
+  }],
+
+  ['library window: books are asked one by one, without ZotSeek, with progress and stop', async (ctx) => {
+    const a = Zotero.Items.get(ctx.parentID);
+    const b = Zotero.Items.get(ctx.longParentID);
+    assert(b.itemType === 'book' && a.itemType !== 'book', 'fixture item types changed');
+    openLibraryChat(itemsScope([a, b]));
+    const cw = await waitFor('chat window', () => {
+      const w = getLibraryChatWindow();
+      return w?.document?.getElementById('seekchat-source-books-keywords') ? w : null;
+    }, 15000);
+    const doc = cw.document;
+    (doc.getElementById('seekchat-source-zotseek') as HTMLInputElement).click();
+    (doc.getElementById('seekchat-source-books-keywords') as HTMLInputElement).click();
+    await waitFor('book count', () => doc.querySelector('.seekchat-library-books')?.textContent?.startsWith('1 Buch mit PDF'), 10000);
+    const input = await waitFor('input enabled without ZotSeek', () => {
+      const t = doc.querySelector('textarea.seekchat-input') as HTMLTextAreaElement | null;
+      return t && !t.disabled ? t : null;
+    }, 5000);
+    const session = getSession(new LibraryContextProvider(itemsScope([a, b])));
+    session.clear();
+
+    const ask = async (question: string) => {
+      input.value = question;
+      input.dispatchEvent(new cw.KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+      await waitFor('book answer done', () => session.turns.length && !session.busy && session.turns.every((t) => !t.pending), 20000);
+      return session.turns[session.turns.length - 1];
+    };
+    let t = await ask('Was sagt das Buch zum Stadtklima?');
+    assert(session.turns.filter((x) => x.role === 'assistant').length === 1, 'ZotSeek answer despite unchecked source');
+    assert(t.book?.label.includes('Langes Buch') && t.content.includes('[S. 2]'), `book answer: ${JSON.stringify(t).slice(0, 300)}`);
+    assert(t.meta?.startsWith('Buch 1 von 1') && t.meta.includes('Suchbegriffe'), `meta: ${t.meta}`);
+    await waitFor('book heading rendered', () => doc.querySelector('.seekchat-msg.book .seekchat-book-title')?.textContent?.includes('Langes Buch'), 5000);
+
+    t = await ask('Was steht zu Vulkane?');
+    assert(t.noMatch && t.content.startsWith('Keine passenden Stellen'), `no match: ${t.content}`);
+
+    // Stop right away: the running book is marked as cancelled.
+    input.value = 'Und zu Hitze?';
+    input.dispatchEvent(new cw.KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    await waitFor('running', () => session.busy, 5000);
+    session.stop();
+    await waitFor('stopped', () => !session.busy, 10000);
+    t = session.turns[session.turns.length - 1];
+    assert(t.content.includes('[abgebrochen]'), `after stop: ${t.content}`);
+    await screenshot(ctx, 'library-books', cw);
+    session.clear();
+    cw.close();
   }],
 
   // Optional: real PDFs from test/assets (mounted read-only, not part of the image).

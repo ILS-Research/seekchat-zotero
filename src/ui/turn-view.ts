@@ -12,8 +12,8 @@ import { renderMarkdown, type CitationSplitter } from './markdown';
 const HTML_NS = 'http://www.w3.org/1999/xhtml';
 
 export interface CitationHandlers {
-  /** PDF chat: open the document on this page. */
-  onPage?: (page: number) => void;
+  /** Page citation: open the document on this page (book answers: the turn's book). */
+  onPage?: (page: number, turn: Turn) => void;
   /** Library chat: follow a source citation (page if given). */
   onSource?: (source: LibrarySource, page?: number) => void;
 }
@@ -64,9 +64,10 @@ function sourceList(doc: Document, sources: LibrarySource[], cited: Set<number>,
 }
 
 export function renderTurn(doc: Document, t: Turn, handlers: CitationHandlers, pendingText = 'Lese PDF …'): HTMLElement {
-  const box = el(doc, 'div', `seekchat-msg ${t.role}${t.error ? ' error' : ''}`);
+  const box = el(doc, 'div', `seekchat-msg ${t.role}${t.error ? ' error' : ''}${t.book ? ' book' : ''}${t.noMatch ? ' nomatch' : ''}`);
+  if (t.book) box.append(el(doc, 'div', 'seekchat-book-title', `📖 ${t.book.label}`));
   if (t.role === 'user' || t.error) {
-    box.textContent = t.content;
+    box.append(doc.createTextNode(t.content));
     return box;
   }
   if (t.meta) box.append(el(doc, 'span', 'seekchat-meta', t.meta));
@@ -85,7 +86,7 @@ export function renderTurn(doc: Document, t: Turn, handlers: CitationHandlers, p
     });
   } else {
     split = (text) => splitCitations(text).map((seg) => seg.type === 'text' ? seg
-      : { type: 'cite' as const, node: cite(doc, seg.text, `Seite ${seg.page} im PDF öffnen`, () => handlers.onPage?.(seg.page)) });
+      : { type: 'cite' as const, node: cite(doc, seg.text, `Seite ${seg.page} im PDF öffnen`, () => handlers.onPage?.(seg.page, t)) });
   }
   const body = el(doc, 'div', 'seekchat-md');
   body.append(renderMarkdown(doc, t.content, split));

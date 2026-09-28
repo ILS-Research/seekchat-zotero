@@ -48,6 +48,10 @@ export async function savePdfChatAsNote(session: ChatSession, subject: string, a
 
 export async function saveLibraryChatAsNote(session: ChatSession, scope: LibraryScope): Promise<any> {
   const links: NoteLinks = {
+    page: (p, turn) => {
+      const att = turn.book ? Zotero.Items.get(turn.book.attachmentID) : null;
+      return att ? openPdfLink(att, p) : null;
+    },
     source: (s, p) => {
       const item = itemOfSource(s);
       if (!item) return null;

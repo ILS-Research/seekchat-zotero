@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.6.0 – 2026-09-28
+
+- Library chat window: new source "Bücher (Stichwortsuche, ohne Index)". Every book with a PDF in the
+  scope is asked separately, like in the PDF chat (size check, language, model keywords, page selection,
+  answer with [S. x]). All books appear at once as a queue ("Buch 2 von 5 · noch 3 ausstehend"), "Stopp"
+  cancels the rest; books without relevant passages are shown dimmed ("KEINE ANGABE" from the model).
+  Works without ZotSeek; ZotSeek and books can be combined (ZotSeek answer first).
+- Export and note list book answers under "Buch: …" with page links into that book.
+
 ## 0.5.5 – 2026-09-28
 
 - Automatic answer length: cap raised from 4096 to 12288 tokens (still a tenth of the context and at most

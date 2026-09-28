@@ -48,3 +48,5 @@
 .seekchat-sources-list li.uncited { opacity: 0.6; }
 .seekchat-save-row { display: flex; justify-content: flex-end; gap: 6px; flex-wrap: wrap; }
 .seekchat-save { font-size: 11px; padding: 1px 6px; min-height: 0; }
+.seekchat-book-title { font-weight: 600; margin-bottom: 4px; white-space: normal; }
+.seekchat-msg.nomatch { opacity: 0.6; }

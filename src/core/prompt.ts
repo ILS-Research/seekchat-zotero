@@ -7,6 +7,18 @@ export const DEFAULT_SYSTEM_PROMPT =
   'der Aussage. Wenn das Dokument die Antwort nicht enthält, sage das offen, statt zu raten. ' +
   'Antworte in der Sprache der Frage, knapp und präzise.';
 
+/** Marker the model answers with when a book has nothing on the question (library chat, source "books"). */
+export const NO_MATCH_MARKER = 'KEINE ANGABE';
+
+export const DEFAULT_BOOK_PROMPT =
+  DEFAULT_SYSTEM_PROMPT + ' Das Dokument ist eines von mehreren Büchern, die nacheinander befragt werden. ' +
+  `Enthält es nichts zur Frage, antworte ausschließlich mit „${NO_MATCH_MARKER}“ und sonst nichts.`;
+
+/** The answer is only the no-match marker (maybe with quotes or a period). */
+export function isNoMatch(answer: string): boolean {
+  return answer.replace(/[„“"'.!*\s]/g, '').toUpperCase() === NO_MATCH_MARKER.replace(/\s/g, '');
+}
+
 export const DEFAULT_LIBRARY_PROMPT =
   'Du bist ein wissenschaftlicher Assistent in Zotero. Beantworte Fragen ausschließlich auf Grundlage ' +
   'der bereitgestellten, nummerierten Quellen aus der Bibliothek des Nutzers. Belege jede Aussage direkt ' +

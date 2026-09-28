@@ -73,7 +73,7 @@ class ChatView {
       if (this.session && this.attachment) void saveChat(this.session, `PDF ${describeItem(this.attachment)}`, this.doc.defaultView);
     });
     this.noteBtn = this.el('button', 'seekchat-save seekchat-save-note') as HTMLButtonElement;
-    this.noteBtn.textContent = '🗎 Verlauf als Notiz speichern';
+    this.noteBtn.textContent = 'Verlauf als Notiz speichern';
     this.noteBtn.addEventListener('click', () => {
       const s = this.session;
       const att = this.attachment;
