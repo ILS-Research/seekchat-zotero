@@ -517,7 +517,7 @@ export const scenarios: Scenario[] = [
     }
   }],
 
-  ['library chat: no usable ZotSeek result means a hint and no model call', async () => {
+  ['library chat: no usable ZotSeek result means a hint and no answer call', async () => {
     const session = getSession(new LibraryContextProvider(libraryScope(Zotero.Libraries.userLibraryID)));
     const ask = async () => {
       session.clear();
@@ -525,10 +525,21 @@ export const scenarios: Scenario[] = [
       await session.ask('Was steht zu Starkregen?');
       const answer = session.turns[session.turns.length - 1];
       assert(answer.error, `expected a hint, got: ${answer.content}`);
-      assert((await mockRequests()).length === before, 'model was called anyway');
+      // At most the planning call (queries for ZotSeek); never an answer without sources.
+      const calls = (await mockRequests()).slice(before);
+      assert(calls.every((r: any) => r.messages[0].content.includes('literature search')), 'model was asked for an answer anyway');
       return answer.content;
     };
-    let msg = await ask();
+    const askNoCall = async () => {
+      session.clear();
+      const before = (await mockRequests()).length;
+      await session.ask('Was steht zu Starkregen?');
+      const answer = session.turns[session.turns.length - 1];
+      assert(answer.error, `expected a hint, got: ${answer.content}`);
+      assert((await mockRequests()).length === before, 'model was called without ZotSeek');
+      return answer.content;
+    };
+    let msg = await askNoCall();
     assert(msg.includes('braucht das Plugin ZotSeek'), `without ZotSeek: ${msg}`);
 
     const zs = installZotSeek({ results: [{ itemKey: 'ZZZZ9999', libraryKey: 'user', title: 'Nur Stichwort', score: 0.01, matchedChunk: null }] });
@@ -635,7 +646,7 @@ export const scenarios: Scenario[] = [
       setSaveChatTestPath(null);
       assert(exported.startsWith('# SeekChat – 2 ausgewählte Einträge') && exported.includes('> Was sagen die beiden')
         && exported.includes('2. Muster 2021 – SeekChat E2E Langes Buch – S. 27')
-        && exported.includes('Anfrage 1 an das Modell: Antwort') && exported.includes('<sources>'), `export: ${exported.slice(0, 400)}`);
+        && exported.includes('Anfrage 1 an das Modell: Suchvorbereitung') && exported.includes('Anfrage 2 an das Modell: Antwort') && exported.includes('<sources>'), `export: ${exported.slice(0, 400)}`);
       const cite = answer.querySelectorAll('.seekchat-md .seekchat-cite')[1] as HTMLElement;
       assert(cite.textContent === '[2, S. 27]', `second citation: ${cite.textContent}`);
       cite.click();
@@ -831,14 +842,15 @@ export const scenarios: Scenario[] = [
     assert(source?.n === 1 && source.label.includes('Langes Buch') && source.attachmentID === ctx.longAttachment.id,
       `book source: ${JSON.stringify(t.sources)}`);
     assert(t.content.includes('[1, S. 2]'), `answer: ${t.content}`);
-    assert(t.meta?.includes('(Bücher 1)') && t.meta.includes('Bücher: 1 mit Fundstellen') && t.meta.includes('Suchbegriffe:'), `meta: ${t.meta}`);
+    assert(t.meta?.includes('(Bücher 1)') && t.meta.includes('Bücher: 1 mit Fundstellen') && !t.meta.includes('Suchbegriffe:'), `meta: ${t.meta}`);
     assert(t.bookProgress?.[0].keywords?.length && t.bookProgress[0].pages?.length, `book details: ${JSON.stringify(t.bookProgress)}`);
     // Plan, pre-reading, answer: three requests, the answer sees the book's passages as a source.
     const reqs = (await mockRequests()).slice(before);
     const systems = reqs.map((r: any) => r.messages[0].content as string);
-    // Plan, then per book like the PDF chat (language if not in metadata, search terms, answer from the pages), then the joint answer.
+    // Per book like the PDF chat (language if not in metadata, search terms, answer from the pages), then the joint answer.
     const last = systems[systems.length - 1];
-    assert(systems[0].includes('literature search') && systems.some((x: string) => x.includes('search terms for a keyword search'))
+    // First question without ZotSeek: no planning call; the book makes its own search terms like the PDF chat.
+    assert(!systems.some((x: string) => x.includes('literature search')) && systems.some((x: string) => x.includes('search terms for a keyword search'))
       && systems[systems.length - 2].includes('answer a question from one book') && last.includes('<sources>') && last.includes('(book)'), `requests: ${systems.map((x: string) => x.slice(0, 60)).join(' | ')}`);
     await waitFor('book list and source marked as book', () => doc.querySelector('.seekchat-books-progress li.state-found')
       && doc.querySelector('.seekchat-sources-list li')?.textContent?.includes('📖'), 5000);

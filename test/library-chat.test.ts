@@ -6,6 +6,7 @@ import { buildExcerptMessages, parseExcerpts } from '../src/core/library/book-ex
 import { citedSourceNumbers, splitSourceCitations } from '../src/core/citations';
 import { buildMessages, describeContext } from '../src/core/prompt';
 import { setLocale } from '../src/i18n';
+import { bookDetails } from '../src/ui/turn-view';
 
 setLocale('de');
 
@@ -64,22 +65,29 @@ test('meta line names the origins of the sources', () => {
 });
 
 test('plan: JSON is read, missing parts fall back to the question', () => {
-  const reply = '<think>hm</think>```json\n{"question": "Was sagt Muster zu Hitze in Städten?", "queries": ["Hitze Stadt", "Hitze Stadt", "urban heat"], ' +
-    '"keywords": ["Hitzeinsel", "urban heat island", "Stadtklima"]}\n```';
+  const reply = '<think>hm</think>```json\n{"question": "Was sagt Muster zu Hitze in Städten?", "queries": ["Hitze Stadt", "Hitze Stadt", "urban heat"]}\n```';
   const plan = parsePlan(reply, 'und zu Hitze?');
   assert.equal(plan.question, 'Was sagt Muster zu Hitze in Städten?');
   assert.deepEqual(plan.queries, ['Hitze Stadt', 'urban heat']);
-  assert.deepEqual(plan.keywords, ['Hitzeinsel', 'urban heat island', 'Stadtklima']);
   assert.ok(plan.fromModel);
-  assert.deepEqual(parsePlan('{"question": ""}', 'q'), { question: 'q', queries: ['q'], keywords: [], fromModel: true });
-  assert.deepEqual(parsePlan('keine Ahnung', 'q'), { question: 'q', queries: ['q'], keywords: [], fromModel: false });
+  assert.deepEqual(parsePlan('{"question": ""}', 'q'), { question: 'q', queries: ['q'], fromModel: true });
+  assert.deepEqual(parsePlan('keine Ahnung', 'q'), { question: 'q', queries: ['q'], fromModel: false });
 });
 
-test('plan prompt carries the conversation, answers shortened', () => {
-  const msgs = buildPlanMessages({ question: 'Und als Tabelle?', history: [{ role: 'user', content: 'Was zu Hitze?' }, { role: 'assistant', content: 'a'.repeat(1000) }], scope: 'S', books: true });
+test('plan prompt carries the conversation, answers shortened, no search terms for books', () => {
+  const msgs = buildPlanMessages({ question: 'Und als Tabelle?', history: [{ role: 'user', content: 'Was zu Hitze?' }, { role: 'assistant', content: 'a'.repeat(1000) }], scope: 'S' });
   assert.match(msgs[1].content, /User: Was zu Hitze\?/);
   assert.match(msgs[1].content, /a{600} \[…\]/);
-  assert.match(msgs[1].content, /papers and books/);
+  assert.doesNotMatch(msgs[0].content, /keywords/);
+});
+
+test('book details: language with source, own search terms or a hint, all pages sent', () => {
+  assert.deepEqual(bookDetails({ label: 'B', attachmentID: 1, state: 'found', language: 'Englisch', languageSource: 'metadata', keywords: ['bug report', 'issue'], pages: [1, 2, 3, 7, 304], totalPages: 304 }), [
+    'Dokumentsprache: Englisch (aus Metadaten)',
+    'Suchbegriffe: bug report, issue',
+    'Gesendet 5 von 304 Seiten: S. 1–3, 7, 304',
+  ]);
+  assert.deepEqual(bookDetails({ label: 'B', attachmentID: 1, state: 'nohits', languageSource: 'model', keywords: [] }).slice(1), ['Keine Suchbegriffe erhalten, suche nur mit der Frage.']);
 });
 
 test('book excerpts: page markers split the reply, unknown pages dropped, no-match is empty', () => {

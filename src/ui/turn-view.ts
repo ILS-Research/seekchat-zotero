@@ -51,6 +51,18 @@ function bookStateText(b: BookProgress): string {
   }
 }
 
+/** Like the PDF chat's meta line, per book: language and its source, own search terms, pages sent. */
+export function bookDetails(b: BookProgress): string[] {
+  const out: string[] = [];
+  if (b.languageSource || b.language) {
+    const source = t(b.languageSource === 'metadata' ? 'meta.languageMetadata' : b.languageSource === 'model' ? 'meta.languageModel' : 'meta.languageGuess');
+    out.push(b.language ? t('meta.language', { language: b.language, source }) : t('book.languageUnknown'));
+  }
+  if (b.keywords) out.push(b.keywords.length ? t('meta.keywords', { keywords: b.keywords.join(', ') }) : t('meta.noKeywords'));
+  if (b.pages?.length) out.push(t('book.pagesSent', { n: b.pages.length, total: b.totalPages ?? '?', pageLabel: t('cite.page'), pages: compressRanges(b.pages) }));
+  return out;
+}
+
 /** Books of a library question: state per book, "skip" while it is still open. */
 function bookList(doc: Document, turn: Turn, handlers: CitationHandlers): HTMLElement {
   const progress = turn.bookProgress!;
@@ -68,11 +80,7 @@ function bookList(doc: Document, turn: Turn, handlers: CitationHandlers): HTMLEl
       skip.addEventListener('click', () => handlers.onSkipBook!(turn, i));
       li.append(doc.createTextNode(' '), skip);
     }
-    if (b.pages?.length) {
-      li.append(el(doc, 'div', 'seekchat-book-details', t('book.details', {
-        language: b.language || '–', keywords: b.keywords?.join(', ') || '–', pageLabel: t('cite.page'), pages: compressRanges(b.pages),
-      })));
-    }
+    for (const line of bookDetails(b)) li.append(el(doc, 'div', 'seekchat-book-details', line));
     list.append(li);
   });
   box.append(list);

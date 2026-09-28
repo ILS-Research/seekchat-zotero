@@ -1,12 +1,11 @@
 /**
  * Step 1 of a library question: one short model call turns the question (plus
- * the chat so far) into a standalone question, 1–3 queries for ZotSeek's
- * semantic search and keywords for the books' keyword search. The reply is
- * JSON; if it cannot be read, the search runs with the question as it is.
+ * the chat so far) into a standalone question and 1–3 queries for ZotSeek's
+ * semantic search. Books make their own search terms, in their language, like
+ * the PDF chat. The reply is JSON; if it cannot be read, the question is used as it is.
  */
 import type { ChatMessage } from '../llm/types';
 import { stripThinking } from '../llm/stream-parsers';
-import { parseKeywords } from '../context/keywords';
 import type { HistoryTurn } from '../prompt';
 
 export const MAX_QUERIES = 3;
@@ -18,30 +17,27 @@ export interface SearchPlan {
   question: string;
   /** Queries for ZotSeek (semantic search), 1–3. */
   queries: string[];
-  /** Search terms for the keyword search in books. */
-  keywords: string[];
   /** False if the model's reply was unusable and the plan is the fallback. */
   fromModel: boolean;
 }
 
 export function fallbackPlan(question: string): SearchPlan {
-  return { question, queries: [question], keywords: [], fromModel: false };
+  return { question, queries: [question], fromModel: false };
 }
 
-export function buildPlanMessages(opts: { question: string; history: HistoryTurn[]; scope: string; books: boolean }): ChatMessage[] {
+export function buildPlanMessages(opts: { question: string; history: HistoryTurn[]; scope: string }): ChatMessage[] {
   const system =
     'You prepare a literature search in the user\'s Zotero library for a chat assistant. ' +
     'Given the conversation so far and the new question, answer only with a JSON object: ' +
     '{"question": "<the new question rewritten so that it can be understood without the conversation, in its language>", ' +
-    `"queries": ["<1 to ${MAX_QUERIES} short queries for a semantic search, each covering one aspect>"], ` +
-    '"keywords": ["<8 to 15 search terms: key terms, synonyms, technical terms, in English and German and the language of the question>"]}. ' +
+    `"queries": ["<1 to ${MAX_QUERIES} short queries for a semantic search, each covering one aspect>"]}. ` +
     'If the new question only asks to rework earlier answers (e.g. summarise, make a table, translate), ' +
     'still give queries for its topic. No explanation, only the JSON object.';
   const conversation = opts.history.map((h) => h.role === 'user'
     ? `User: ${h.content}`
     : `Assistant: ${h.content.length > ANSWER_CHARS ? h.content.slice(0, ANSWER_CHARS) + ' […]' : h.content}`).join('\n\n');
   // "/no_think" switches off Qwen 3's reasoning; other models read it as noise.
-  const user = `Search scope: ${opts.scope}${opts.books ? ' (papers and books)' : ''}\n` +
+  const user = `Search scope: ${opts.scope}\n` +
     (conversation ? `Conversation so far:\n${conversation}\n\n` : '') +
     `New question: ${opts.question}\n/no_think`;
   return [
@@ -75,6 +71,5 @@ export function parsePlan(reply: string, question: string): SearchPlan {
     seen.add(k);
     return true;
   }).slice(0, MAX_QUERIES);
-  const keywords = parseKeywords(JSON.stringify(strings(json.keywords)));
-  return { question: standalone, queries: queries.length ? queries : [standalone], keywords, fromModel: true };
+  return { question: standalone, queries: queries.length ? queries : [standalone], fromModel: true };
 }

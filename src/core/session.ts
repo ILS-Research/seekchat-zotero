@@ -3,8 +3,8 @@
  * memory for the Zotero session, so switching items and coming back keeps the chat.
  *
  * Library chat: one answer per question from all sources. (1) A planning call
- * makes the question standalone and derives search queries and keywords,
- * (2) ZotSeek is searched and books are pre-read (each skippable), (3) all
+ * makes follow-ups standalone and derives queries for ZotSeek, (2) ZotSeek is
+ * searched and each book is asked like in the PDF chat (each skippable), (3) all
  * evidence is merged into numbered sources (stable across follow-ups, cited
  * sources carried over), (4) one streamed answer cites them as [n, S. x].
  */
@@ -28,14 +28,14 @@ import {
   type Evidence, type LibrarySource, type SourceNumbers,
 } from './library/sources';
 import { LibraryContextProvider } from './library/library-context';
-import { bookPages, MAX_BOOKS_READ, type BookPages, type BookTarget } from './library/books';
+import { MAX_BOOKS_READ, type BookTarget } from './library/books';
 import { buildExcerptMessages, parseExcerpts } from './library/book-excerpts';
 import { buildPlanMessages, fallbackPlan, parsePlan, type SearchPlan } from './library/plan';
 import { libraryKeyOf } from './library/zotero-items';
-import { buildTerms, selectPagesByTerms } from './context/page-selection';
+import { buildTerms, countMatchingPages, selectPagesByTerms } from './context/page-selection';
 import { getPdfPages } from './context/pdf-context';
 import { citedSourceNumbers } from './citations';
-import { ZotSeekUnavailableError } from './zotseek/client';
+import { diagnose, readEnvironment, ZotSeekUnavailableError } from './zotseek/client';
 import { readPrefs, type SeekChatPrefs } from '../prefs';
 import { resolveLimits } from './limits';
 import { newAbortController } from '../util/env';
@@ -68,7 +68,7 @@ export interface LlmRequestLog {
 
 export type { BookTarget };
 
-export type BookState = 'waiting' | 'scanning' | 'language' | 'keywords' | 'reading' | 'found' | 'none' | 'nohits' | 'skipped' | 'error' | 'limit';
+export type BookState = 'waiting' | 'language' | 'keywords' | 'reading' | 'found' | 'none' | 'nohits' | 'skipped' | 'error' | 'limit';
 
 export interface BookProgress {
   label: string;
@@ -78,14 +78,16 @@ export interface BookProgress {
   found?: number;
   /** State "error": message. */
   error?: string;
-  /** Detected document language, keywords of the book and the pages sent (like the PDF chat's meta line). */
+  /** Language of the book (UI name) and where it came from, its search terms and the pages sent (like the PDF chat's meta line). */
   language?: string;
+  languageSource?: LanguageSource;
   keywords?: string[];
   pages?: number[];
+  totalPages?: number;
 }
 
 /** Books in these states can still be skipped. */
-export const SKIPPABLE: BookState[] = ['waiting', 'scanning', 'language', 'keywords', 'reading'];
+export const SKIPPABLE: BookState[] = ['waiting', 'language', 'keywords', 'reading'];
 
 /** Strategies the user can pick for long documents; "vector" is not implemented yet. */
 export const IMPLEMENTED_STRATEGIES: LongDocStrategy[] = ['keywords', 'chapters'];
@@ -358,13 +360,13 @@ export class ChatSession {
     return Array.from(cited.values()).sort((a, b) => a.n - b.n);
   }
 
-  /** Step 1: standalone question, queries and keywords; the question itself if the model fails. */
+  /** Step 1: standalone question and ZotSeek queries; the question itself if the model fails. */
   private async planSearch(
-    client: LlmClient, prefs: SeekChatPrefs, question: string, history: HistoryTurn[], scope: string, books: boolean, signal: AbortSignal,
+    client: LlmClient, prefs: SeekChatPrefs, question: string, history: HistoryTurn[], scope: string, signal: AbortSignal,
   ): Promise<SearchPlan> {
     try {
       const reply = await client.streamChat(
-        { model: prefs.model, messages: buildPlanMessages({ question, history, scope, books }), temperature: 0.1, maxTokens: 768, numCtx: 8192, signal },
+        { model: prefs.model, messages: buildPlanMessages({ question, history, scope }), temperature: 0.1, maxTokens: 768, numCtx: 8192, signal },
         () => {},
       );
       return parsePlan(reply, question);
@@ -393,18 +395,21 @@ export class ChatSession {
     const notes: string[] = [];
     const scope = library.describe();
 
-    // 1. Planning: needed for follow-ups (standalone question) and books (keywords).
+    // Without ZotSeek's endpoint (and no books) there is nothing to plan for: fail before any model call.
+    const missing = opts.zotseek ? diagnose(readEnvironment()) : null;
+    if (missing && !opts.books.length) throw new ZotSeekUnavailableError(missing);
+
+    // 1. Planning: standalone question for follow-ups, queries for ZotSeek. Books make their own search terms.
     let plan = fallbackPlan(question);
-    if (history.length || opts.books.length) {
+    if (history.length || opts.zotseek) {
       status(t('meta.planning'));
       const client = this.recordingClient(base, answer, () => t('purpose.plan'));
-      plan = await this.planSearch(client, prefs, question, history, scope, opts.books.length > 0, ctrl.signal);
+      plan = await this.planSearch(client, prefs, question, history, scope, ctrl.signal);
       if (!plan.fromModel) {
         notes.push(t('meta.planFailed'));
       } else {
         if (plan.question !== question) notes.push(t('meta.understood', { question: plan.question }));
         if (opts.zotseek) notes.push(t('meta.queries', { queries: plan.queries.map((x) => `„${x}“`).join(', ') }));
-        if (opts.books.length) notes.push(plan.keywords.length ? t('meta.keywords', { keywords: plan.keywords.join(', ') }) : t('meta.noKeywords'));
       }
     }
 
@@ -484,9 +489,12 @@ export class ChatSession {
   }
 
   /**
-   * Books: keyword search in each (cheap, local), then the best ones with hits are
-   * pre-read by the model, two at a time. Each book has its own abort controller,
-   * so skipBook() cancels just that one. Returns one evidence list per book read.
+   * Books, each like in the PDF chat: language, search terms in that language
+   * (one model call per language and question, shared by the books), local
+   * keyword check (no hit: done, no model call), page selection as in the PDF chat,
+   * then the question answered from those pages. Two books at a time; each has its
+   * own abort controller, so skipBook() cancels just that one. At most
+   * MAX_BOOKS_READ books get the answering call. Returns one evidence list per book.
    */
   private async readBooks(
     answer: Turn,
@@ -497,53 +505,30 @@ export class ChatSession {
     ctrl: AbortController,
     status: (text: string) => void,
   ): Promise<Evidence[][]> {
-    const progress = answer.bookProgress!;
-    const terms = buildTerms(plan.question, plan.keywords);
-    const skipped = (i: number) => progress[i].state === 'skipped';
-    const scans: (BookPages | null)[] = books.map(() => null);
-    status(t('meta.scanningBooks'));
-    for (let i = 0; i < books.length && !ctrl.signal.aborted; i++) {
-      if (skipped(i)) continue;
-      progress[i].state = 'scanning';
-      this.notify();
-      try {
-        const scan = await bookPages(books[i], terms, prefs.contextChars);
-        if (skipped(i)) continue;
-        scans[i] = scan;
-        progress[i].state = scan.matchedPages ? 'waiting' : 'nohits';
-      } catch (e: any) {
-        if (!(e instanceof UserFacingError)) logError(e);
-        if (!skipped(i)) {
-          progress[i].state = 'error';
-          progress[i].error = String(e?.message || e);
-        }
-      }
-      this.notify();
-    }
-    const ranked = books.map((_, i) => i)
-      .filter((i) => !skipped(i) && (scans[i]?.matchedPages ?? 0) > 0)
-      .sort((a, b) => scans[b]!.matchedPages - scans[a]!.matchedPages);
-    for (const i of ranked.slice(MAX_BOOKS_READ)) progress[i].state = 'limit';
-    const queue = ranked.slice(0, MAX_BOOKS_READ);
+    const keywordsByLanguage = new Map<string, Promise<string[]>>();
     const results = new Map<number, Evidence[]>();
-    const total = queue.length;
+    const queue = books.map((_, i) => i);
+    let answering = 0;
     let done = 0;
-    status(t('meta.readingBooks', { done, n: total }));
+    status(t('meta.readingBooks', { done, n: books.length }));
     const worker = async () => {
       while (queue.length && !ctrl.signal.aborted) {
         const i = queue.shift()!;
-        if (!skipped(i)) results.set(i, await this.readBook(answer, i, books[i], scans[i]!, plan, base, prefs, ctrl));
+        if (answer.bookProgress![i].state !== 'skipped') {
+          results.set(i, await this.readBook(answer, i, books[i], plan, base, prefs, ctrl, keywordsByLanguage, () => answering++ < MAX_BOOKS_READ));
+        }
         done++;
-        status(t('meta.readingBooks', { done, n: total }));
+        status(t('meta.readingBooks', { done, n: books.length }));
       }
     };
     await Promise.all([worker(), worker()]);
-    return ranked.filter((i) => results.has(i)).map((i) => results.get(i)!);
+    return books.map((_, i) => results.get(i)).filter((r): r is Evidence[] => !!r?.length);
   }
 
   private async readBook(
-    answer: Turn, index: number, book: BookTarget, scan: BookPages, plan: SearchPlan,
+    answer: Turn, index: number, book: BookTarget, plan: SearchPlan,
     base: LlmClient, prefs: SeekChatPrefs, ctrl: AbortController,
+    keywordsByLanguage: Map<string, Promise<string[]>>, mayAnswer: () => boolean,
   ): Promise<Evidence[]> {
     const progress = answer.bookProgress![index];
     const bookCtrl = newAbortController();
@@ -551,38 +536,61 @@ export class ChatSession {
     const onAbort = () => bookCtrl.abort();
     ctrl.signal.addEventListener('abort', onAbort);
     const step = (state: BookState) => {
+      if (progress.state === 'skipped') throw new Error('skipped');
       progress.state = state;
       this.notify();
     };
     try {
-      // Like the PDF chat: document language, keywords in that language, page selection, then the question.
       const provider = new PdfContextProvider(book.attachment);
       let purpose = t('purpose.language');
       const client = this.recordingClient(base, answer, () => `${purpose} – ${book.label}`);
-      let pages = scan.pages;
-      let complete = pages.length === scan.totalPages;
-      let language: string | null = null;
-      if (!complete) {
-        step('language');
-        const { lang } = await this.resolveLanguage(provider, client, prefs, bookCtrl.signal);
-        language = lang ? lang.name : null;
-        progress.language = lang ? languageName(lang.code) : undefined;
-        step('keywords');
-        purpose = t('purpose.keywords');
-        const keywords = await this.expandKeywords(provider, client, prefs, plan.question, '', lang, bookCtrl.signal);
-        progress.keywords = keywords;
-        const all = await getPdfPages(book.attachment);
-        const selection = selectPagesByTerms(all, buildTerms(plan.question, [...keywords, ...plan.keywords]), prefs.contextChars);
-        pages = selection.pages;
-        complete = selection.mode === 'full';
+
+      // 1. Language of the book (metadata, else detected by the model; cached per book).
+      step('language');
+      const { lang, source } = await this.resolveLanguage(provider, client, prefs, bookCtrl.signal);
+      progress.language = lang ? languageName(lang.code) : undefined;
+      progress.languageSource = source ?? undefined;
+
+      // 2. Search terms in that language, shared by all books of the same language in this question.
+      step('keywords');
+      purpose = t('purpose.keywords');
+      const langKey = lang?.code || '?';
+      let pending = keywordsByLanguage.get(langKey);
+      if (!pending) {
+        pending = this.expandKeywords(provider, client, prefs, plan.question, '', lang, bookCtrl.signal);
+        keywordsByLanguage.set(langKey, pending);
+        // A skipped book must not leave its books-mates without search terms.
+        pending.catch(() => keywordsByLanguage.delete(langKey));
       }
-      progress.pages = pages.map((p) => p.pageNumber);
+      const keywords = await pending;
+      progress.keywords = keywords;
+      this.notify();
+
+      // 3. Keyword check and page selection as in the PDF chat (whole book if it fits).
+      const all = await getPdfPages(book.attachment);
+      const terms = buildTerms(plan.question, keywords);
+      if (!countMatchingPages(all, terms)) {
+        step('nohits');
+        return [];
+      }
+      if (!mayAnswer()) {
+        step('limit');
+        return [];
+      }
+      const selection = selectPagesByTerms(all, terms, prefs.contextChars);
+      progress.pages = selection.pages.map((p) => p.pageNumber);
+      progress.totalPages = all.length;
+
+      // 4. The question, answered from these pages.
       step('reading');
       purpose = t('purpose.bookAnswer');
       const reply = await client.streamChat(
         {
           model: prefs.model,
-          messages: buildExcerptMessages({ question: plan.question, book: book.label, pages, totalPages: scan.totalPages, language, complete }),
+          messages: buildExcerptMessages({
+            question: plan.question, book: book.label, pages: selection.pages, totalPages: all.length,
+            language: lang?.name ?? null, complete: selection.mode === 'full',
+          }),
           temperature: 0.1,
           maxTokens: Math.min(prefs.maxTokens, 4096),
           numCtx: prefs.numCtx,
@@ -590,8 +598,8 @@ export class ChatSession {
         },
         () => {},
       );
-      const excerpts = parseExcerpts(reply, pages.map((p) => p.pageNumber));
-      progress.state = excerpts.length ? 'found' : 'none';
+      const excerpts = parseExcerpts(reply, progress.pages);
+      step(excerpts.length ? 'found' : 'none');
       progress.found = excerpts.length;
       const item = book.attachment.parentItem || book.attachment;
       return excerpts.map((e) => ({
@@ -599,7 +607,7 @@ export class ChatSession {
         attachmentID: book.attachment.id, text: e.text, page: e.page,
       }));
     } catch (e: any) {
-      if (bookCtrl.signal.aborted) {
+      if (bookCtrl.signal.aborted || progress.state === 'skipped') {
         progress.state = 'skipped';
       } else {
         if (!(e instanceof UserFacingError)) logError(e);
