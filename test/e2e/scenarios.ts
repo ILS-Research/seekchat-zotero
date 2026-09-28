@@ -11,6 +11,7 @@ import { getSession } from '../../src/core/session';
 import { setPref } from '../../src/prefs';
 import { getRegisteredPaneID } from '../../src/ui/chat-section';
 import { createClient } from '../../src/core/llm';
+import { getZotSeekStatus, searchPassages, ZotSeekUnavailableError } from '../../src/core/zotseek/client';
 import { assert, screenshot, SkipError, waitFor, type E2EContext } from './harness';
 
 type Scenario = [string, (ctx: E2EContext) => Promise<void>];
@@ -330,6 +331,66 @@ export const scenarios: Scenario[] = [
     assert(sent.includes(27), `page 27 not sent: ${sent}`);
     assert(sent.every((p) => p >= 20 && p <= 35), `pages outside the chapter: ${sent}`);
     session.clear();
+  }],
+
+  ['ZotSeek missing: library search is unavailable, nothing else depends on it', async () => {
+    assert(!(Zotero as any).ZotSeek, 'ZotSeek unexpectedly installed in the E2E profile');
+    const status = await getZotSeekStatus();
+    assert(!status.available && status.reason === 'not-installed', `unexpected status: ${JSON.stringify(status)}`);
+    let err: any = null;
+    await searchPassages('Stadtklima').catch((e) => { err = e; });
+    assert(err instanceof ZotSeekUnavailableError && err.reason === 'not-installed', `unexpected error: ${err}`);
+  }],
+
+  ['ZotSeek REST: passages come through Zotero\'s local server', async () => {
+    const server = (Zotero as any).Server;
+    assert(server?.port, 'Zotero HTTP server not running');
+    // Stand-in for ZotSeek: same paths and response shapes as its REST endpoints.
+    const seen: any[] = [];
+    const endpoint = (payload: (sp: URLSearchParams) => any) => {
+      const E: any = function () {};
+      E.prototype = {
+        supportedMethods: ['GET'],
+        supportedDataTypes: ['application/json'],
+        permitBookmarklet: false,
+        init: async (req: any) => {
+          seen.push(Object.fromEntries(req.searchParams));
+          return [200, 'application/json', JSON.stringify(payload(req.searchParams))];
+        },
+      };
+      return E;
+    };
+    let indexed = 0;
+    (Zotero as any).ZotSeek = { fake: true };
+    try {
+      server.Endpoints['/zotseek/stats'] = endpoint(() => ({ ready: indexed > 0, indexedPapers: indexed, totalChunks: indexed * 10 }));
+      let status = await getZotSeekStatus();
+      assert(!status.available && status.reason === 'endpoint-off', `without search endpoint: ${JSON.stringify(status)}`);
+
+      server.Endpoints['/zotseek/search'] = endpoint((sp) => ({
+        results: [{
+          itemKey: 'ABCD1234', libraryKey: 'user', title: 'Stadtklima', authors: ['Muster'], year: 2021, score: 0.03,
+          semanticScore: 0.71, keywordScore: null, source: 'semantic',
+          matchedChunk: { snippet: `Treffer zu ${sp.get('q')}`, page: 27, textSource: 'pdf' },
+        }],
+      }));
+      status = await getZotSeekStatus();
+      assert(!status.available && status.reason === 'no-index', `empty index: ${JSON.stringify(status)}`);
+
+      indexed = 3;
+      status = await getZotSeekStatus();
+      assert(status.available && status.stats.indexedPapers === 3, `indexed: ${JSON.stringify(status)}`);
+
+      const passages = await searchPassages('Hitze in Städten', { topK: 15, libraryKey: 'user' });
+      assert(passages.length === 1 && passages[0].text === 'Treffer zu Hitze in Städten' && passages[0].page === 27,
+        `unexpected passages: ${JSON.stringify(passages)}`);
+      const q = seen[seen.length - 1];
+      assert(q.granularity === 'passages' && q.topK === '15' && q.libraryKey === 'user', `unexpected query: ${JSON.stringify(q)}`);
+    } finally {
+      delete server.Endpoints['/zotseek/search'];
+      delete server.Endpoints['/zotseek/stats'];
+      delete (Zotero as any).ZotSeek;
+    }
   }],
 
   // Optional: real PDFs from test/assets (mounted read-only, not part of the image).

@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- ZotSeek client (groundwork for the library chat, no UI yet): status check (plugin, local HTTP server,
+  "AI Agent Access", index) with German hints, passage search over `/zotseek/search`. Deliberately no
+  fallback; SeekChat keeps working without ZotSeek (PDF chat only).
+
 ## 0.4.0 – 2026-09-28
 
 - Long documents: strategy "Nur in ausgewählten Kapiteln suchen" works. Chapters are ticked in the

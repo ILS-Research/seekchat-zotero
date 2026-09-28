@@ -39,6 +39,7 @@ they use `docker` or fall back to `sudo docker`, and run containers with the cal
 | `src/core/llm/` | `OllamaClient` (`/api/chat`, sets `num_ctx`), `OpenAiClient` (`/chat/completions`), stream parsers, HTTP with host check and `redirect: 'error'` |
 | `src/core/context/` | `ContextProvider` interface; `pdf-context.ts` (PDF worker text, split on `\f`), `page-selection.ts` (full text or page 1 + BM25 pages) |
 | `src/core/prompt.ts`, `citations.ts` | Messages (system prompt + document), `[S. N]` citation parsing |
+| `src/core/zotseek/client.ts` | ZotSeek REST (`/zotseek/search`, `/zotseek/stats`) on Zotero's local server: status/diagnosis, passage search. No fallback: without the endpoint there is no library chat |
 | `src/core/session.ts` | One `ChatSession` per provider key, streaming, abort; in memory only |
 | `src/ui/chat-section.ts` | Item pane section via `Zotero.ItemPaneManager.registerSection` (library + reader context pane) |
 | `src/ui/preferences.ts`, `content/preferences.xhtml` | Settings pane (fields wired manually, not via `preference=` binding) |
@@ -51,6 +52,12 @@ session, prompt and UI stay. The ZotSeek integration should use its REST `/zotse
 (`granularity=passages`, text in `matchedChunk.snippet`), see `../ideas-zotseek.md`.
 
 ## Pitfalls (learned the hard way)
+
+- **SeekChat must work without ZotSeek** (PDF chat only). Nothing outside `src/core/zotseek/` may assume ZotSeek;
+  never fall back to other search paths (`api.search()` etc.) when `/zotseek/search` is unavailable.
+- Requests to Zotero's local server (`127.0.0.1:<Zotero.Server.port>`) need the header `Zotero-Allowed-Request`,
+  since our fetch carries a browser user agent. E2E tests stand in for ZotSeek by registering
+  `Zotero.Server.Endpoints[...]` directly.
 
 - **`Zotero.Prefs.get/set(key, true)` means "global": no `extensions.zotero.` prefix.** Use the
   default (no second argument) so keys match `prefs.js` and `user.js`. ZotSeek upstream uses
