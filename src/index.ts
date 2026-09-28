@@ -6,6 +6,10 @@ import { clearPageCache } from './core/context/pdf-context';
 import { stopAllSessions } from './core/session';
 import { registerChatSection, unregisterChatSection } from './ui/chat-section';
 import { onPrefsLoad } from './ui/preferences';
+import {
+  closeLibraryChat, onLibraryWindowLoad, onLibraryWindowUnload, openLibraryChat, setPrefsPaneID,
+} from './ui/library-window';
+import { addToolbarButton, removeToolbarButton } from './ui/toolbar-button';
 import { log, logError } from './util/log';
 
 const FTL = 'seekchat-main.ftl';
@@ -14,17 +18,21 @@ const CSS_ID = 'seekchat-stylesheet';
 class SeekChatPlugin {
   info = { id: '', version: '', rootURI: '' };
   onPrefsLoad = onPrefsLoad;
+  onLibraryWindowLoad = onLibraryWindowLoad;
+  onLibraryWindowUnload = onLibraryWindowUnload;
+  openLibraryChat = openLibraryChat;
 
   async startup(info: { id: string; version: string; rootURI: string }): Promise<void> {
     this.info = info;
     for (const win of Zotero.getMainWindows()) this.onMainWindowLoad(win);
     registerChatSection(info);
-    Zotero.PreferencePanes.register({
+    const paneID = Zotero.PreferencePanes.register({
       pluginID: info.id,
       src: `${info.rootURI}content/preferences.xhtml`,
       label: 'SeekChat',
       image: `${info.rootURI}content/icons/seekchat.svg`,
     });
+    Promise.resolve(paneID).then((id: any) => setPrefsPaneID(typeof id === 'string' ? id : null)).catch(logError);
     log(`started ${info.version}`);
   }
 
@@ -38,17 +46,20 @@ class SeekChatPlugin {
         link.href = 'chrome://seekchat/content/chat.css';
         win.document.documentElement.appendChild(link);
       }
+      addToolbarButton(win);
     } catch (e) {
       logError(e);
     }
   }
 
   onMainWindowUnload(win: any): void {
+    removeToolbarButton(win);
     win.document.getElementById(CSS_ID)?.remove();
     win.document.querySelector(`link[href="${FTL}"]`)?.remove();
   }
 
   shutdown(): void {
+    closeLibraryChat();
     stopAllSessions();
     unregisterChatSection();
     clearPageCache();

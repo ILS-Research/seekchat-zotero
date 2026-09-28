@@ -1,0 +1,21 @@
+/* Library chat window, laid out like ZotSeek's search window: label rows on top,
+   a framed main area, input below it, settings left and actions right at the bottom. */
+#seekchat-library-window { background: var(--material-background, -moz-dialog); }
+.seekchat-library {
+  display: flex; flex-direction: column; gap: 8px; flex: 1;
+  height: 100vh; box-sizing: border-box; padding: 10px; font-size: 13px;
+}
+.seekchat-library-row { display: flex; align-items: center; gap: 8px; }
+.seekchat-library-label { min-width: 70px; color: var(--fill-secondary); }
+.seekchat-library-scope { font-weight: 600; overflow-wrap: anywhere; }
+.seekchat-library-status { font-size: 11px; color: var(--fill-secondary); }
+.seekchat-library-status.unavailable { color: var(--accent-red, #c62828); font-size: 12px; }
+.seekchat-library .seekchat-messages {
+  flex: 1; max-height: none; min-height: 120px; overflow-y: auto; padding: 8px;
+  border: 1px solid var(--fill-quinary); border-radius: 4px; background: var(--material-sidepane, Field);
+}
+.seekchat-library .seekchat-messages:empty { display: flex; }
+.seekchat-library-empty { color: var(--fill-secondary); margin: auto; text-align: center; max-width: 60ch; }
+.seekchat-library .seekchat-input { min-height: 4em; }
+.seekchat-library-footer { display: flex; align-items: center; gap: 8px; }
+.seekchat-library-footer .spacer { flex: 1; }

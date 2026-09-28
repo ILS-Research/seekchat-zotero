@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?xml-stylesheet href="chrome://global/skin/" type="text/css"?>
+<?xml-stylesheet href="chrome://zotero/skin/zotero.css" type="text/css"?>
+<?xml-stylesheet href="chrome://zotero-platform/content/zotero.css" type="text/css"?>
+<?xml-stylesheet href="chrome://seekchat/content/chat.css" type="text/css"?>
+<?xml-stylesheet href="chrome://seekchat/content/libraryChat.css" type="text/css"?>
+<!DOCTYPE window>
+<!-- Library chat window, laid out like ZotSeek's search window. The content is
+     built by the plugin (Zotero.SeekChat.onLibraryWindowLoad), so it shares
+     sessions and rendering with the PDF chat. -->
+<window
+  xmlns="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul"
+  xmlns:html="http://www.w3.org/1999/xhtml"
+  id="seekchat-library-window"
+  windowtype="seekchat:library"
+  title="SeekChat"
+  width="900"
+  height="650"
+  persist="width,height,screenX,screenY">
+
+  <script src="chrome://zotero/content/include.js"></script>
+  <script>
+    window.addEventListener('load', () => Zotero.SeekChat.onLibraryWindowLoad(window), { once: true });
+    window.addEventListener('unload', () => Zotero.SeekChat?.onLibraryWindowUnload(window), { once: true });
+  </script>
+
+  <html:div id="seekchat-library-root" class="seekchat-library"/>
+</window>

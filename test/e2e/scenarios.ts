@@ -14,6 +14,8 @@ import { createClient } from '../../src/core/llm';
 import { getZotSeekStatus, searchPassages, ZotSeekUnavailableError } from '../../src/core/zotseek/client';
 import { collectionScope, itemsScope, libraryScope, LibraryContextProvider } from '../../src/core/library/library-context';
 import { openSourceCitation } from '../../src/core/library/zotero-items';
+import { getLibraryChatWindow } from '../../src/ui/library-window';
+import { getToolbarButton } from '../../src/ui/toolbar-button';
 import { splitSourceCitations } from '../../src/core/citations';
 import { assert, screenshot, SkipError, waitFor, type E2EContext } from './harness';
 
@@ -77,7 +79,17 @@ function installZotSeek(opts: { indexed?: number; search?: boolean; results?: an
     setSearch(fn: (sp: URLSearchParams) => any[]) {
       server.Endpoints['/zotseek/search'] = endpoint((sp) => ({ results: fn(sp) }));
     },
+    /** ZotSeek's toolbar button (same id and place), which our button sits next to. */
+    addButton() {
+      const doc = Zotero.getMainWindow().document;
+      if (doc.getElementById('zotseek-toolbar-button')) return;
+      const btn = doc.createXULElement('toolbarbutton');
+      btn.id = 'zotseek-toolbar-button';
+      btn.setAttribute('class', 'zotero-tb-button');
+      doc.getElementById('zotero-tb-search')?.before(btn);
+    },
     uninstall() {
+      Zotero.getMainWindow().document.getElementById('zotseek-toolbar-button')?.remove();
       delete server.Endpoints['/zotseek/search'];
       delete server.Endpoints['/zotseek/stats'];
       delete (Zotero as any).ZotSeek;
@@ -526,6 +538,87 @@ export const scenarios: Scenario[] = [
       zs.uninstall();
     }
     session.clear();
+  }],
+
+  ['library window: the button appears only next to ZotSeek\'s', async () => {
+    const doc = Zotero.getMainWindow().document;
+    assert(!getToolbarButton(), 'SeekChat button shown without ZotSeek');
+    const zs = installZotSeek();
+    try {
+      zs.addButton();
+      const ours = await waitFor('SeekChat button', () => getToolbarButton(), 5000);
+      assert(ours.previousElementSibling?.id === 'zotseek-toolbar-button', `placed after ${ours.previousElementSibling?.id}`);
+      doc.getElementById('zotseek-toolbar-button').remove();
+      await waitFor('SeekChat button removed', () => !getToolbarButton(), 5000);
+    } finally {
+      zs.uninstall();
+    }
+  }],
+
+  ['library window: opens with the selection as scope, answers and follows citations', async (ctx) => {
+    const win = Zotero.getMainWindow();
+    const a = Zotero.Items.get(ctx.parentID);
+    const b = Zotero.Items.get(ctx.longParentID);
+    const zs = installZotSeek({
+      results: [
+        passage(a.key, 'SeekChat E2E Testdokument', 2, 'Starkregenereignisse fuehren in Staedten zu Ueberflutungen.'),
+        passage(b.key, 'SeekChat E2E Langes Buch', 27, 'Waermeinseln in dicht bebauten Quartieren erhoehen die naechtlichen Temperaturen.'),
+      ],
+    });
+    try {
+      zs.addButton();
+      win.Zotero_Tabs.select('zotero-pane');
+      await win.ZoteroPane.collectionsView.selectLibrary(Zotero.Libraries.userLibraryID);
+      await win.ZoteroPane.selectItems([a.id, b.id]);
+      const button = await waitFor('SeekChat button', () => getToolbarButton(), 5000);
+      button.doCommand();
+      const cw = await waitFor('chat window loaded', () => {
+        const w = getLibraryChatWindow();
+        return w?.document?.querySelector('.seekchat-library-row') ? w : null;
+      }, 15000);
+      const doc = cw.document;
+      assert(doc.querySelector('.seekchat-library-scope')?.textContent === '2 ausgewählte Einträge',
+        `scope: ${doc.querySelector('.seekchat-library-scope')?.textContent}`);
+      await waitFor('ZotSeek status', () => doc.querySelector('.seekchat-library-status')?.textContent?.includes('5 Einträge indexiert'), 5000);
+      const input = await waitFor('input enabled', () => {
+        const t = doc.querySelector('textarea.seekchat-input') as HTMLTextAreaElement | null;
+        return t && !t.disabled ? t : null;
+      }, 5000);
+      input.value = 'Was sagen die beiden zu Starkregen und Hitze?';
+      input.dispatchEvent(new cw.KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+      const answer = await waitFor('answer with source citations', () => {
+        const msgs = doc.querySelectorAll('.seekchat-msg.assistant');
+        const last = msgs[msgs.length - 1];
+        return last?.querySelectorAll('.seekchat-cite').length === 3 && !doc.querySelector('.seekchat-msg.assistant .seekchat-cite:empty') ? last : null;
+      }, 20000);
+      await screenshot(ctx, 'library-window', cw);
+      await screenshot(ctx, 'library-toolbar');
+      const cite = answer.querySelectorAll('.seekchat-cite')[1] as HTMLElement;
+      assert(cite.textContent === '[2, S. 27]', `second citation: ${cite.textContent}`);
+      cite.click();
+      await waitFor('long PDF on page 27', () => ctx.longAttachment.getAttachmentLastPageIndex() === 26, 10000);
+
+      // Opening again with a different selection switches the scope in the same window.
+      win.Zotero_Tabs.select('zotero-pane');
+      await win.ZoteroPane.selectItems([a.id]);
+      button.doCommand();
+      await waitFor('library scope', () => doc.querySelector('.seekchat-library-scope')?.textContent?.startsWith('Bibliothek „'), 5000);
+      assert(getLibraryChatWindow() === cw, 'a second window was opened');
+    } finally {
+      zs.uninstall();
+    }
+  }],
+
+  ['library window: without the ZotSeek endpoint it shows why and takes no questions', async () => {
+    const cw = getLibraryChatWindow();
+    assert(cw, 'chat window not open');
+    const doc = cw.document;
+    // ZotSeek gone while the window is open: re-checked when the window is (re)opened.
+    Zotero.SeekChat.openLibraryChat();
+    await waitFor('unavailable status', () => doc.querySelector('.seekchat-library-status.unavailable')?.textContent?.includes('braucht das Plugin ZotSeek'), 5000);
+    assert((doc.querySelector('textarea.seekchat-input') as HTMLTextAreaElement).disabled, 'input enabled without ZotSeek');
+    cw.close();
+    await waitFor('window closed', () => !getLibraryChatWindow(), 5000);
   }],
 
   // Optional: real PDFs from test/assets (mounted read-only, not part of the image).

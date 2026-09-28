@@ -35,9 +35,8 @@ export function assert(cond: unknown, msg: string): asserts cond {
 }
 
 /** PNG of the main window, for debugging failed UI steps. Best effort. */
-export async function screenshot(ctx: E2EContext, name: string): Promise<void> {
+export async function screenshot(ctx: E2EContext, name: string, win: any = Zotero.getMainWindow()): Promise<void> {
   try {
-    const win = Zotero.getMainWindow();
     const canvas = win.document.createElementNS('http://www.w3.org/1999/xhtml', 'canvas');
     canvas.width = win.innerWidth;
     canvas.height = win.innerHeight;
@@ -45,7 +44,7 @@ export async function screenshot(ctx: E2EContext, name: string): Promise<void> {
     g.drawWindow(win, 0, 0, canvas.width, canvas.height, 'rgb(255,255,255)');
     const b64 = canvas.toDataURL('image/png').split(',')[1];
     const bytes = Uint8Array.from(win.atob(b64), (c: string) => c.charCodeAt(0));
-    await win.IOUtils.write(`${ctx.outDir}/screenshot-${name}.png`, bytes);
+    await Zotero.getMainWindow().IOUtils.write(`${ctx.outDir}/screenshot-${name}.png`, bytes);
   } catch (e) {
     Zotero.debug(`[SeekChat E2E] screenshot ${name} failed: ${e}`);
   }

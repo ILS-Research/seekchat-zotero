@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- Library chat window, laid out like ZotSeek's search window, opened from a speech-bubble button right
+  next to ZotSeek's toolbar button (shown only while ZotSeek's button exists). Scope follows the Zotero
+  selection (several items, else collection, else library); source citations open the PDF page or item.
+  Without a usable ZotSeek the window says why and takes no questions.
+
 ## 0.4.1 – 2026-09-28
 
 Groundwork for the library chat; no visible change yet (the UI follows in 0.5.0).

@@ -3,10 +3,10 @@
  * (for a selected item with a PDF, or the PDF itself) and in the reader's
  * context pane (for the open PDF).
  */
-import { splitCitations } from '../core/citations';
 import { describeItem, PdfContextProvider } from '../core/context/pdf-context';
 import { getSession, type ChatSession } from '../core/session';
 import { LongDocPanel } from './long-doc-panel';
+import { renderTurn } from './turn-view';
 import { readPrefs } from '../prefs';
 import { logError } from '../util/log';
 
@@ -130,40 +130,10 @@ class ChatView {
     this.hintEl.textContent = prefs.model ? `Modell: ${prefs.model}` : 'Kein Modell gewählt – siehe Einstellungen → SeekChat';
 
     const atBottom = this.messages.scrollHeight - this.messages.scrollTop - this.messages.clientHeight < 40;
-    this.messages.replaceChildren(...(s?.turns || []).map((t) => this.renderTurn(t)));
+    const attachmentID = this.attachment?.id;
+    const onPage = (page: number) => Zotero.Reader.open(attachmentID, { pageIndex: page - 1 }).catch(logError);
+    this.messages.replaceChildren(...(s?.turns || []).map((t) => renderTurn(this.doc, t, { onPage })));
     if (atBottom || s?.busy) this.messages.scrollTop = this.messages.scrollHeight;
-  }
-
-  private renderTurn(t: ChatSession['turns'][number]): HTMLElement {
-    const box = this.el('div', `seekchat-msg ${t.role}${t.error ? ' error' : ''}`);
-    if (t.role === 'user' || t.error) {
-      box.textContent = t.content;
-      return box;
-    }
-    if (t.meta) {
-      const meta = this.el('span', 'seekchat-meta');
-      meta.textContent = t.meta;
-      box.append(meta);
-    }
-    if (t.pending && !t.content) {
-      box.append(this.doc.createTextNode(t.meta ? '…' : 'Lese PDF …'));
-      return box;
-    }
-    for (const seg of splitCitations(t.content)) {
-      if (seg.type === 'text') {
-        box.append(this.doc.createTextNode(seg.text));
-      } else {
-        const a = this.el('span', 'seekchat-cite');
-        a.textContent = seg.text;
-        a.title = `Seite ${seg.page} im PDF öffnen`;
-        const attachmentID = this.attachment?.id;
-        a.addEventListener('click', () => {
-          Zotero.Reader.open(attachmentID, { pageIndex: seg.page - 1 }).catch(logError);
-        });
-        box.append(a);
-      }
-    }
-    return box;
   }
 
   dispose(): void {
