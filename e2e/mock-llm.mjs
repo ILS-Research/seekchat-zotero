@@ -45,7 +45,11 @@ const server = http.createServer(async (req, res) => {
       const q = (question.match(/New question: (.*)/) || [])[1] || '';
       const words = q.split(/[^\p{L}]+/u).filter((w) => w.length >= 4);
       const keywords = q.includes('Vulkane') ? words : [...words, 'Waermeinseln'];
-      return stream(res, JSON.stringify({ question: q, queries: [q], keywords }));
+      const plan = { question: q, queries: [q], keywords };
+      // Follow-up about a page of source [1]: ask to load it (7e-2).
+      const page = q.match(/Seite (\d+) von \[1\]/);
+      if (page && system.includes('load_pages')) plan.load_pages = [{ source: 1, pages: page[1] }];
+      return stream(res, JSON.stringify(plan));
     }
     // Pre-reading a book: nothing for "Vulkane", else the first page sent; slow for "Hitze" (skip/stop tests).
     if (system.includes('answer a question from one book')) {

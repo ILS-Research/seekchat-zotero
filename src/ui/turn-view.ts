@@ -96,7 +96,16 @@ function sourceList(doc: Document, sources: LibrarySource[], cited: Set<number>,
   return box;
 }
 
-export function renderTurn(doc: Document, turn: Turn, handlers: CitationHandlers, pendingText = t('pdf.reading')): HTMLElement {
+/** One turn; an answer with a SeekChat notice comes as a fragment: the answer, then the notice as its own message. */
+export function renderTurn(doc: Document, turn: Turn, handlers: CitationHandlers, pendingText = t('pdf.reading')): Node {
+  const box = renderMessage(doc, turn, handlers, pendingText);
+  if (!turn.notice || turn.pending) return box;
+  const frag = doc.createDocumentFragment();
+  frag.append(box, el(doc, 'div', 'seekchat-msg assistant notice', turn.notice));
+  return frag;
+}
+
+function renderMessage(doc: Document, turn: Turn, handlers: CitationHandlers, pendingText: string): HTMLElement {
   const box = el(doc, 'div', `seekchat-msg ${turn.role}${turn.error ? ' error' : ''}`);
   if (turn.role === 'user') {
     box.append(doc.createTextNode(turn.content));

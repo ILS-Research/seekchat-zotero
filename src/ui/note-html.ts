@@ -62,6 +62,7 @@ export function chatToNoteHtml(turns: Turn[], info: ExportInfo, links: NoteLinks
       });
       out.push(`<p>${escapeHtml(t('export.sources'))}</p>`, `<ol>${items.join('')}</ol>`);
     }
+    if (turn.notice) out.push(`<p><em>${escapeHtml(turn.notice)}</em></p>`);
   }
   return `<div data-schema-version="9">${out.join('\n')}</div>`;
 }

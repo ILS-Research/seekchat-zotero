@@ -169,11 +169,11 @@ async function askThroughUi(section: Element, question: string): Promise<Element
     const t = section.querySelector('textarea.seekchat-input') as HTMLTextAreaElement | null;
     return t && !t.disabled ? t : null;
   });
-  const before = section.querySelectorAll('.seekchat-msg.assistant').length;
+  const before = section.querySelectorAll('.seekchat-msg.assistant:not(.notice)').length;
   textarea.value = question;
   textarea.dispatchEvent(new (doc.defaultView as any).KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
   return waitFor('assistant answer with citation', () => {
-    const answers = section.querySelectorAll('.seekchat-msg.assistant');
+    const answers = section.querySelectorAll('.seekchat-msg.assistant:not(.notice)');
     const last = answers[answers.length - 1];
     return answers.length > before && last?.querySelector('.seekchat-cite') ? last : null;
   }, 20000);
@@ -618,7 +618,7 @@ export const scenarios: Scenario[] = [
       input.value = 'Was sagen die beiden zu Starkregen und Hitze?';
       input.dispatchEvent(new cw.KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
       const answer = await waitFor('answer with source citations', () => {
-        const msgs = doc.querySelectorAll('.seekchat-msg.assistant');
+        const msgs = doc.querySelectorAll('.seekchat-msg.assistant:not(.notice)');
         const last = msgs[msgs.length - 1];
         return last?.querySelectorAll('.seekchat-md .seekchat-cite').length === 3 ? last : null;
       }, 20000);
@@ -665,7 +665,7 @@ export const scenarios: Scenario[] = [
       assert(idx >= 0, `selection not offered: ${Array.from(select.options).map((o) => o.textContent)}`);
       select.selectedIndex = idx;
       select.dispatchEvent(new cw.Event('change'));
-      await waitFor('earlier chat back', () => scopeText() === '2 ausgewählte Einträge' && doc.querySelectorAll('.seekchat-msg.assistant').length === 1, 5000);
+      await waitFor('earlier chat back', () => scopeText() === '2 ausgewählte Einträge' && doc.querySelectorAll('.seekchat-msg.assistant:not(.notice)').length === 1, 5000);
       assert(getLibraryChatWindow() === cw, 'a second window was opened');
     } finally {
       zs.uninstall();
@@ -854,6 +854,18 @@ export const scenarios: Scenario[] = [
       && systems[systems.length - 2].includes('answer a question from one book') && last.includes('<sources>') && last.includes('(book)'), `requests: ${systems.map((x: string) => x.slice(0, 60)).join(' | ')}`);
     await waitFor('book list and source marked as book', () => doc.querySelector('.seekchat-books-progress li.state-found')
       && doc.querySelector('.seekchat-sources-list li')?.textContent?.includes('📖'), 5000);
+
+    // SeekChat's hint after the first answer, then a follow-up that loads a page of source [1] (7e-2).
+    assert(t.notice?.includes('bestimmten Seiten'), `notice: ${t.notice}`);
+    await waitFor('notice shown', () => doc.querySelector('.seekchat-msg.notice')?.textContent?.includes('S. 45'), 5000);
+    const beforeLoad = (await mockRequests()).length;
+    t = await ask('Was steht genau auf Seite 2 von [1]?');
+    assert(!t.error && t.meta?.includes('Nachgeladen: [1] S. 2 (ganze Seiten)') && !t.notice, `load: ${t.meta} / ${t.content}`);
+    const loadReqs = (await mockRequests()).slice(beforeLoad);
+    assert(loadReqs[0].messages[0].content.includes('load_pages') && loadReqs[0].messages[1].content.includes('(book)'),
+      `plan request: ${loadReqs[0].messages[1].content.slice(0, 300)}`);
+    const lastSystem: string = loadReqs[loadReqs.length - 1].messages[0].content;
+    assert(lastSystem.includes('S. 2, whole page') && lastSystem.includes('loaded in full'), `answer prompt: ${lastSystem.slice(0, 500)}`);
 
     // No keyword hits: the book is not read; the source cited before is carried into the answer.
     t = await ask('Was steht zu Vulkane?');

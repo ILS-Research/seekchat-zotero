@@ -63,6 +63,7 @@ export function chatToMarkdown(turns: Turn[], info: ExportInfo): string {
       }
     }
     if (turn.requests?.length) out.push('', ...requestsToMarkdown(turn.requests));
+    if (turn.notice) out.push('', `*${turn.notice}*`);
   }
   return out.join('\n').trimEnd() + '\n';
 }

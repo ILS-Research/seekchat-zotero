@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { buildSources, formatSources, interleave, type Evidence } from '../src/core/library/sources';
-import { buildPlanMessages, parsePlan } from '../src/core/library/plan';
+import { buildPlanMessages, parsePageSpec, parsePlan } from '../src/core/library/plan';
 import { buildExcerptMessages, parseExcerpts } from '../src/core/library/book-excerpts';
 import { citedSourceNumbers, splitSourceCitations } from '../src/core/citations';
 import { buildMessages, describeContext } from '../src/core/prompt';
@@ -101,4 +101,23 @@ test('book excerpts: page markers split the reply, unknown pages dropped, no-mat
   const msgs = buildExcerptMessages({ question: 'q', book: 'B', pages: [{ pageNumber: 12, text: 'T' }], totalPages: 40 });
   assert.match(msgs[0].content, /\[Page 12\]\nT/);
   assert.match(msgs[0].content, /NO RELEVANT CONTENT/);
+});
+
+test('7e-2: page specs and load requests; only known sources, capped', () => {
+  assert.deepEqual(parsePageSpec('10-12, 14'), [10, 11, 12, 14]);
+  assert.deepEqual(parsePageSpec('45'), [45]);
+  assert.deepEqual(parsePageSpec([3, '5–6']), [3, 5, 6]);
+  assert.equal(parsePageSpec('1-500').length, 10);
+  const reply = JSON.stringify({
+    question: 'Was steht auf S. 45 im Buch?', queries: ['x'],
+    load_pages: [{ source: 1, pages: '45' }, { source: 9, pages: '1' }, { source: 2, pages: 'keine' }],
+    load_documents: [{ source: 2, query: 'Methoden' }, { title: 'Muster 2021' }, { title: '' }],
+  });
+  const plan = parsePlan(reply, 'q', new Set([1, 2]));
+  assert.deepEqual(plan.loadPages, [{ source: 1, pages: [45] }]);
+  assert.deepEqual(plan.loadDocuments, [{ source: 2, query: 'Methoden' }, { title: 'Muster 2021', query: 'Was steht auf S. 45 im Buch?' }]);
+  assert.equal(parsePlan(reply, 'q').loadPages, undefined, 'first question: no loading');
+  const msgs = buildPlanMessages({ question: 'q', history: [{ role: 'user', content: 'a' }], scope: 'S', sources: [{ n: 1, label: 'JIRA', book: true }] });
+  assert.match(msgs[1].content, /Sources so far:\n\[1\] JIRA \(book\)/);
+  assert.match(msgs[0].content, /load_pages/);
 });

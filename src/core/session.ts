@@ -10,7 +10,7 @@
  */
 import { createClient } from './llm';
 import { stripThinking } from './llm/stream-parsers';
-import { buildMessages, describeContext, type HistoryTurn } from './prompt';
+import { buildMessages, compressRanges, describeContext, type HistoryTurn } from './prompt';
 import { languageName, t, tn } from '../i18n';
 import { UserFacingError } from './errors';
 import { PdfContextProvider } from './context/pdf-context';
@@ -31,7 +31,7 @@ import { LibraryContextProvider } from './library/library-context';
 import { MAX_BOOKS_READ, type BookTarget } from './library/books';
 import { buildExcerptMessages, parseExcerpts } from './library/book-excerpts';
 import { buildPlanMessages, fallbackPlan, parsePlan, type SearchPlan } from './library/plan';
-import { libraryKeyOf } from './library/zotero-items';
+import { itemOfSource, libraryKeyOf } from './library/zotero-items';
 import { buildTerms, countMatchingPages, selectPagesByTerms } from './context/page-selection';
 import { getPdfPages } from './context/pdf-context';
 import { citedSourceNumbers } from './citations';
@@ -44,6 +44,8 @@ import { logError } from '../util/log';
 export interface Turn {
   role: 'user' | 'assistant';
   content: string;
+  /** Fixed hint from SeekChat shown after this answer as its own message (never sent to the model). */
+  notice?: string;
   /** Which part of the document the answer was based on. */
   meta?: string;
   error?: boolean;
@@ -302,6 +304,9 @@ export class ChatSession {
     try {
       if (library) {
         await this.run(answer, ctrl, () => this.answerLibrary(answer, library, q, history, ctrl, { zotseek: opts.zotseek !== false, books }));
+        // After the first answer: say once that follow-ups can load pages and search in named documents (7e-2).
+        const answers = this.turns.filter((x) => x.role === 'assistant' && !x.error);
+        if (!answer.error && answers.length === 1 && !this.turns.some((x) => x.notice)) answer.notice = t('lib.followupHint');
       } else {
         // Follow-ups ("und in Kapitel 3?") retrieve with the previous question as well.
         const lastQuestion = [...history].reverse().find((t) => t.role === 'user')?.content || '';
@@ -360,16 +365,80 @@ export class ChatSession {
     return Array.from(cited.values()).sort((a, b) => a.n - b.n);
   }
 
+  /** All sources of earlier answers in this chat, latest excerpts, by number. */
+  private knownSources(): LibrarySource[] {
+    const latest = new Map<number, LibrarySource>();
+    for (const turn of this.turns) {
+      if (turn.role === 'assistant' && !turn.error && !turn.pending) for (const s of turn.sources || []) latest.set(s.n, s);
+    }
+    return Array.from(latest.values()).sort((a, b) => a.n - b.n);
+  }
+
+  /**
+   * 7e-2: loads what the planner asked for. Pages come from the source's PDF (the book's
+   * PDF it was read from, else the item's best PDF); documents are searched with ZotSeek
+   * within that item only. Results go into the prompt first; every step is noted in the meta.
+   */
+  private async loadRequested(
+    plan: SearchPlan, known: LibrarySource[], library: LibraryContextProvider,
+    notes: string[], status: (text: string) => void, signal: AbortSignal,
+  ): Promise<Evidence[]> {
+    const out: Evidence[] = [];
+    const byN = new Map(known.map((s) => [s.n, s]));
+    for (const req of plan.loadPages || []) {
+      const source = byN.get(req.source)!;
+      status(t('meta.loadingPages', { n: source.n, pages: compressRanges(req.pages) }));
+      try {
+        const item = itemOfSource(source);
+        const att = (source.attachmentID && Zotero.Items.get(source.attachmentID))
+          || (item?.isAttachment?.() ? item : await item?.getBestAttachment?.());
+        if (!att?.isPDFAttachment?.()) throw new UserFacingError(t('error.noPdf'));
+        const pages = (await getPdfPages(att)).filter((p) => req.pages.includes(p.pageNumber) && p.text);
+        if (!pages.length) throw new UserFacingError(t('error.noSuchPages'));
+        for (const p of pages) {
+          out.push({ itemKey: source.itemKey, libraryKey: source.libraryKey, label: source.label, origin: source.origin ?? 'zotseek',
+            attachmentID: att.id, text: p.text, page: p.pageNumber, loaded: true });
+        }
+        notes.push(t('meta.loadedPages', { n: source.n, pageLabel: t('cite.page'), pages: compressRanges(pages.map((p) => p.pageNumber)) }));
+      } catch (e: any) {
+        if (signal.aborted) throw e;
+        if (!(e instanceof UserFacingError)) logError(e);
+        notes.push(t('meta.loadFailed', { what: `[${source.n}] ${t('cite.page')} ${compressRanges(req.pages)}`, message: String(e?.message || e) }));
+      }
+    }
+    for (const req of plan.loadDocuments || []) {
+      const source = req.source !== undefined ? byN.get(req.source) : undefined;
+      const item = source ? itemOfSource(source) : library.findItem(req.title || '');
+      const name = source ? `[${source.n}] ${source.label}` : `„${req.title}“`;
+      status(t('meta.searchingDocument', { name }));
+      try {
+        if (!item) throw new UserFacingError(t('error.documentNotFound'));
+        const target = { itemKey: item.key, libraryKey: libraryKeyOf(item.libraryID) };
+        const found = (await library.searchInItem(req.query, target, signal)).filter((e) => e.text);
+        out.push(...found);
+        notes.push(t('meta.searchedDocument', { name, query: req.query, n: found.length }));
+      } catch (e: any) {
+        if (signal.aborted) throw e;
+        if (!(e instanceof UserFacingError)) logError(e);
+        notes.push(t('meta.loadFailed', { what: name, message: String(e?.message || e) }));
+      }
+    }
+    return out;
+  }
+
   /** Step 1: standalone question and ZotSeek queries; the question itself if the model fails. */
   private async planSearch(
     client: LlmClient, prefs: SeekChatPrefs, question: string, history: HistoryTurn[], scope: string, signal: AbortSignal,
+    known: LibrarySource[],
   ): Promise<SearchPlan> {
     try {
+      // From the second question on, the planner may ask to load pages or search in a named document (7e-2).
+      const sources = history.length ? known.map((s) => ({ n: s.n, label: s.label, book: s.origin === 'book' })) : undefined;
       const reply = await client.streamChat(
-        { model: prefs.model, messages: buildPlanMessages({ question, history, scope }), temperature: 0.1, maxTokens: 768, numCtx: 8192, signal },
+        { model: prefs.model, messages: buildPlanMessages({ question, history, scope, sources }), temperature: 0.1, maxTokens: 1024, numCtx: 8192, signal },
         () => {},
       );
-      return parsePlan(reply, question);
+      return parsePlan(reply, question, sources ? new Set(known.map((s) => s.n)) : undefined);
     } catch (e) {
       if (signal.aborted) throw e;
       logError(e);
@@ -396,15 +465,17 @@ export class ChatSession {
     const scope = library.describe();
 
     // Without ZotSeek's endpoint (and no books) there is nothing to plan for: fail before any model call.
+    // (Follow-ups may still load pages of known sources, which needs no ZotSeek.)
     const missing = opts.zotseek ? diagnose(readEnvironment()) : null;
-    if (missing && !opts.books.length) throw new ZotSeekUnavailableError(missing);
+    if (missing && !opts.books.length && !history.length) throw new ZotSeekUnavailableError(missing);
+    const known = this.knownSources();
 
     // 1. Planning: standalone question for follow-ups, queries for ZotSeek. Books make their own search terms.
     let plan = fallbackPlan(question);
     if (history.length || opts.zotseek) {
       status(t('meta.planning'));
       const client = this.recordingClient(base, answer, () => t('purpose.plan'));
-      plan = await this.planSearch(client, prefs, question, history, scope, ctrl.signal);
+      plan = await this.planSearch(client, prefs, question, history, scope, ctrl.signal, known);
       if (!plan.fromModel) {
         notes.push(t('meta.planFailed'));
       } else {
@@ -413,15 +484,16 @@ export class ChatSession {
       }
     }
 
-    // 2. Evidence from each source.
+    // 2. Evidence: pages and documents asked for (7e-2), then each source.
+    const loaded = await this.loadRequested(plan, known, library, notes, status, ctrl.signal);
     let zotseek: Evidence[] = [];
     if (opts.zotseek) {
       status(t('meta.searchingZotSeek'));
       try {
         zotseek = await library.searchEvidence(plan.queries, ctrl.signal);
       } catch (e: any) {
-        // With books there is still something to answer from.
-        if (!opts.books.length || !(e instanceof ZotSeekUnavailableError)) throw e;
+        // With books or loaded pages there is still something to answer from.
+        if ((!opts.books.length && !loaded.length) || !(e instanceof ZotSeekUnavailableError)) throw e;
         notes.push(t('meta.zotseekSkipped', { message: e.message }));
       }
     }
@@ -430,7 +502,7 @@ export class ChatSession {
     if (answer.bookProgress) notes.push(this.booksSummary(answer.bookProgress));
 
     // 3. One numbered source list; sources cited before come first and keep their numbers.
-    const set = buildSources(interleave(zotseek, ...fromBooks), prefs.contextChars, {
+    const set = buildSources([...loaded, ...interleave(zotseek, ...fromBooks)], prefs.contextChars, {
       numbers: this.sourceNumbers,
       carried: this.carriedSources(prefs.historyTurns),
     });

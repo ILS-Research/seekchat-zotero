@@ -91,7 +91,8 @@ function describeOrigins(l: NonNullable<ContextBlock['library']>): string {
   const parts: string[] = [];
   if (!l.origins || l.origins.zotseek) parts.push('passages found with ZotSeek, a search index of the library');
   if (l.origins?.books) parts.push('passages that were pre-read from books by keyword search, marked "(book)"');
-  const carried = l.carried ? ' Sources cited in earlier answers are included again with their numbers.' : '';
+  const carried = (l.carried ? ' Sources cited in earlier answers are included again with their numbers.' : '') +
+    (l.sources.some((s) => s.excerpts.some((e) => e.loaded)) ? ' Pages marked "whole page" were loaded in full because the question asks for them.' : '');
   return `Below are the sources that best match the question: ${parts.join(', and ')}.${carried}`;
 }
 

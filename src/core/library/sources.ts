@@ -29,6 +29,8 @@ export interface Evidence {
   page?: number;
   textSource?: string;
   noteKey?: string;
+  /** 7e-2: a whole page loaded on request (not a search hit). */
+  loaded?: boolean;
 }
 
 export interface SourceExcerpt {
@@ -37,6 +39,7 @@ export interface SourceExcerpt {
   text: string;
   textSource?: string;
   noteKey?: string;
+  loaded?: boolean;
 }
 
 export interface LibrarySource {
@@ -175,7 +178,7 @@ export function buildSources(
     used += header + cost(text);
     passagesUsed++;
     seenText.set(id, [...known.filter((k) => !norm.includes(k)), norm]);
-    const excerpt: SourceExcerpt = { page: e.page, text, textSource: e.textSource, noteKey: e.noteKey };
+    const excerpt: SourceExcerpt = { page: e.page, text, textSource: e.textSource, noteKey: e.noteKey, loaded: e.loaded };
     if (source) {
       // Replace excerpts the new one contains, keep the rest.
       source.excerpts = source.excerpts.filter((x) => !norm.includes(normalized(x.text)));
@@ -204,7 +207,7 @@ export function buildSources(
 export function formatSources(sources: LibrarySource[]): string {
   return sources.map((s) => {
     const parts = s.excerpts.map((e) => {
-      const where = e.page ? `(${t('cite.page')} ${e.page})` : e.textSource === 'note' ? '(note)' : '(no page)';
+      const where = e.page ? `(${t('cite.page')} ${e.page}${e.loaded ? ', whole page' : ''})` : e.textSource === 'note' ? '(note)' : '(no page)';
       return `${where}\n${e.text}`;
     });
     return `[${s.n}] ${s.label}${s.origin === 'book' ? ' (book)' : ''}\n${parts.join('\n\n')}`;

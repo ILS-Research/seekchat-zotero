@@ -104,6 +104,11 @@ const EN = {
   'meta.understood': 'Understood as: {question}',
   'meta.queries': 'Search queries: {queries}',
   'meta.planFailed': 'Search preparation gave no usable result, searching with the question.',
+  'meta.loadingPages': 'Loading pages {pages} of [{n}] …',
+  'meta.loadedPages': 'Loaded: [{n}] {pageLabel} {pages} (whole pages)',
+  'meta.searchingDocument': 'Searching in {name} …',
+  'meta.searchedDocument': 'Searched in {name} for "{query}" (ZotSeek): {n} passages',
+  'meta.loadFailed': 'Could not load {what}: {message}',
   'meta.carried.one': '{n} source from earlier answers included again',
   'meta.carried.other': '{n} sources from earlier answers included again',
   'meta.zotseekSkipped': 'ZotSeek not used: {message}',
@@ -138,6 +143,9 @@ const EN = {
   'error.onlyNoText': 'ZotSeek found only hits without text excerpt in {scope}. Is the indexing mode set to "full"?',
   'error.noPassages': 'ZotSeek found no matching passages in {scope}.',
   'error.nothingFound': 'No matching passages found in {scope}.',
+  'error.noPdf': 'no PDF for this source',
+  'error.noSuchPages': 'the PDF has no text on these pages',
+  'error.documentNotFound': 'no matching document in this scope',
 
   // ZotSeek availability
   'zotseek.notInstalled': 'The library chat needs the ZotSeek plugin. Without ZotSeek only the chat with single PDFs is available.',
@@ -186,6 +194,10 @@ const EN = {
   'lib.sourceList': 'Sources ({cited} of {total} cited)',
   'lib.note': 'note',
   'lib.originBook': 'book',
+  'lib.followupHint': 'ℹ From now on you can ask about specific pages of a source or about one specific document, e.g. ' +
+    '"What exactly is on p. 45 of [1]?", "Read pp. 10–12 of the book again" or "What does Muster 2021 say about methods?". ' +
+    'The chat history only holds the answers, not the texts of the sources: SeekChat then loads those pages from the PDF ' +
+    'or searches that document with ZotSeek before answering. Pages are physical PDF pages, as in the citations.',
   'lib.tooltip': 'SeekChat: chat with the library (with ZotSeek)',
 
   // Coverage hint
@@ -372,6 +384,11 @@ const DE: Record<Key, string> = {
   'meta.understood': 'Verstanden als: {question}',
   'meta.queries': 'Suchanfragen: {queries}',
   'meta.planFailed': 'Suchvorbereitung ohne brauchbares Ergebnis, suche mit der Frage.',
+  'meta.loadingPages': 'Lade Seiten {pages} von [{n}] …',
+  'meta.loadedPages': 'Nachgeladen: [{n}] {pageLabel} {pages} (ganze Seiten)',
+  'meta.searchingDocument': 'Suche in {name} …',
+  'meta.searchedDocument': 'In {name} nach „{query}“ gesucht (ZotSeek): {n} Abschnitte',
+  'meta.loadFailed': 'Nicht nachladbar: {what}: {message}',
   'meta.carried.one': '{n} Quelle aus früheren Antworten wieder einbezogen',
   'meta.carried.other': '{n} Quellen aus früheren Antworten wieder einbezogen',
   'meta.zotseekSkipped': 'ZotSeek nicht genutzt: {message}',
@@ -405,6 +422,9 @@ const DE: Record<Key, string> = {
   'error.onlyNoText': 'ZotSeek fand in {scope} nur Treffer ohne Textauszug. Ist der Indexierungsmodus auf „full“ gestellt?',
   'error.noPassages': 'ZotSeek fand in {scope} keine passenden Textstellen.',
   'error.nothingFound': 'In {scope} keine passenden Textstellen gefunden.',
+  'error.noPdf': 'kein PDF zu dieser Quelle',
+  'error.noSuchPages': 'das PDF hat auf diesen Seiten keinen Text',
+  'error.documentNotFound': 'kein passendes Dokument in diesem Umfang',
 
   'zotseek.notInstalled': 'Chat über die Bibliothek braucht das Plugin ZotSeek. Ohne ZotSeek steht nur der Chat mit einzelnen PDFs zur Verfügung.',
   'zotseek.serverOff': 'Chat über die Bibliothek braucht Zoteros lokalen HTTP-Server: Einstellungen → Erweitert → ' +
@@ -453,6 +473,10 @@ const DE: Record<Key, string> = {
   'lib.sourceList': 'Quellen ({cited} von {total} zitiert)',
   'lib.note': 'Notiz',
   'lib.originBook': 'Buch',
+  'lib.followupHint': 'ℹ Ab jetzt kannst du nach bestimmten Seiten einer Quelle oder nach einem bestimmten Dokument fragen, z. B. ' +
+    '„Was steht genau auf S. 45 von [1]?“, „Lies S. 10–12 des Buchs noch einmal“ oder „Was sagt Muster 2021 zu den Methoden?“. ' +
+    'Der Chatverlauf enthält nur die Antworten, nicht die Texte der Quellen: SeekChat lädt dann diese Seiten aus dem PDF ' +
+    'nach oder durchsucht das Dokument mit ZotSeek, bevor es antwortet. Seiten sind die PDF-Seiten wie in den Zitaten.',
   'lib.tooltip': 'SeekChat: Chat über die Bibliothek (mit ZotSeek)',
 
   'cov.notSearchable': 'Nicht durchsuchbar: {parts}.',

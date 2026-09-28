@@ -132,6 +132,32 @@ export class LibraryContextProvider implements ContextProvider {
     return interleave(...lists);
   }
 
+  /** 7e-2: ZotSeek passages of one item only (the scope's library, filtered by item). */
+  async searchInItem(query: string, item: { itemKey: string; libraryKey: string | null }, signal?: AbortSignal): Promise<Evidence[]> {
+    const passages = await searchPassages(query, { topK: MAX_TOP_K, libraryKey: item.libraryKey ?? this.scope.libraryKey, signal });
+    return passages.filter((p) => p.itemKey === item.itemKey).map(fromZotSeek);
+  }
+
+  /** 7e-2: a regular item of the scope whose title or creators contain all words of `name`. */
+  findItem(name: string): any | null {
+    const words = name.toLowerCase().split(/\s+/).filter((w) => w.length > 1);
+    if (!words.length) return null;
+    const items: any[] = this.scope.itemIDs
+      ? Zotero.Items.get(Array.from(this.scope.itemIDs))
+      : Zotero.Items.getAll(this.scope.libraryID, true, false);
+    let best: any = null;
+    for (const item of items) {
+      if (!item || item.deleted || !item.isRegularItem?.()) continue;
+      const creators = (item.getCreators?.() || []).map((c: any) => c.lastName || c.name || '').join(' ');
+      const hay = `${item.getField?.('title') || ''} ${creators} ${item.getField?.('date', true, true)?.slice(0, 4) || ''}`.toLowerCase();
+      if (words.every((w) => hay.includes(w))) {
+        best = item;
+        break;
+      }
+    }
+    return best;
+  }
+
   /** ZotSeek alone, one query (the library chat itself goes through ChatSession's pipeline). */
   async build(query: string, budgetChars: number, _opts: BuildOptions = {}): Promise<ContextBlock> {
     const set = buildSources(await this.searchEvidence([query]), budgetChars);
