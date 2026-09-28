@@ -1,7 +1,7 @@
 # SeekChat (Zotero plugin)
 
-Chat with a PDF in Zotero 7–10 using a self-hosted model (Ollama native API or any
-OpenAI-compatible server). Plan and status: `../ideas-zotseek.md` (German) — keep it updated
+Chat with a PDF (item pane section) and with the library via ZotSeek (own window, button next to
+ZotSeek's) in Zotero 7–10, using a self-hosted model (Ollama native API or any OpenAI-compatible server). Plan and status: `../ideas-zotseek.md` (German) — keep it updated
 when scope or decisions change. User-facing UI text is German.
 
 ## Commands
@@ -26,6 +26,8 @@ they use `docker` or fall back to `sudo docker`, and run containers with the cal
   xpi there and regenerates `updates.json` from all published versions (host python3, no Docker needed).
   The portal serves `data/downloads/` publicly (see the selfhost README, section Downloads). The E2E profile
   disables updates.
+- Portal: `https://zotero.ils.local` (this server; until IT switches DNS, `/etc/hosts` maps it to 192.168.125.23).
+  Its Apache still serves a self-signed `srv-geo2-ubuntu` certificate, so Zotero's update check fails there for now.
 - Never commit unless asked. Git repo on branch `master`.
 
 ## Layout
@@ -51,9 +53,9 @@ they use `docker` or fall back to `sudo docker`, and run containers with the cal
 | `test/e2e/` | E2E harness + scenarios, compiled **into** the E2E build only (`test/e2e/entry.ts`) |
 | `e2e/` | E2E image (Zotero tarball, Xvfb, mock LLM, fixture PDF generator), `run.sh`, `run-in-container.sh` |
 
-Extending: new sources (ZotSeek passages for library chat, collections) are new `ContextProvider`s;
-session, prompt and UI stay. The ZotSeek integration should use its REST `/zotseek/search`
-(`granularity=passages`, text in `matchedChunk.snippet`), see `../ideas-zotseek.md`.
+Extending: new sources are new `ContextProvider`s; session, prompt and turn rendering stay. The library chat
+(`src/core/library/`) is one: ZotSeek's REST `/zotseek/search` (`granularity=passages`, text in
+`matchedChunk.snippet`) via `src/core/zotseek/client.ts`, see `../ideas-zotseek.md`.
 
 ## Pitfalls (learned the hard way)
 
