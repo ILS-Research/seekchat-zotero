@@ -45,8 +45,9 @@ export interface BookPages {
 }
 
 /**
- * Pages of a book for the pre-reading prompt: the whole book if it fits the
- * budget, else the best matching pages. No match at all: nothing to read.
+ * Cheap local prefilter with the planning keywords (both languages): books
+ * without any hit are not read. Pages: the whole book if it fits the budget,
+ * else the plan's best pages (the reading step replaces them with its own selection).
  */
 export async function bookPages(book: BookTarget, terms: WeightedTerm[], budgetChars: number): Promise<BookPages> {
   const all = await getPdfPages(book.attachment);

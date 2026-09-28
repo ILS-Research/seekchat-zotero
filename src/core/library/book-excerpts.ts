@@ -1,8 +1,8 @@
 /**
- * Pre-reading a book for the library chat: the model gets the book's best
- * matching pages and copies out what is relevant to the question, each
- * passage marked with its page. The passages then join the numbered sources
- * of the one answer. Prompt building and parsing are pure and unit-tested.
+ * Reading a book for the library chat, like the PDF chat: the model gets the
+ * pages found for the question (whole book if it fits) and answers the question
+ * from them, each statement starting with its page marker. The statements then
+ * join the numbered sources of the one answer. Pure and unit-tested.
  */
 import type { ChatMessage } from '../llm/types';
 import { stripThinking } from '../llm/stream-parsers';
@@ -18,17 +18,20 @@ export interface BookExcerpt {
   text: string;
 }
 
-export function buildExcerptMessages(opts: { question: string; book: string; pages: Page[]; totalPages: number }): ChatMessage[] {
+export function buildExcerptMessages(opts: {
+  question: string; book: string; pages: Page[]; totalPages: number; language?: string | null; complete?: boolean;
+}): ChatMessage[] {
   const system =
-    'You pre-read a book for a research assistant who answers a question from several sources. ' +
-    'From the pages of the book below, copy the passages that are relevant to the question: verbatim or closely ' +
-    'paraphrased, each complete enough to be understood on its own (at most about 150 words). ' +
-    `Give at most ${MAX_EXCERPTS} passages, the most relevant first. Start each passage on its own line with the page ` +
-    'marker of the page it is on, exactly as in the document, e.g. [Page 12]. ' +
-    `If the pages contain nothing relevant to the question, answer only with "${NO_MATCH_MARKER}". ` +
-    'Do not answer the question yourself and add no introduction or commentary.\n\n' +
-    `Book: ${opts.book} (${opts.pages.length} of ${opts.totalPages} pages, selected by keyword search)\n\n` +
-    `<document>\n${formatPages(opts.pages)}\n</document>`;
+    'You answer a question from one book, for a research assistant who then combines the answers from several sources. ' +
+    'Answer the question using only the pages of the book below, with the facts, definitions, steps and details that ' +
+    `matter for it. Write at most ${MAX_EXCERPTS} self-contained statements (each up to about 150 words), the most ` +
+    'relevant first. Start each statement on its own line with the page marker of the page it comes from, exactly as ' +
+    'in the document, e.g. [Page 12]; quote short key phrases verbatim. Write in the language of the question. ' +
+    `If the pages contain nothing on the question, answer only with "${NO_MATCH_MARKER}". ` +
+    'No introduction, no summary at the end.\n\n' +
+    `Book: ${opts.book}` + (opts.language ? `, written in ${opts.language}` : '') +
+    (opts.complete ? ` (complete, ${opts.totalPages} pages)` : ` (${opts.pages.length} of ${opts.totalPages} pages, selected by keyword search)`) +
+    `\n\n<document>\n${formatPages(opts.pages)}\n</document>`;
   // "/no_think" switches off Qwen 3's reasoning; other models read it as noise.
   return [
     { role: 'system', content: system },

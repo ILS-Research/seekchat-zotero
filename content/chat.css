@@ -56,3 +56,4 @@
 .seekchat-books-progress li.state-none, .seekchat-books-progress li.state-limit { opacity: 0.6; }
 .seekchat-books-progress li.state-error .seekchat-book-state { color: var(--accent-red, #c00); }
 .seekchat-book-skip { font-size: 11px; padding: 0 6px; margin: 0; min-height: 0; }
+.seekchat-book-details { font-size: 11px; color: var(--fill-secondary); margin-left: 18px; }

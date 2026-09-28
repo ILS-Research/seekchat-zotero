@@ -9,6 +9,7 @@ import { citedSourceNumbers, splitCitations, splitSourceCitations } from '../cor
 import { sourcePages, type LibrarySource } from '../core/library/sources';
 import { SKIPPABLE, type BookProgress, type Turn } from '../core/session';
 import { renderMarkdown, type CitationSplitter } from './markdown';
+import { compressRanges } from '../core/prompt';
 
 const HTML_NS = 'http://www.w3.org/1999/xhtml';
 
@@ -66,6 +67,11 @@ function bookList(doc: Document, turn: Turn, handlers: CitationHandlers): HTMLEl
       skip.title = t('book.skipTitle');
       skip.addEventListener('click', () => handlers.onSkipBook!(turn, i));
       li.append(doc.createTextNode(' '), skip);
+    }
+    if (b.pages?.length) {
+      li.append(el(doc, 'div', 'seekchat-book-details', t('book.details', {
+        language: b.language || '–', keywords: b.keywords?.join(', ') || '–', pageLabel: t('cite.page'), pages: compressRanges(b.pages),
+      })));
     }
     list.append(li);
   });

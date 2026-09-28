@@ -32,7 +32,8 @@ import { bookPages, MAX_BOOKS_READ, type BookPages, type BookTarget } from './li
 import { buildExcerptMessages, parseExcerpts } from './library/book-excerpts';
 import { buildPlanMessages, fallbackPlan, parsePlan, type SearchPlan } from './library/plan';
 import { libraryKeyOf } from './library/zotero-items';
-import { buildTerms } from './context/page-selection';
+import { buildTerms, selectPagesByTerms } from './context/page-selection';
+import { getPdfPages } from './context/pdf-context';
 import { citedSourceNumbers } from './citations';
 import { ZotSeekUnavailableError } from './zotseek/client';
 import { readPrefs, type SeekChatPrefs } from '../prefs';
@@ -67,7 +68,7 @@ export interface LlmRequestLog {
 
 export type { BookTarget };
 
-export type BookState = 'waiting' | 'scanning' | 'reading' | 'found' | 'none' | 'nohits' | 'skipped' | 'error' | 'limit';
+export type BookState = 'waiting' | 'scanning' | 'language' | 'keywords' | 'reading' | 'found' | 'none' | 'nohits' | 'skipped' | 'error' | 'limit';
 
 export interface BookProgress {
   label: string;
@@ -77,10 +78,14 @@ export interface BookProgress {
   found?: number;
   /** State "error": message. */
   error?: string;
+  /** Detected document language, keywords of the book and the pages sent (like the PDF chat's meta line). */
+  language?: string;
+  keywords?: string[];
+  pages?: number[];
 }
 
 /** Books in these states can still be skipped. */
-export const SKIPPABLE: BookState[] = ['waiting', 'scanning', 'reading'];
+export const SKIPPABLE: BookState[] = ['waiting', 'scanning', 'language', 'keywords', 'reading'];
 
 /** Strategies the user can pick for long documents; "vector" is not implemented yet. */
 export const IMPLEMENTED_STRATEGIES: LongDocStrategy[] = ['keywords', 'chapters'];
@@ -545,14 +550,39 @@ export class ChatSession {
     this.bookCtrls.set(index, bookCtrl);
     const onAbort = () => bookCtrl.abort();
     ctrl.signal.addEventListener('abort', onAbort);
-    progress.state = 'reading';
-    this.notify();
+    const step = (state: BookState) => {
+      progress.state = state;
+      this.notify();
+    };
     try {
-      const client = this.recordingClient(base, answer, () => t('purpose.excerpts', { label: book.label }));
+      // Like the PDF chat: document language, keywords in that language, page selection, then the question.
+      const provider = new PdfContextProvider(book.attachment);
+      let purpose = t('purpose.language');
+      const client = this.recordingClient(base, answer, () => `${purpose} – ${book.label}`);
+      let pages = scan.pages;
+      let complete = pages.length === scan.totalPages;
+      let language: string | null = null;
+      if (!complete) {
+        step('language');
+        const { lang } = await this.resolveLanguage(provider, client, prefs, bookCtrl.signal);
+        language = lang ? lang.name : null;
+        progress.language = lang ? languageName(lang.code) : undefined;
+        step('keywords');
+        purpose = t('purpose.keywords');
+        const keywords = await this.expandKeywords(provider, client, prefs, plan.question, '', lang, bookCtrl.signal);
+        progress.keywords = keywords;
+        const all = await getPdfPages(book.attachment);
+        const selection = selectPagesByTerms(all, buildTerms(plan.question, [...keywords, ...plan.keywords]), prefs.contextChars);
+        pages = selection.pages;
+        complete = selection.mode === 'full';
+      }
+      progress.pages = pages.map((p) => p.pageNumber);
+      step('reading');
+      purpose = t('purpose.bookAnswer');
       const reply = await client.streamChat(
         {
           model: prefs.model,
-          messages: buildExcerptMessages({ question: plan.question, book: book.label, pages: scan.pages, totalPages: scan.totalPages }),
+          messages: buildExcerptMessages({ question: plan.question, book: book.label, pages, totalPages: scan.totalPages, language, complete }),
           temperature: 0.1,
           maxTokens: Math.min(prefs.maxTokens, 4096),
           numCtx: prefs.numCtx,
@@ -560,7 +590,7 @@ export class ChatSession {
         },
         () => {},
       );
-      const excerpts = parseExcerpts(reply, scan.pages.map((p) => p.pageNumber));
+      const excerpts = parseExcerpts(reply, pages.map((p) => p.pageNumber));
       progress.state = excerpts.length ? 'found' : 'none';
       progress.found = excerpts.length;
       const item = book.attachment.parentItem || book.attachment;

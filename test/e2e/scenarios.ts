@@ -832,11 +832,14 @@ export const scenarios: Scenario[] = [
       `book source: ${JSON.stringify(t.sources)}`);
     assert(t.content.includes('[1, S. 2]'), `answer: ${t.content}`);
     assert(t.meta?.includes('(Bücher 1)') && t.meta.includes('Bücher: 1 mit Fundstellen') && t.meta.includes('Suchbegriffe:'), `meta: ${t.meta}`);
+    assert(t.bookProgress?.[0].keywords?.length && t.bookProgress[0].pages?.length, `book details: ${JSON.stringify(t.bookProgress)}`);
     // Plan, pre-reading, answer: three requests, the answer sees the book's passages as a source.
     const reqs = (await mockRequests()).slice(before);
     const systems = reqs.map((r: any) => r.messages[0].content as string);
-    assert(systems.length === 3 && systems[0].includes('literature search') && systems[1].includes('pre-read a book')
-      && systems[2].includes('<sources>') && systems[2].includes('(book)'), `requests: ${systems.map((x: string) => x.slice(0, 60)).join(' | ')}`);
+    // Plan, then per book like the PDF chat (language if not in metadata, search terms, answer from the pages), then the joint answer.
+    const last = systems[systems.length - 1];
+    assert(systems[0].includes('literature search') && systems.some((x: string) => x.includes('search terms for a keyword search'))
+      && systems[systems.length - 2].includes('answer a question from one book') && last.includes('<sources>') && last.includes('(book)'), `requests: ${systems.map((x: string) => x.slice(0, 60)).join(' | ')}`);
     await waitFor('book list and source marked as book', () => doc.querySelector('.seekchat-books-progress li.state-found')
       && doc.querySelector('.seekchat-sources-list li')?.textContent?.includes('📖'), 5000);
 

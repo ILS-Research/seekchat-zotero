@@ -48,7 +48,7 @@ const server = http.createServer(async (req, res) => {
       return stream(res, JSON.stringify({ question: q, queries: [q], keywords }));
     }
     // Pre-reading a book: nothing for "Vulkane", else the first page sent; slow for "Hitze" (skip/stop tests).
-    if (system.includes('pre-read a book')) {
+    if (system.includes('answer a question from one book')) {
       if (question.includes('Vulkane')) return stream(res, 'NO RELEVANT CONTENT');
       if (question.includes('Hitze')) await new Promise((r) => setTimeout(r, 4000));
       const page = (system.match(/\[Page (\d+)\]/) || [])[1] || '1';
