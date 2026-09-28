@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.4.3 – 2026-09-28
 
 - Library chat window: row "Quellen" with the checkboxes "ZotSeek" (on; tooltip lists ZotSeek's limits for
   books and long documents) and "Bücher (eigener Index)" (greyed out, planned own index for whole books).
