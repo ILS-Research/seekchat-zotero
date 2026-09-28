@@ -1,6 +1,6 @@
 import { readLines, request } from './http';
 import { parseSseLine } from './stream-parsers';
-import type { ChatRequest, ClientConfig, LlmClient } from './types';
+import type { ChatRequest, ClientConfig, LlmClient, ModelInfo } from './types';
 
 /** Any OpenAI-compatible server (vLLM, llama.cpp, LM Studio, LiteLLM, Ollama /v1, own FastAPI). */
 export class OpenAiClient implements LlmClient {
@@ -10,6 +10,14 @@ export class OpenAiClient implements LlmClient {
     const resp = await request(this.cfg, '/models', { method: 'GET', signal });
     const json: any = await resp.json();
     return (json.data || []).map((m: any) => String(m.id)).sort();
+  }
+
+  /** /models: vLLM reports max_model_len, some servers context_length/context_window. */
+  async modelInfo(model: string, signal?: AbortSignal): Promise<ModelInfo> {
+    const resp = await request(this.cfg, '/models', { method: 'GET', signal });
+    const entry = ((await resp.json()).data || []).find((m: any) => m.id === model) || {};
+    const n = [entry.max_model_len, entry.context_length, entry.context_window].find((v) => typeof v === 'number' && v > 0);
+    return n ? { configuredContext: n } : {};
   }
 
   async streamChat(req: ChatRequest, onDelta: (text: string) => void): Promise<string> {

@@ -13,8 +13,19 @@ export interface ChatRequest {
   signal?: AbortSignal;
 }
 
+/** What the server says about a model's limits (tokens); fields it does not report are missing. */
+export interface ModelInfo {
+  /** Context window the server is configured to use (Ollama: num_ctx in the Modelfile). */
+  configuredContext?: number;
+  /** Maximum context the model supports. */
+  maxContext?: number;
+  /** Configured answer length (Ollama: num_predict in the Modelfile). */
+  numPredict?: number;
+}
+
 export interface LlmClient {
   listModels(signal?: AbortSignal): Promise<string[]>;
+  modelInfo(model: string, signal?: AbortSignal): Promise<ModelInfo>;
   /** Streams the answer; calls onDelta per text fragment and resolves with the full text. */
   streamChat(req: ChatRequest, onDelta: (text: string) => void): Promise<string>;
 }

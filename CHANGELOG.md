@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.5.3 – 2026-09-28
+
+- Token limits (context window, document text per question, answer length) default to a best guess from
+  the server: Ollama's num_ctx from the Modelfile, else the model's maximum context (vLLM: max_model_len),
+  minus 20 %; the answer gets a tenth (max. 4096), the rest minus room for prompt and history goes to the
+  text. Settings have two tabs, "Automatisch aus dem Modell" (shows the derived values, "Neu ermitteln")
+  and "Manuell" (the three fields as before). If the server reports nothing, the manual values apply.
+
 ## 0.5.2 – 2026-09-28
 
 - Markdown export includes every request sent to the model per answer (language detection, search terms,

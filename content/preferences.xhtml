@@ -8,6 +8,11 @@
   #seekchat-preferences textarea { width: 100%; max-width: 640px; box-sizing: border-box; min-height: 6em; font: inherit; }
   #seekchat-preferences .danger { margin-top: 10px; padding: 8px; border: 1px solid #c62828; border-radius: 4px; max-width: 640px; }
   #seekchat-preferences .danger b { color: #c62828; }
+  #seekchat-preferences .tabs { display: flex; gap: 0; margin: 10px 0 0; max-width: 640px; border-bottom: 1px solid var(--fill-quinary); }
+  #seekchat-preferences .tab { border: 1px solid transparent; border-bottom: none; border-radius: 4px 4px 0 0; background: none; padding: 4px 10px; margin-bottom: -1px; }
+  #seekchat-preferences .tab.selected { border-color: var(--fill-quinary); background: var(--material-background, Field); font-weight: 600; }
+  #seekchat-preferences .tabpanel { padding: 8px 0 0; }
+  #seekchat-preferences .tabpanel[hidden] { display: none; }
 </html:style>
 
 <groupbox>
@@ -55,20 +60,43 @@
   <html:div class="row">
     <html:label for="seekchat-temperaturePercent">Temperatur (%):</html:label>
     <html:input type="number" id="seekchat-temperaturePercent" min="0" max="200"/>
-    <html:label for="seekchat-numCtx">Kontextfenster (Tokens):</html:label>
-    <html:input type="number" id="seekchat-numCtx" min="1024" step="1024"/>
-    <html:label for="seekchat-contextChars">PDF-Text pro Frage (Zeichen):</html:label>
-    <html:input type="number" id="seekchat-contextChars" min="2000" step="1000"/>
-    <html:label for="seekchat-maxTokens">Max. Antwortlänge (Tokens):</html:label>
-    <html:input type="number" id="seekchat-maxTokens" min="64" step="64"/>
     <html:label for="seekchat-historyTurns">Mitgesendete Vorfragen:</html:label>
     <html:input type="number" id="seekchat-historyTurns" min="0" max="50"/>
   </html:div>
-  <html:p class="help">
-    Das Kontextfenster gilt nur für Ollama (num_ctx); bei OpenAI-kompatiblen Servern legt es der Server fest.
-    Faustregel: PDF-Text (Zeichen) ÷ 3,5 + Antwortlänge + Verlauf muss ins Kontextfenster passen.
-    Längere PDFs werden auf die zur Frage passendsten Seiten gekürzt.
-  </html:p>
+
+  <html:div class="tabs" role="tablist">
+    <html:button id="seekchat-limits-auto" class="tab" role="tab">Automatisch aus dem Modell</html:button>
+    <html:button id="seekchat-limits-manual" class="tab" role="tab">Manuell</html:button>
+  </html:div>
+  <html:div id="seekchat-limits-auto-panel" class="tabpanel">
+    <html:div class="row">
+      <html:span>Kontextfenster:</html:span><html:span id="seekchat-auto-numCtx">–</html:span>
+      <html:span>PDF-Text pro Frage:</html:span><html:span id="seekchat-auto-contextChars">–</html:span>
+      <html:span>Max. Antwortlänge:</html:span><html:span id="seekchat-auto-maxTokens">–</html:span>
+    </html:div>
+    <html:p class="help"><html:span id="seekchat-auto-detail"/> <html:button id="seekchat-auto-refresh">Neu ermitteln</html:button></html:p>
+    <html:p class="help">
+      SeekChat fragt den Server nach dem Modell: bei Ollama num_ctx aus der Modelldatei, sonst die maximale
+      Kontextlänge des Modells (bei vLLM max_model_len). Davon nutzt es 80 %; die Antwortlänge ist ein Zehntel davon
+      (höchstens 4096), der Rest abzüglich Platz für Prompt und Verlauf geht an den Dokumenttext (~3,5 Zeichen je
+      Token). Meldet der Server nichts, gelten die manuellen Werte. Große Werte machen Antworten langsamer.
+    </html:p>
+  </html:div>
+  <html:div id="seekchat-limits-manual-panel" class="tabpanel">
+    <html:div class="row">
+      <html:label for="seekchat-numCtx">Kontextfenster (Tokens):</html:label>
+      <html:input type="number" id="seekchat-numCtx" min="1024" step="1024"/>
+      <html:label for="seekchat-contextChars">PDF-Text pro Frage (Zeichen):</html:label>
+      <html:input type="number" id="seekchat-contextChars" min="2000" step="1000"/>
+      <html:label for="seekchat-maxTokens">Max. Antwortlänge (Tokens):</html:label>
+      <html:input type="number" id="seekchat-maxTokens" min="64" step="64"/>
+    </html:div>
+    <html:p class="help">
+      Das Kontextfenster gilt nur für Ollama (num_ctx); bei OpenAI-kompatiblen Servern legt es der Server fest.
+      Faustregel: PDF-Text (Zeichen) ÷ 3,5 + Antwortlänge + Verlauf muss ins Kontextfenster passen.
+      Längere PDFs werden auf die zur Frage passendsten Seiten gekürzt.
+    </html:p>
+  </html:div>
   <html:label for="seekchat-systemPrompt">System-Prompt für den PDF-Chat (leer = Standard):</html:label>
   <html:textarea id="seekchat-systemPrompt"/>
 </groupbox>

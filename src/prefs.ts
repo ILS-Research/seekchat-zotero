@@ -14,6 +14,8 @@ export interface SeekChatPrefs {
   historyTurns: number;
   systemPrompt: string;
   allowedRemoteHosts: string;
+  /** "auto": limits from the model (minus 20 %); "manual": numCtx, maxTokens, contextChars as set. */
+  limitsMode: 'auto' | 'manual';
   /** Library chat: passages requested from ZotSeek per question. */
   libraryTopK: number;
 }
@@ -53,5 +55,6 @@ export function readPrefs(): SeekChatPrefs {
     systemPrompt: str('systemPrompt'),
     allowedRemoteHosts: str('allowedRemoteHosts'),
     libraryTopK: int('libraryTopK', 30, 1, 100),
+    limitsMode: str('limitsMode') === 'manual' ? 'manual' : 'auto',
   };
 }

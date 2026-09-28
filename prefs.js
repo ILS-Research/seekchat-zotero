@@ -28,3 +28,6 @@ pref("extensions.zotero.seekchat.systemPrompt", "");
 pref("extensions.zotero.seekchat.allowedRemoteHosts", "");
 // Library chat (needs ZotSeek): passages requested per question (1-100).
 pref("extensions.zotero.seekchat.libraryTopK", 30);
+// "auto": context window, answer length and text budget from the model (server info minus 20 %),
+// "manual": the three values above.
+pref("extensions.zotero.seekchat.limitsMode", "auto");

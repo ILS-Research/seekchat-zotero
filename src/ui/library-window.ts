@@ -33,6 +33,10 @@ export function setPrefsPaneID(id: string | null): void {
   prefsPaneID = id;
 }
 
+export function getPrefsPaneID(): string | null {
+  return prefsPaneID;
+}
+
 /** The scope the user means by the current selection in the main window. */
 export function currentScope(win: any = Zotero.getMainWindow()): LibraryScope {
   const pane = win.ZoteroPane;

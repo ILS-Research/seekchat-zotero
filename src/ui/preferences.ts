@@ -1,4 +1,6 @@
 /** Settings pane logic: fields <-> prefs, connection test and model list. */
+import { clearLimitsCache, resolveLimits } from '../core/limits';
+import { formatCount } from '../core/context/fit';
 import { createClient } from '../core/llm';
 import { parseAllowedHosts } from '../core/host-guard';
 import { DEFAULT_SYSTEM_PROMPT } from '../core/prompt';
@@ -62,6 +64,34 @@ export function onPrefsLoad(win: Window): void {
     });
   }
 
+  // Limits: tab "auto" shows the values derived from the model, tab "manual" the three inputs.
+  const tabAuto = $('limits-auto');
+  const tabManual = $('limits-manual');
+  const panelAuto = $('limits-auto-panel');
+  const panelManual = $('limits-manual-panel');
+  const showAuto = async (refresh = false) => {
+    if (refresh) clearLimitsCache();
+    const set = (id: string, text: string) => { const e = $(id); if (e) e.textContent = text; };
+    set('auto-detail', 'Frage Server …');
+    const l = await resolveLimits({ ...readPrefs(), limitsMode: 'auto' });
+    set('auto-numCtx', `${formatCount(l.numCtx)} Tokens`);
+    set('auto-contextChars', `${formatCount(l.contextChars)} Zeichen (~${formatCount(l.contextChars / 3.5)} Tokens)`);
+    set('auto-maxTokens', `${formatCount(l.maxTokens)} Tokens`);
+    set('auto-detail', l.source === 'auto' ? `Ermittelt: ${l.detail}.` : `Nicht ermittelbar (${l.detail}).`);
+  };
+  const selectTab = (mode: 'auto' | 'manual') => {
+    setPref('limitsMode', mode);
+    tabAuto?.classList.toggle('selected', mode === 'auto');
+    tabManual?.classList.toggle('selected', mode === 'manual');
+    if (panelAuto) panelAuto.hidden = mode !== 'auto';
+    if (panelManual) panelManual.hidden = mode !== 'manual';
+    if (mode === 'auto') void showAuto();
+  };
+  tabAuto?.addEventListener('click', () => selectTab('auto'));
+  tabManual?.addEventListener('click', () => selectTab('manual'));
+  $('auto-refresh')?.addEventListener('click', () => void showAuto(true));
+  selectTab(readPrefs().limitsMode);
+
   const model = $<HTMLSelectElement>('model');
   const fillModels = (names: string[]) => {
     if (!model) return;
@@ -77,13 +107,17 @@ export function onPrefsLoad(win: Window): void {
     else if (all.length) setPref('model', (model.value = all[0]));
   };
   fillModels([]);
-  model?.addEventListener('change', () => setPref('model', model.value));
+  model?.addEventListener('change', () => {
+    setPref('model', model.value);
+    if (readPrefs().limitsMode === 'auto') void showAuto();
+  });
 
   $('test')?.addEventListener('click', async () => {
     setStatus('Verbinde …');
     try {
       const names = await createClient(readPrefs()).listModels();
       fillModels(names);
+      if (readPrefs().limitsMode === 'auto') void showAuto(true);
       setStatus(names.length ? `Verbunden, ${names.length} Modell(e).` : 'Verbunden, aber der Server meldet keine Modelle.');
     } catch (e: any) {
       setStatus(`Fehler: ${e?.message || e}`);

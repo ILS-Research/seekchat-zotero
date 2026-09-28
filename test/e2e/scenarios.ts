@@ -14,7 +14,7 @@ import { createClient } from '../../src/core/llm';
 import { getZotSeekStatus, searchPassages, ZotSeekUnavailableError } from '../../src/core/zotseek/client';
 import { collectionScope, itemsScope, libraryScope, LibraryContextProvider } from '../../src/core/library/library-context';
 import { openSourceCitation } from '../../src/core/library/zotero-items';
-import { getLibraryChatWindow } from '../../src/ui/library-window';
+import { getLibraryChatWindow, getPrefsPaneID } from '../../src/ui/library-window';
 import { getToolbarButton } from '../../src/ui/toolbar-button';
 import { setSaveChatTestPath } from '../../src/ui/save-chat';
 import { splitSourceCitations } from '../../src/core/citations';
@@ -213,7 +213,8 @@ export const scenarios: Scenario[] = [
     assert(answer.meta?.includes('vollständiger Text'), `unexpected meta: ${answer.meta}`);
     const req = await mockLastRequest();
     assert(req.model === 'mock-model', 'wrong model sent');
-    assert(req.options?.num_ctx > 0, 'num_ctx not sent');
+    // Auto limits from the mock's /api/show: 80 % of 20480 -> 16384, answer 1638, text (16384-1638-1500)*3.5 -> 46000 chars.
+    assert(req.options?.num_ctx === 16384 && req.options?.num_predict === 1638, `auto limits not applied: ${JSON.stringify(req.options)}`);
     assert(req.messages[0].content.includes('[Seite 2]'), 'document pages missing in system prompt');
     session.clear();
   }],
@@ -668,6 +669,26 @@ export const scenarios: Scenario[] = [
     assert((doc.querySelector('textarea.seekchat-input') as HTMLTextAreaElement).disabled, 'input enabled without ZotSeek');
     cw.close();
     await waitFor('window closed', () => !getLibraryChatWindow(), 5000);
+  }],
+
+  ['settings: limits come from the model by default, manual values on the second tab', async (ctx) => {
+    Zotero.Utilities.Internal.openPreferences(getPrefsPaneID() || undefined);
+    const pw = await waitFor('settings window with SeekChat pane', () => {
+      const w = Services.wm.getMostRecentWindow('zotero:pref');
+      return w?.document?.getElementById('seekchat-limits-auto') ? w : null;
+    }, 20000);
+    const doc = pw.document;
+    await waitFor('auto limits shown', () => doc.getElementById('seekchat-auto-numCtx')?.textContent === '16.384 Tokens'
+      && doc.getElementById('seekchat-auto-detail')?.textContent?.includes('Maximum des Modells'), 10000);
+    assert(!doc.getElementById('seekchat-limits-auto-panel').hidden && doc.getElementById('seekchat-limits-manual-panel').hidden,
+      'auto tab not the default');
+    doc.getElementById('seekchat-limits-auto-panel').scrollIntoView();
+    await screenshot(ctx, 'settings-limits', pw);
+    doc.getElementById('seekchat-limits-manual').click();
+    assert(readPrefs().limitsMode === 'manual' && !doc.getElementById('seekchat-limits-manual-panel').hidden, 'manual tab not applied');
+    doc.getElementById('seekchat-limits-auto').click();
+    assert(readPrefs().limitsMode === 'auto', 'auto tab not applied');
+    pw.close();
   }],
 
   // Optional: real PDFs from test/assets (mounted read-only, not part of the image).

@@ -17,6 +17,7 @@ import type { ChapterScope, ContextProvider, LongDocStrategy } from './context/t
 import type { LlmClient } from './llm/types';
 import type { LibrarySource } from './library/sources';
 import { readPrefs, type SeekChatPrefs } from '../prefs';
+import { resolveLimits } from './limits';
 import { newAbortController } from '../util/env';
 import { logError } from '../util/log';
 
@@ -83,7 +84,7 @@ export class ChatSession {
    * per budget, so changing the setting re-checks on the next open.
    */
   async analyze(): Promise<void> {
-    const budget = readPrefs().contextChars;
+    const budget = (await resolveLimits(readPrefs())).contextChars;
     if (this.fitBudget === budget && (this.fit || this.fitError)) return;
     this.fitBudget = budget;
     this.fit = null;
@@ -198,6 +199,7 @@ export class ChatSession {
   private recordingClient(client: LlmClient, answer: Turn, purpose: () => string): LlmClient {
     return {
       listModels: (signal) => client.listModels(signal),
+      modelInfo: (model, signal) => client.modelInfo(model, signal),
       streamChat: (req, onDelta) => {
         (answer.requests ??= []).push({
           purpose: purpose(),
@@ -214,7 +216,7 @@ export class ChatSession {
 
   async ask(question: string): Promise<void> {
     if (this.busy || !question.trim()) return;
-    const prefs = readPrefs();
+    let prefs = readPrefs();
     const history = this.history(prefs.historyTurns);
     // Follow-ups ("und in Kapitel 3?") retrieve with the previous question as well.
     const lastQuestion = [...history].reverse().find((t) => t.role === 'user')?.content || '';
@@ -228,9 +230,12 @@ export class ChatSession {
     let raw = '';
     try {
       if (!prefs.model) throw new UserFacingError('Kein Chat-Modell gewählt (SeekChat-Einstellungen).');
+      // Auto limits need one server round trip per model (cached); without an answer the manual values apply.
+      const limits = await resolveLimits(prefs);
+      prefs = { ...prefs, numCtx: limits.numCtx, maxTokens: limits.maxTokens, contextChars: limits.contextChars };
       let purpose = 'Antwort';
       const client = this.recordingClient(createClient(prefs), answer, () => purpose);
-      const fit = this.fit ?? (await this.provider.analyze(prefs.contextChars));
+      const fit = this.fit?.budgetChars === prefs.contextChars ? this.fit : await this.provider.analyze(prefs.contextChars);
       const notes: string[] = [];
       let keywords: string[] = [];
       let chapters: ChapterScope | undefined;

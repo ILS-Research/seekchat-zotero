@@ -26,6 +26,10 @@ const server = http.createServer(async (req, res) => {
     res.end(JSON.stringify(data));
   };
   if (req.method === 'GET' && req.url === '/api/tags') return json({ models: [{ name: 'mock-model' }] });
+  // Like a Modelfile without num_ctx: only the model's maximum context (auto limits: 80 % of it).
+  if (req.method === 'POST' && req.url === '/api/show') {
+    return json({ parameters: 'temperature 1', model_info: { 'mock.context_length': 20480, 'mock.rope.scaling.original_context_length': 4096 } });
+  }
   if (req.method === 'GET' && req.url === '/__requests') return json(requests);
   if (req.method === 'GET' && req.url === '/__last') return json(requests[requests.length - 1] ?? null);
   if (req.method === 'POST' && req.url === '/api/chat') {
