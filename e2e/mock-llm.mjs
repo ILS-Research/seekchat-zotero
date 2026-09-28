@@ -2,10 +2,12 @@
 // GET /__requests (all chat requests so far) and GET /__last.
 // Replies by request kind (from the system prompt): language detection ("Sprache
 // des folgenden Textauszugs") -> "de", search terms ("Suchbegriffe") -> JSON
-// keyword list, anything else -> a fixed answer with a citation.
+// keyword list, library chat ("<quellen>") -> answer with source citations,
+// anything else -> a fixed answer with a page citation.
 import http from 'node:http';
 
 const ANSWER = 'Laut Dokument fuehren Starkregenereignisse in Staedten zu Ueberflutungen [S. 2].';
+const LIBRARY_ANSWER = 'Starkregen fuehrt zu Ueberflutungen [1, S. 2]; Waermeinseln erhoehen die Temperaturen [2, S. 27; 1].';
 const KEYWORDS = '["Waermeinseln", "Hitzeinseln", "urban heat island"]';
 const requests = [];
 
@@ -33,6 +35,7 @@ const server = http.createServer(async (req, res) => {
     requests.push(parsed);
     const system = parsed.messages?.[0]?.content || '';
     if (system.includes('Sprache des folgenden Textauszugs')) return stream(res, 'de');
+    if (system.includes('<quellen>')) return stream(res, LIBRARY_ANSWER);
     return stream(res, system.includes('Suchbegriffe') ? KEYWORDS : ANSWER);
   }
   res.writeHead(404);

@@ -14,6 +14,8 @@ export interface SeekChatPrefs {
   historyTurns: number;
   systemPrompt: string;
   allowedRemoteHosts: string;
+  /** Library chat: passages requested from ZotSeek per question. */
+  libraryTopK: number;
 }
 
 // Without the `global` flag Zotero prepends "extensions.zotero.", matching prefs.js.
@@ -50,5 +52,6 @@ export function readPrefs(): SeekChatPrefs {
     historyTurns: int('historyTurns', 4, 0, 50),
     systemPrompt: str('systemPrompt'),
     allowedRemoteHosts: str('allowedRemoteHosts'),
+    libraryTopK: int('libraryTopK', 30, 1, 100),
   };
 }

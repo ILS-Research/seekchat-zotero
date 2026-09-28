@@ -5,6 +5,10 @@
 - ZotSeek client (groundwork for the library chat, no UI yet): status check (plugin, local HTTP server,
   "AI Agent Access", index) with German hints, passage search over `/zotseek/search`. Deliberately no
   fallback; SeekChat keeps working without ZotSeek (PDF chat only).
+- Library chat core (no UI yet): ZotSeek passages become numbered sources grouped by item, citations
+  `[n, S. x]` with parser and link target (PDF page or item), `LibraryContextProvider` for library,
+  collection (with subcollections) or selected items. Hits without text never reach the prompt; without
+  usable results the user gets a hint and the model is not called. New pref `libraryTopK` (30).
 
 ## 0.4.0 – 2026-09-28
 

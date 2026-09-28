@@ -5,7 +5,7 @@
 import { createClient } from './llm';
 import { stripThinking } from './llm/stream-parsers';
 import { buildMessages, describeContext, type HistoryTurn } from './prompt';
-import { UserFacingError } from './context/pdf-context';
+import { UserFacingError } from './errors';
 import { buildKeywordMessages, parseKeywords } from './context/keywords';
 import {
   buildLanguageMessages, guessLanguage, normalizeLanguage, parseLanguageReply,
@@ -15,6 +15,7 @@ import type { FitInfo } from './context/fit';
 import { chapterScope, type Outline } from './context/outline';
 import type { ChapterScope, ContextProvider, LongDocStrategy } from './context/types';
 import type { LlmClient } from './llm/types';
+import type { LibrarySource } from './library/sources';
 import { readPrefs, type SeekChatPrefs } from '../prefs';
 import { newAbortController } from '../util/env';
 import { logError } from '../util/log';
@@ -26,6 +27,8 @@ export interface Turn {
   meta?: string;
   error?: boolean;
   pending?: boolean;
+  /** Library chat: the numbered sources the answer cites. */
+  sources?: LibrarySource[];
 }
 
 /** Strategies the user can pick for long documents; "vector" is not implemented yet. */
@@ -225,11 +228,13 @@ export class ChatSession {
       }
       const context = await this.provider.build(`${question}\n${lastQuestion}`, prefs.contextChars, { keywords, chapters });
       answer.meta = [`${prefs.model} · ${describeContext(context)}`, ...notes].join('\n');
+      answer.sources = context.library?.sources;
       this.notify();
       await client.streamChat(
         {
           model: prefs.model,
-          messages: buildMessages({ systemPrompt: prefs.systemPrompt, context, history, question: question.trim() }),
+          // The PDF prompt setting asks for [S. N]; the library chat has its own citation format.
+          messages: buildMessages({ systemPrompt: context.library ? '' : prefs.systemPrompt, context, history, question: question.trim() }),
           temperature: prefs.temperature,
           maxTokens: prefs.maxTokens,
           numCtx: prefs.numCtx,

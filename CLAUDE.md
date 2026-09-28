@@ -40,6 +40,7 @@ they use `docker` or fall back to `sudo docker`, and run containers with the cal
 | `src/core/context/` | `ContextProvider` interface; `pdf-context.ts` (PDF worker text, split on `\f`), `page-selection.ts` (full text or page 1 + BM25 pages) |
 | `src/core/prompt.ts`, `citations.ts` | Messages (system prompt + document), `[S. N]` citation parsing |
 | `src/core/zotseek/client.ts` | ZotSeek REST (`/zotseek/search`, `/zotseek/stats`) on Zotero's local server: status/diagnosis, passage search. No fallback: without the endpoint there is no library chat |
+| `src/core/library/` | Library chat without UI: `sources.ts` (numbered sources from passages), `library-context.ts` (`LibraryContextProvider`, scopes library/collection/items), `zotero-items.ts` (library keys, `openSourceCitation`) |
 | `src/core/session.ts` | One `ChatSession` per provider key, streaming, abort; in memory only |
 | `src/ui/chat-section.ts` | Item pane section via `Zotero.ItemPaneManager.registerSection` (library + reader context pane) |
 | `src/ui/preferences.ts`, `content/preferences.xhtml` | Settings pane (fields wired manually, not via `preference=` binding) |

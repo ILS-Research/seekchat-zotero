@@ -7,6 +7,13 @@ export const DEFAULT_SYSTEM_PROMPT =
   'der Aussage. Wenn das Dokument die Antwort nicht enthält, sage das offen, statt zu raten. ' +
   'Antworte in der Sprache der Frage, knapp und präzise.';
 
+export const DEFAULT_LIBRARY_PROMPT =
+  'Du bist ein wissenschaftlicher Assistent in Zotero. Beantworte Fragen ausschließlich auf Grundlage ' +
+  'der bereitgestellten, nummerierten Quellen aus der Bibliothek des Nutzers. Belege jede Aussage direkt ' +
+  'dahinter mit Quellennummer und Seite im Format [2, S. 12], ohne Seitenangabe mit [2]; mehrere Belege ' +
+  'als [1, S. 3; 4, S. 7]. Nenne keine Quellen, die nicht bereitgestellt wurden. Enthalten die Quellen ' +
+  'die Antwort nicht, sage das offen, statt zu raten. Antworte in der Sprache der Frage, knapp und präzise.';
+
 export interface HistoryTurn {
   role: 'user' | 'assistant';
   content: string;
@@ -17,6 +24,16 @@ export function formatPages(pages: { pageNumber: number; text: string }[]): stri
 }
 
 export function describeContext(ctx: ContextBlock): string {
+  if (ctx.library) {
+    const l = ctx.library;
+    const extra = [
+      l.withoutText ? `${l.withoutText} Treffer ohne Textauszug nicht verwendet` : '',
+      l.overBudget ? `${l.overBudget} Abschnitte über dem Budget` : '',
+    ].filter(Boolean).join(', ');
+    const n = l.sources.length;
+    const counts = `${n} ${n === 1 ? 'Quelle' : 'Quellen'}, ${l.passagesUsed} ${l.passagesUsed === 1 ? 'Abschnitt' : 'Abschnitte'}`;
+    return `${l.scope}: ${counts} (ZotSeek)${extra ? `; ${extra}` : ''}`;
+  }
   if (ctx.mode === 'full') return `vollständiger Text, ${ctx.totalPages} Seiten`;
   if (ctx.chapters?.complete) {
     return `${chapterList(ctx.chapters.titles)} vollständig: S. ${compressRanges(ctx.includedPages)} von ${ctx.totalPages} Seiten`;
@@ -49,6 +66,18 @@ export function buildMessages(opts: {
   question: string;
 }): ChatMessage[] {
   const { context } = opts;
+  if (context.library) {
+    const system =
+      `${opts.systemPrompt || DEFAULT_LIBRARY_PROMPT}\n\n` +
+      `Suchbereich: ${context.library.scope}. Es folgen die zur Frage passendsten Textabschnitte, ` +
+      `gefunden mit ZotSeek; andere Stellen der Bibliothek sind nicht enthalten.\n\n` +
+      `<quellen>\n${context.body}\n</quellen>`;
+    return [
+      { role: 'system', content: system },
+      ...opts.history.map((t) => ({ role: t.role, content: t.content })),
+      { role: 'user', content: opts.question },
+    ];
+  }
   const note = context.mode === 'full'
     ? 'Es folgt der vollständige Text des Dokuments.'
     : context.chapters?.complete

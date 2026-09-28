@@ -5,6 +5,7 @@
  * paths: without the endpoint there is no library chat, only the PDF chat.
  */
 import { getFetch } from '../../util/env';
+import { UserFacingError } from '../errors';
 
 export const SEARCH_PATH = '/zotseek/search';
 export const STATS_PATH = '/zotseek/stats';
@@ -64,7 +65,7 @@ export const UNAVAILABLE_MESSAGES: Record<UnavailableReason, string> = {
   'error': 'ZotSeek-Suche nicht erreichbar.',
 };
 
-export class ZotSeekUnavailableError extends Error {
+export class ZotSeekUnavailableError extends UserFacingError {
   constructor(public reason: UnavailableReason, detail?: string) {
     super(UNAVAILABLE_MESSAGES[reason] + (detail ? ` (${detail})` : ''));
     this.name = 'ZotSeekUnavailableError';

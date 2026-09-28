@@ -5,6 +5,7 @@
  */
 import type { FitInfo } from './fit';
 import type { Outline } from './outline';
+import type { LibrarySource } from '../library/sources';
 
 export interface Page {
   /** 1-based physical page number (not the printed page label). */
@@ -25,6 +26,15 @@ export interface ContextBlock {
   noMatches?: boolean;
   /** Strategy "chapters": titles of the chosen chapters, and whether they were sent completely. */
   chapters?: { titles: string[]; complete: boolean };
+  /** Library chat: numbered sources (body holds them formatted); citations are [n, S. x]. */
+  library?: {
+    sources: LibrarySource[];
+    /** Search scope for meta line and prompt, e.g. "Collection „Stadtklima“". */
+    scope: string;
+    passagesUsed: number;
+    withoutText: number;
+    overBudget: number;
+  };
 }
 
 export interface BuildOptions {

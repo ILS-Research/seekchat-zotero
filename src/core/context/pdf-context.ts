@@ -3,13 +3,14 @@ import { analyzeFit, type FitInfo } from './fit';
 import { buildOutline, type Outline } from './outline';
 import { readPdfOutline } from './pdf-outline';
 import { logError } from '../../util/log';
+import { UserFacingError } from '../errors';
 import { buildTerms, selectPagesByTerms } from './page-selection';
 import type { BuildOptions, ContextBlock, ContextProvider, Page } from './types';
 
 /** Extracted pages per attachment, invalidated when the attachment item changes. */
 const pageCache = new Map<number, { version: string; pages: Page[] }>();
 
-export class UserFacingError extends Error {}
+export { UserFacingError };
 
 /** Page texts of a PDF attachment via Zotero's PDF worker (form feed = page break). */
 export async function getPdfPages(attachment: any): Promise<Page[]> {

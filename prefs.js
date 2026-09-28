@@ -26,3 +26,5 @@ pref("extensions.zotero.seekchat.systemPrompt", "");
 // this computer. Empty = loopback only. Hosts listed here receive the PDF text
 // and all questions.
 pref("extensions.zotero.seekchat.allowedRemoteHosts", "");
+// Library chat (needs ZotSeek): passages requested per question (1-100).
+pref("extensions.zotero.seekchat.libraryTopK", 30);

@@ -12,6 +12,9 @@ import { setPref } from '../../src/prefs';
 import { getRegisteredPaneID } from '../../src/ui/chat-section';
 import { createClient } from '../../src/core/llm';
 import { getZotSeekStatus, searchPassages, ZotSeekUnavailableError } from '../../src/core/zotseek/client';
+import { collectionScope, itemsScope, libraryScope, LibraryContextProvider } from '../../src/core/library/library-context';
+import { openSourceCitation } from '../../src/core/library/zotero-items';
+import { splitSourceCitations } from '../../src/core/citations';
 import { assert, screenshot, SkipError, waitFor, type E2EContext } from './harness';
 
 type Scenario = [string, (ctx: E2EContext) => Promise<void>];
@@ -59,6 +62,52 @@ function chapterBox(section: Element, title: string): HTMLInputElement {
 /** Page numbers marked [Seite N] in a system prompt. */
 function sentPages(system: string): number[] {
   return [...system.matchAll(/\[Seite (\d+)\]/g)].map((m) => Number(m[1]));
+}
+
+/**
+ * Stand-in for ZotSeek: the flag object plus /zotseek/stats and /zotseek/search on
+ * Zotero's real HTTP server, same paths and response shapes as ZotSeek's REST endpoints.
+ */
+function installZotSeek(opts: { indexed?: number; search?: boolean; results?: any[] } = {}) {
+  const server = (Zotero as any).Server;
+  assert(server?.port, 'Zotero HTTP server not running');
+  const state = {
+    indexed: opts.indexed ?? 5,
+    seen: [] as any[],
+    setSearch(fn: (sp: URLSearchParams) => any[]) {
+      server.Endpoints['/zotseek/search'] = endpoint((sp) => ({ results: fn(sp) }));
+    },
+    uninstall() {
+      delete server.Endpoints['/zotseek/search'];
+      delete server.Endpoints['/zotseek/stats'];
+      delete (Zotero as any).ZotSeek;
+    },
+  };
+  function endpoint(payload: (sp: URLSearchParams) => any) {
+    const E: any = function () {};
+    E.prototype = {
+      supportedMethods: ['GET'],
+      supportedDataTypes: ['application/json'],
+      permitBookmarklet: false,
+      init: async (req: any) => {
+        state.seen.push(Object.fromEntries(req.searchParams));
+        return [200, 'application/json', JSON.stringify(payload(req.searchParams))];
+      },
+    };
+    return E;
+  }
+  (Zotero as any).ZotSeek = { standIn: true };
+  server.Endpoints['/zotseek/stats'] = endpoint(() => ({ ready: state.indexed > 0, indexedPapers: state.indexed, totalChunks: state.indexed * 10 }));
+  if (opts.search !== false) state.setSearch(() => opts.results || []);
+  return state;
+}
+
+/** A ZotSeek search result with text, as /zotseek/search returns it for granularity=passages. */
+function passage(itemKey: string, title: string, page: number, text: string): any {
+  return {
+    itemKey, libraryKey: 'user', title, authors: ['Muster'], year: 2021, score: 0.02, semanticScore: 0.7, keywordScore: null,
+    source: 'semantic', matchedChunk: { snippet: text, page, textSource: 'pdf' },
+  };
 }
 
 const CITED_PAGES = /\[S\. (\d+)\]/g;
@@ -343,54 +392,140 @@ export const scenarios: Scenario[] = [
   }],
 
   ['ZotSeek REST: passages come through Zotero\'s local server', async () => {
-    const server = (Zotero as any).Server;
-    assert(server?.port, 'Zotero HTTP server not running');
-    // Stand-in for ZotSeek: same paths and response shapes as its REST endpoints.
-    const seen: any[] = [];
-    const endpoint = (payload: (sp: URLSearchParams) => any) => {
-      const E: any = function () {};
-      E.prototype = {
-        supportedMethods: ['GET'],
-        supportedDataTypes: ['application/json'],
-        permitBookmarklet: false,
-        init: async (req: any) => {
-          seen.push(Object.fromEntries(req.searchParams));
-          return [200, 'application/json', JSON.stringify(payload(req.searchParams))];
-        },
-      };
-      return E;
-    };
-    let indexed = 0;
-    (Zotero as any).ZotSeek = { fake: true };
+    const zs = installZotSeek({ indexed: 0, search: false });
     try {
-      server.Endpoints['/zotseek/stats'] = endpoint(() => ({ ready: indexed > 0, indexedPapers: indexed, totalChunks: indexed * 10 }));
       let status = await getZotSeekStatus();
       assert(!status.available && status.reason === 'endpoint-off', `without search endpoint: ${JSON.stringify(status)}`);
-
-      server.Endpoints['/zotseek/search'] = endpoint((sp) => ({
-        results: [{
-          itemKey: 'ABCD1234', libraryKey: 'user', title: 'Stadtklima', authors: ['Muster'], year: 2021, score: 0.03,
-          semanticScore: 0.71, keywordScore: null, source: 'semantic',
-          matchedChunk: { snippet: `Treffer zu ${sp.get('q')}`, page: 27, textSource: 'pdf' },
-        }],
-      }));
+      zs.setSearch((sp) => [{
+        itemKey: 'ABCD1234', libraryKey: 'user', title: 'Stadtklima', authors: ['Muster'], year: 2021, score: 0.03,
+        semanticScore: 0.71, keywordScore: null, source: 'semantic',
+        matchedChunk: { snippet: `Treffer zu ${sp.get('q')}`, page: 27, textSource: 'pdf' },
+      }]);
       status = await getZotSeekStatus();
       assert(!status.available && status.reason === 'no-index', `empty index: ${JSON.stringify(status)}`);
-
-      indexed = 3;
+      zs.indexed = 3;
       status = await getZotSeekStatus();
       assert(status.available && status.stats.indexedPapers === 3, `indexed: ${JSON.stringify(status)}`);
 
       const passages = await searchPassages('Hitze in Städten', { topK: 15, libraryKey: 'user' });
       assert(passages.length === 1 && passages[0].text === 'Treffer zu Hitze in Städten' && passages[0].page === 27,
         `unexpected passages: ${JSON.stringify(passages)}`);
-      const q = seen[seen.length - 1];
+      const q = zs.seen[zs.seen.length - 1];
       assert(q.granularity === 'passages' && q.topK === '15' && q.libraryKey === 'user', `unexpected query: ${JSON.stringify(q)}`);
     } finally {
-      delete server.Endpoints['/zotseek/search'];
-      delete server.Endpoints['/zotseek/stats'];
-      delete (Zotero as any).ZotSeek;
+      zs.uninstall();
     }
+  }],
+
+  ['library chat: ZotSeek passages become numbered sources, the answer cites [n, S. x]', async (ctx) => {
+    const a = Zotero.Items.get(ctx.parentID).key;
+    const b = Zotero.Items.get(ctx.longParentID).key;
+    const zs = installZotSeek({
+      results: [
+        passage(a, 'SeekChat E2E Testdokument', 2, 'Starkregenereignisse fuehren in Staedten zu Ueberflutungen.'),
+        passage(b, 'SeekChat E2E Langes Buch', 27, 'Waermeinseln in dicht bebauten Quartieren erhoehen die naechtlichen Temperaturen.'),
+        passage(a, 'SeekChat E2E Testdokument', 2, 'Starkregenereignisse fuehren in Staedten zu Ueberflutungen.'),
+        { itemKey: 'ZZZZ9999', libraryKey: 'user', title: 'Nur Stichwort', score: 0.01, matchedChunk: null },
+        passage(a, 'SeekChat E2E Testdokument', 1, 'Es beschreibt Methoden der Stadtklimaforschung.'),
+      ],
+    });
+    try {
+      const session = getSession(new LibraryContextProvider(libraryScope(Zotero.Libraries.userLibraryID)));
+      session.clear();
+      await session.ask('Was sagt meine Bibliothek zu Starkregen und Hitze?');
+      const answer = session.turns[session.turns.length - 1];
+      assert(!answer.error, `answer is an error: ${answer.content}`);
+      const sources = answer.sources!;
+      assert(sources?.length === 2 && sources[0].itemKey === a && sources[1].itemKey === b, `sources: ${JSON.stringify(sources)}`);
+      assert(sources[0].excerpts.map((e) => e.page).join() === '1,2', `excerpts of [1]: ${JSON.stringify(sources[0].excerpts)}`);
+      assert(answer.meta?.includes('2 Quellen, 3 Abschnitte (ZotSeek); 1 Treffer ohne Textauszug'), `meta: ${answer.meta}`);
+      const system: string = (await mockLastRequest()).messages[0].content;
+      assert(system.includes('<quellen>') && system.includes('[1] Muster 2021 – SeekChat E2E Testdokument') && system.includes('(S. 27)'),
+        `system prompt: ${system.slice(0, 600)}`);
+      assert(!system.includes('Nur Stichwort'), 'hit without text went into the prompt');
+      const cites = splitSourceCitations(answer.content, sources.length).filter((s) => s.type === 'source') as any[];
+      assert(cites.map((c) => `${c.n}:${c.page ?? '-'}`).join() === '1:2,2:27,1:-', `citations: ${JSON.stringify(cites)}`);
+      const q = zs.seen[zs.seen.length - 1];
+      assert(q.topK === '30' && q.libraryKey === 'user' && q.q.startsWith('Was sagt meine Bibliothek'), `query: ${JSON.stringify(q)}`);
+      ctx.librarySources = sources;
+    } finally {
+      zs.uninstall();
+    }
+  }],
+
+  ['library chat: a citation opens the PDF page, without page it selects the item', async (ctx) => {
+    const [first, second] = ctx.librarySources;
+    await openSourceCitation(second, 27);
+    await waitFor('long PDF on page 27', () => ctx.longAttachment.getAttachmentLastPageIndex() === 26, 10000);
+    await openSourceCitation(first);
+    const win = Zotero.getMainWindow();
+    await waitFor('item selected', () => win.ZoteroPane.getSelectedItems()[0]?.id === ctx.parentID, 5000);
+  }],
+
+  ['library chat: collection and item scopes keep only their items', async (ctx) => {
+    const a = Zotero.Items.get(ctx.parentID);
+    const b = Zotero.Items.get(ctx.longParentID);
+    const zs = installZotSeek({
+      results: [
+        passage(a.key, 'SeekChat E2E Testdokument', 2, 'Starkregenereignisse fuehren in Staedten zu Ueberflutungen.'),
+        passage(b.key, 'SeekChat E2E Langes Buch', 27, 'Waermeinseln in dicht bebauten Quartieren erhoehen die naechtlichen Temperaturen.'),
+      ],
+    });
+    try {
+      const col = new Zotero.Collection();
+      col.name = 'SeekChat E2E Collection';
+      await col.saveTx();
+      const sub = new Zotero.Collection();
+      sub.name = 'SeekChat E2E Unter';
+      sub.parentID = col.id;
+      await sub.saveTx();
+      a.addToCollection(col.id);
+      await a.saveTx();
+
+      let ctxBlock = await new LibraryContextProvider(collectionScope(col)).build('Starkregen', 40000);
+      assert(ctxBlock.library!.sources.map((s) => s.itemKey).join() === a.key, `collection: ${JSON.stringify(ctxBlock.library!.sources)}`);
+      assert(zs.seen[zs.seen.length - 1].topK === '100', 'filtered scope does not fetch the maximum');
+      assert(ctxBlock.library!.scope === 'Collection „SeekChat E2E Collection“', `scope: ${ctxBlock.library!.scope}`);
+
+      b.addToCollection(sub.id);
+      await b.saveTx();
+      ctxBlock = await new LibraryContextProvider(collectionScope(col)).build('Starkregen', 40000);
+      assert(ctxBlock.library!.sources.length === 2, 'subcollection items missing');
+
+      // A selected attachment stands for its parent item.
+      ctxBlock = await new LibraryContextProvider(itemsScope([ctx.longAttachment])).build('Hitze', 40000);
+      assert(ctxBlock.library!.sources.map((s) => s.itemKey).join() === b.key, `items: ${JSON.stringify(ctxBlock.library!.sources)}`);
+      assert((ctxBlock.library!.scope as string) === '1 ausgewählter Eintrag', `scope: ${ctxBlock.library!.scope}`);
+    } finally {
+      zs.uninstall();
+    }
+  }],
+
+  ['library chat: no usable ZotSeek result means a hint and no model call', async () => {
+    const session = getSession(new LibraryContextProvider(libraryScope(Zotero.Libraries.userLibraryID)));
+    const ask = async () => {
+      session.clear();
+      const before = (await mockRequests()).length;
+      await session.ask('Was steht zu Starkregen?');
+      const answer = session.turns[session.turns.length - 1];
+      assert(answer.error, `expected a hint, got: ${answer.content}`);
+      assert((await mockRequests()).length === before, 'model was called anyway');
+      return answer.content;
+    };
+    let msg = await ask();
+    assert(msg.includes('braucht das Plugin ZotSeek'), `without ZotSeek: ${msg}`);
+
+    const zs = installZotSeek({ results: [{ itemKey: 'ZZZZ9999', libraryKey: 'user', title: 'Nur Stichwort', score: 0.01, matchedChunk: null }] });
+    try {
+      msg = await ask();
+      assert(msg.includes('nur Treffer ohne Textauszug'), `keyword-only hits: ${msg}`);
+      zs.setSearch(() => []);
+      msg = await ask();
+      assert(msg.includes('keine passenden Textstellen'), `no hits: ${msg}`);
+    } finally {
+      zs.uninstall();
+    }
+    session.clear();
   }],
 
   // Optional: real PDFs from test/assets (mounted read-only, not part of the image).
