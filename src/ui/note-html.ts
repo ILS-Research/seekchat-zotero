@@ -9,6 +9,7 @@ import { sourcePages, type LibrarySource } from '../core/library/sources';
 import type { Turn } from '../core/session';
 import { escapeHtml, markdownToHtml, type HtmlPiece } from './markdown';
 import { t } from '../i18n';
+import { bookDetails, bookStateText } from '../core/book-report';
 
 export interface NoteLinks {
   /** PDF chat: link for a page citation. */
@@ -47,6 +48,11 @@ export function chatToNoteHtml(turns: Turn[], info: ExportInfo, links: NoteLinks
         : { type: 'cite' as const, html: link(seg.text, links.page?.(seg.page, turn) ?? null) });
     out.push(markdownToHtml(turn.content.trim(), split));
     if (turn.meta) out.push(`<p><em>${escapeHtml(turn.meta.trim()).replace(/\n/g, '<br>')}</em></p>`);
+    if (turn.bookProgress?.length) {
+      const items = turn.bookProgress.map((b) => `<li>${escapeHtml(`${b.label} – ${bookStateText(b)}`)}` +
+        (bookDetails(b).length ? `<ul>${bookDetails(b).map((l) => `<li>${escapeHtml(l)}</li>`).join('')}</ul>` : '') + '</li>');
+      out.push(`<p>${escapeHtml(t('export.books'))}</p>`, `<ul>${items.join('')}</ul>`);
+    }
     if (sources?.length) {
       const items = sources.map((s) => {
         const pages = sourcePages(s);

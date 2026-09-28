@@ -48,3 +48,20 @@ test('model requests are exported verbatim in collapsible blocks', () => {
   assert.ok(md.includes('<summary>Anfrage 2 an das Modell: Antwort (Modell m, Temperatur 0.2, max. 2048 Tokens; 9 Zeichen)</summary>'));
   assert.ok(md.trimEnd().endsWith('</details>'));
 });
+
+test('export: the book list of a library answer is complete (state, language, search terms, pages sent)', async () => {
+  const { chatToMarkdown } = await import('../src/core/export');
+  const { setLocale } = await import('../src/i18n');
+  setLocale('de');
+  const md = chatToMarkdown([
+    { role: 'user', content: 'Fehler melden?' },
+    {
+      role: 'assistant', content: 'Antwort [1, S. 304].', bookProgress: [
+        { label: 'JIRA', attachmentID: 1, state: 'found', found: 3, language: 'Englisch', languageSource: 'model', keywords: ['bug report'], pages: [1, 2, 304], totalPages: 304 },
+        { label: 'Anderes Buch', attachmentID: 2, state: 'nohits', language: 'Deutsch', languageSource: 'metadata', keywords: [] },
+      ],
+    },
+  ], { subject: 'S', model: 'm', date: new Date(2026, 8, 28, 14, 5) });
+  assert.match(md, /Bücher:\n\n- JIRA – 3 Abschnitte\n  - Dokumentsprache: Englisch \(vom Modell erkannt\)\n  - Suchbegriffe: bug report\n  - Gesendet 3 von 304 Seiten: S\. 1–2, 304\n- Anderes Buch – keine Stichworttreffer\n  - Dokumentsprache: Deutsch \(aus Metadaten\)\n  - Keine Suchbegriffe erhalten/);
+  setLocale(null);
+});

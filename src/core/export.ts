@@ -6,6 +6,7 @@
 import type { LlmRequestLog, Turn } from './session';
 import { currentLocale, t } from '../i18n';
 import { sourcePages } from './library/sources';
+import { bookDetails, bookStateText } from './book-report';
 
 export interface ExportInfo {
   /** "PDF: Muster 2021 – Titel" or "Bibliothek „Meine Bibliothek“" */
@@ -47,6 +48,12 @@ export function chatToMarkdown(turns: Turn[], info: ExportInfo): string {
     }
     out.push('', turn.error ? `**${turn.content.trim()}**` : turn.content.trim());
     if (turn.meta) out.push('', ...turn.meta.split('\n').map((l) => `*${l.trim()}*  `));
+    if (turn.bookProgress?.length) {
+      out.push('', t('export.books'), '');
+      for (const b of turn.bookProgress) {
+        out.push(`- ${b.label} – ${bookStateText(b)}`, ...bookDetails(b).map((l) => `  - ${l}`));
+      }
+    }
     if (turn.sources?.length) {
       out.push('', t('export.sources'), '');
       for (const s of turn.sources) {
