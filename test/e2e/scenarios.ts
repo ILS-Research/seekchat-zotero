@@ -580,6 +580,15 @@ export const scenarios: Scenario[] = [
       assert(doc.querySelector('.seekchat-library-scope')?.textContent === '2 ausgewählte Einträge',
         `scope: ${doc.querySelector('.seekchat-library-scope')?.textContent}`);
       await waitFor('ZotSeek status', () => doc.querySelector('.seekchat-library-status')?.textContent?.includes('5 Einträge indexiert'), 5000);
+      const zsBox = doc.getElementById('seekchat-source-zotseek') as HTMLInputElement;
+      const booksBox = doc.getElementById('seekchat-source-books') as HTMLInputElement;
+      assert(zsBox?.checked && !zsBox.disabled, 'ZotSeek source not on by default');
+      assert((zsBox.parentElement as HTMLElement).title.includes('Max chunks per paper'), 'ZotSeek tooltip missing');
+      assert(booksBox && booksBox.disabled && !booksBox.checked, 'books source not greyed out');
+      zsBox.click();
+      await waitFor('input disabled without source', () => (doc.querySelector('textarea.seekchat-input') as HTMLTextAreaElement).disabled
+        && doc.querySelector('.seekchat-library-empty')?.textContent?.includes('Keine Quelle ausgewählt'), 5000);
+      zsBox.click();
       const input = await waitFor('input enabled', () => {
         const t = doc.querySelector('textarea.seekchat-input') as HTMLTextAreaElement | null;
         return t && !t.disabled ? t : null;

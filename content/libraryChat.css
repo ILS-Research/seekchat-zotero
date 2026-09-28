@@ -19,3 +19,5 @@
 .seekchat-library .seekchat-input { min-height: 4em; }
 .seekchat-library-footer { display: flex; align-items: center; gap: 8px; }
 .seekchat-library-footer .spacer { flex: 1; }
+.seekchat-library-source { display: inline-flex; align-items: center; gap: 2px; margin-right: 12px; }
+.seekchat-library-source.disabled { opacity: 0.55; }

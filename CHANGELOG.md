@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- Library chat window: row "Quellen" with the checkboxes "ZotSeek" (on; tooltip lists ZotSeek's limits for
+  books and long documents) and "Bücher (eigener Index)" (greyed out, planned own index for whole books).
+  Without a source the window takes no questions.
+
 ## 0.4.2 – 2026-09-28
 
 - `update_url` points to the in-house portal `https://zotero.ils.local/downloads/seekchat/updates.json`.

@@ -84,6 +84,9 @@ export function closeLibraryChat(): void {
 class LibraryChatView {
   private doc: Document;
   private scopeEl: HTMLElement;
+  private zotseekBox: HTMLInputElement;
+  /** Source "ZotSeek" (papers from ZotSeek's index); without any source there is nothing to ask. */
+  private useZotSeek = true;
   private statusEl: HTMLElement;
   private modelEl: HTMLElement;
   private messages: HTMLElement;
@@ -106,6 +109,25 @@ class LibraryChatView {
     this.scopeEl = this.el('span', 'seekchat-library-scope');
     this.statusEl = this.el('span', 'seekchat-library-status');
     this.modelEl = this.el('span', 'seekchat-library-status');
+    this.zotseekBox = this.checkbox('seekchat-source-zotseek', 'ZotSeek', true, (on) => {
+      this.useZotSeek = on;
+      this.render();
+    });
+    this.zotseekBox.parentElement!.title =
+      'Textabschnitte aus dem ZotSeek-Index. Einschränkungen bei Büchern und langen Dokumenten:\n' +
+      '• Bücher nur, wenn in ZotSeek „Bücher ausschließen“ aus ist, PDF-Inhalte nur im Modus „full“.\n' +
+      '• Pro Eintrag höchstens „Max chunks per paper“ Abschnitte (Standard 100, max. 200) – ' +
+      'meist nur die ersten 20–70 Seiten eines Buchs.\n' +
+      '• ZotSeek hört beim ersten Literaturverzeichnis auf (bei Sammelbänden oft nach Kapitel 1).\n' +
+      '• PDFs ohne übergeordneten Eintrag werden nicht indexiert.\n' +
+      'Für ganze Bücher: den Chat mit dem PDF im Eintragsbereich nutzen.';
+    // Planned: own vector index for whole books (ZotSeek only indexes the beginning of long documents).
+    const booksBox = this.checkbox('seekchat-source-books', 'Bücher (eigener Index)', false, () => {});
+    booksBox.disabled = true;
+    const books = booksBox.parentElement!;
+    books.classList.add('disabled');
+    books.title = 'Geplant: eigener Vektorindex für ganze Bücher. ZotSeek indexiert bei langen Dokumenten nur den Anfang.';
+    books.append(this.doc.createTextNode(' '), this.el('span', 'seekchat-badge', 'noch ohne Funktion'));
     this.messages = this.el('div', 'seekchat-messages');
     this.input = this.el('textarea', 'seekchat-input') as HTMLTextAreaElement;
     this.input.placeholder = 'Frage an die Bibliothek … (Enter senden, Shift+Enter neue Zeile)';
@@ -120,6 +142,7 @@ class LibraryChatView {
     footer.append(settings, this.el('span', 'spacer'), this.clearBtn, close);
     root.replaceChildren(
       row('Umfang:', this.scopeEl, this.statusEl),
+      row('Quellen:', this.zotseekBox.parentElement!, books),
       row('Modell:', this.modelEl),
       this.messages,
       inputRow,
@@ -138,6 +161,18 @@ class LibraryChatView {
     if (cls) e.className = cls;
     if (text !== undefined) e.textContent = text;
     return e;
+  }
+
+  /** Checkbox inside its label; returns the input (its parent is the label). */
+  private checkbox(id: string, label: string, checked: boolean, onChange: (on: boolean) => void): HTMLInputElement {
+    const wrap = this.el('label', 'seekchat-library-source');
+    const box = this.el('input') as HTMLInputElement;
+    box.type = 'checkbox';
+    box.id = id;
+    box.checked = checked;
+    box.addEventListener('change', () => onChange(box.checked));
+    wrap.append(box, this.doc.createTextNode(` ${label}`));
+    return box;
   }
 
   private button(label: string, onClick: () => void): HTMLButtonElement {
@@ -174,7 +209,7 @@ class LibraryChatView {
 
   private async send(): Promise<void> {
     const q = this.input.value.trim();
-    if (!q || !this.session || this.session.busy) return;
+    if (!q || !this.session || this.session.busy || !this.useZotSeek) return;
     if (!(await this.checkStatus())) return;
     this.input.value = '';
     void this.session.ask(q);
@@ -196,7 +231,7 @@ class LibraryChatView {
 
   private render(): void {
     const s = this.session;
-    const available = this.status?.available === true;
+    const available = this.status?.available === true && this.useZotSeek;
     this.scopeEl.textContent = this.scope?.label || '';
     this.statusEl.className = `seekchat-library-status${this.status && !available ? ' unavailable' : ''}`;
     this.statusEl.textContent = !this.status ? 'Prüfe ZotSeek …'
@@ -212,7 +247,9 @@ class LibraryChatView {
     const atBottom = this.messages.scrollHeight - this.messages.scrollTop - this.messages.clientHeight < 40;
     const turns = s?.turns || [];
     if (!turns.length) {
-      this.messages.replaceChildren(this.el('div', 'seekchat-library-empty', available
+      this.messages.replaceChildren(this.el('div', 'seekchat-library-empty', !this.useZotSeek
+        ? 'Keine Quelle ausgewählt. Bitte oben unter „Quellen“ ZotSeek anhaken.'
+        : available
         ? `Fragen an ${this.scope?.label}. Die Antwort stützt sich auf die passendsten Textstellen, die ZotSeek findet, ` +
           'und nennt die Quellen als [Nr., S. x].'
         : this.status ? 'Chat über die Bibliothek ist gerade nicht möglich (siehe oben). Der Chat mit einzelnen PDFs im ' +
