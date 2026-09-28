@@ -11,7 +11,7 @@
   "applications": {
     "zotero": {
       "id": "seekchat@ils-forschung.de",
-      "update_url": "https://zotero.ils-geomonitoring.de/downloads/seekchat/updates.json",
+      "update_url": "https://zotero.ils.local/downloads/seekchat/updates.json",
       "strict_min_version": "7.0",
       "strict_max_version": "10.0.*"
     }

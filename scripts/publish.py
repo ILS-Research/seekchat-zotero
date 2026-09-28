@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Publishes the built SeekChat xpi to a downloads directory served by the Zotero portal.
 
-    scripts/publish.py <downloads-dir>      e.g. ../zotero_seflhost_src/data/downloads
+    scripts/publish.py <downloads-dir>      e.g. ../zotero_selfhost_src/data/downloads
 
 Copies dist/seekchat-<version>.xpi (version from package.json) to <downloads-dir>/seekchat/ and
 regenerates updates.json there from all seekchat-*.xpi in that directory, so installed plugins

@@ -1,6 +1,8 @@
 # Changelog
 
-## Unreleased
+## 0.4.2 – 2026-09-28
+
+- `update_url` points to the in-house portal `https://zotero.ils.local/downloads/seekchat/updates.json`.
 
 - Library chat window, laid out like ZotSeek's search window, opened from a speech-bubble button right
   next to ZotSeek's toolbar button (shown only while ZotSeek's button exists). Scope follows the Zotero
