@@ -22,6 +22,8 @@ export interface LibraryScope {
   key: string;
   /** For meta line and prompt, e.g. "Collection „Stadtklima“". */
   label: string;
+  /** Zotero library the scope lies in. */
+  libraryID: number;
   /** ZotSeek library key; omitted = all indexed libraries. */
   libraryKey?: string;
   /** Allowed regular items (IDs); omitted = everything in the library. */
@@ -40,7 +42,7 @@ function topLevelID(item: any): number {
 export function libraryScope(libraryID: number): LibraryScope {
   const libraryKey = libraryKeyOf(libraryID);
   if (!libraryKey) throw new UserFacingError('Diese Bibliothek kann ZotSeek nicht durchsuchen.');
-  return { key: `lib:${libraryKey}`, label: `Bibliothek „${libraryName(libraryID)}“`, libraryKey };
+  return { key: `lib:${libraryKey}`, label: `Bibliothek „${libraryName(libraryID)}“`, libraryID, libraryKey };
 }
 
 /** A collection including its subcollections. */
@@ -53,7 +55,7 @@ export function collectionScope(collection: any): LibraryScope {
     for (const child of c.getChildCollections(false)) collect(child);
   };
   collect(collection);
-  return { key: `col:${collection.libraryID}:${collection.key}`, label: `Collection „${collection.name}“`, libraryKey, itemIDs };
+  return { key: `col:${collection.libraryID}:${collection.key}`, label: `Collection „${collection.name}“`, libraryID: collection.libraryID, libraryKey, itemIDs };
 }
 
 export function itemsScope(items: any[]): LibraryScope {
@@ -68,6 +70,7 @@ export function itemsScope(items: any[]): LibraryScope {
   return {
     key: `items:${ids.join(',')}`,
     label: `${itemIDs.size} ausgewählte${itemIDs.size === 1 ? 'r Eintrag' : ' Einträge'}`,
+    libraryID: items[0].libraryID,
     libraryKey,
     itemIDs,
   };

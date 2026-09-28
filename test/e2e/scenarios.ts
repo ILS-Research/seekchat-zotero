@@ -577,13 +577,20 @@ export const scenarios: Scenario[] = [
         return w?.document?.querySelector('.seekchat-library-row') ? w : null;
       }, 15000);
       const doc = cw.document;
-      assert(doc.querySelector('.seekchat-library-scope')?.textContent === '2 ausgewählte Einträge',
-        `scope: ${doc.querySelector('.seekchat-library-scope')?.textContent}`);
+      const scopeText = () => (doc.querySelector('.seekchat-library-scope') as HTMLSelectElement)?.selectedOptions[0]?.textContent;
+      assert(scopeText() === '2 ausgewählte Einträge', `scope: ${scopeText()}`);
+      const options = Array.from((doc.querySelector('.seekchat-library-scope') as HTMLSelectElement).options).map((o) => o.textContent);
+      assert(options.some((o) => o?.startsWith('Bibliothek „')), `scope options: ${options}`);
+      // One of the two is a book, and ZotSeek's defaults exclude books and index abstracts only.
+      await waitFor('coverage hint', () => {
+        const t = doc.querySelector('.seekchat-library-coverage')?.textContent || '';
+        return t.includes('1 Buch') && t.includes('„abstract“');
+      }, 5000);
       await waitFor('ZotSeek status', () => doc.querySelector('.seekchat-library-status')?.textContent?.includes('5 Einträge indexiert'), 5000);
       const zsBox = doc.getElementById('seekchat-source-zotseek') as HTMLInputElement;
       const booksBox = doc.getElementById('seekchat-source-books') as HTMLInputElement;
       assert(zsBox?.checked && !zsBox.disabled, 'ZotSeek source not on by default');
-      assert(doc.querySelector('.seekchat-library-note')?.textContent?.includes('Literaturverzeichnis'), 'note on ZotSeek limits missing');
+      assert(doc.querySelector('.seekchat-library-note:not(.seekchat-library-coverage)')?.textContent?.includes('Literaturverzeichnis'), 'note on ZotSeek limits missing');
       assert(booksBox && booksBox.disabled && !booksBox.checked, 'books source not greyed out');
       zsBox.click();
       await waitFor('input disabled without source', () => (doc.querySelector('textarea.seekchat-input') as HTMLTextAreaElement).disabled
@@ -598,11 +605,18 @@ export const scenarios: Scenario[] = [
       const answer = await waitFor('answer with source citations', () => {
         const msgs = doc.querySelectorAll('.seekchat-msg.assistant');
         const last = msgs[msgs.length - 1];
-        return last?.querySelectorAll('.seekchat-cite').length === 3 && !doc.querySelector('.seekchat-msg.assistant .seekchat-cite:empty') ? last : null;
+        return last?.querySelectorAll('.seekchat-md .seekchat-cite').length === 3 ? last : null;
       }, 20000);
       await screenshot(ctx, 'library-window', cw);
       await screenshot(ctx, 'library-toolbar');
-      const cite = answer.querySelectorAll('.seekchat-cite')[1] as HTMLElement;
+      const sourceItems = await waitFor('source list', () => {
+        const li = doc.querySelectorAll('.seekchat-sources-list li');
+        return li.length === 2 ? li : null;
+      }, 5000);
+      assert(doc.querySelector('.seekchat-sources-title')?.textContent === 'Quellen (2 von 2 zitiert)',
+        `source list title: ${doc.querySelector('.seekchat-sources-title')?.textContent}`);
+      assert(sourceItems[1].textContent?.includes('SeekChat E2E Langes Buch – S. 27'), `source 2: ${sourceItems[1].textContent}`);
+      const cite = answer.querySelectorAll('.seekchat-md .seekchat-cite')[1] as HTMLElement;
       assert(cite.textContent === '[2, S. 27]', `second citation: ${cite.textContent}`);
       cite.click();
       await waitFor('long PDF on page 27', () => ctx.longAttachment.getAttachmentLastPageIndex() === 26, 10000);
@@ -611,7 +625,16 @@ export const scenarios: Scenario[] = [
       win.Zotero_Tabs.select('zotero-pane');
       await win.ZoteroPane.selectItems([a.id]);
       button.doCommand();
-      await waitFor('library scope', () => doc.querySelector('.seekchat-library-scope')?.textContent?.startsWith('Bibliothek „'), 5000);
+      await waitFor('library scope', () => scopeText()?.startsWith('Bibliothek „'), 5000);
+      // Picking a scope in the window switches the chat.
+      const select = doc.querySelector('.seekchat-library-scope') as HTMLSelectElement;
+      await win.ZoteroPane.selectItems([a.id, b.id]);
+      select.dispatchEvent(new cw.FocusEvent('focus'));
+      const idx = Array.from(select.options).findIndex((o) => o.textContent === '2 ausgewählte Einträge');
+      assert(idx >= 0, `selection not offered: ${Array.from(select.options).map((o) => o.textContent)}`);
+      select.selectedIndex = idx;
+      select.dispatchEvent(new cw.Event('change'));
+      await waitFor('earlier chat back', () => scopeText() === '2 ausgewählte Einträge' && doc.querySelectorAll('.seekchat-msg.assistant').length === 1, 5000);
       assert(getLibraryChatWindow() === cw, 'a second window was opened');
     } finally {
       zs.uninstall();

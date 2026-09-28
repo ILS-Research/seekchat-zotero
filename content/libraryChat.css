@@ -7,7 +7,6 @@
 }
 .seekchat-library-row { display: flex; align-items: center; gap: 8px; }
 .seekchat-library-label { min-width: 70px; color: var(--fill-secondary); }
-.seekchat-library-scope { font-weight: 600; overflow-wrap: anywhere; }
 .seekchat-library-status { font-size: 11px; color: var(--fill-secondary); }
 .seekchat-library-status.unavailable { color: var(--accent-red, #c62828); font-size: 12px; }
 .seekchat-library .seekchat-messages {
@@ -22,3 +21,6 @@
 .seekchat-library-source { display: inline-flex; align-items: center; gap: 2px; margin-right: 12px; }
 .seekchat-library-source.disabled { opacity: 0.55; }
 .seekchat-library-note { font-size: 11px; color: var(--fill-secondary); line-height: 1.35; }
+.seekchat-library-scope { font-weight: 600; max-width: 60%; }
+.seekchat-library-coverage:empty { display: none; }
+.seekchat-library-coverage { color: var(--accent-orange, #b36b00); }

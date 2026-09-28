@@ -15,7 +15,9 @@ status: `../ideas-zotseek.md` (German).
 - Library chat (needs ZotSeek with "AI Agent Access" and Zotero's local HTTP server): the speech-bubble
   button right next to ZotSeek's toolbar button opens the chat window. Its scope is the current
   selection (several items, else the collection, else the library). Citations like [2, S. 12] open
-  the source's PDF at that page. Without ZotSeek the button is not shown; the PDF chat works as before.
+  the source's PDF at that page; a source list follows each answer. The scope can be changed in the
+  window; a note says what ZotSeek cannot see there (PDFs without parent item, excluded books,
+  abstract-only mode). Without ZotSeek the button is not shown; the PDF chat works as before.
 
 ## How it works
 

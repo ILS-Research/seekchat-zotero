@@ -45,7 +45,8 @@ they use `docker` or fall back to `sudo docker`, and run containers with the cal
 | `src/core/library/` | Library chat without UI: `sources.ts` (numbered sources from passages), `library-context.ts` (`LibraryContextProvider`, scopes library/collection/items), `zotero-items.ts` (library keys, `openSourceCitation`) |
 | `src/ui/library-window.ts`, `content/libraryChat.xhtml` | Library chat window (one instance; the xhtml calls `Zotero.SeekChat.onLibraryWindowLoad`, the plugin builds the DOM) |
 | `src/ui/toolbar-button.ts` | Button right after `#zotseek-toolbar-button`, kept in sync by a MutationObserver (plugin start order is not fixed) |
-| `src/ui/turn-view.ts` | Rendering of one chat turn with page or source citations, shared by section and window |
+| `src/ui/turn-view.ts`, `src/ui/markdown.ts` | Rendering of one chat turn (safe Markdown subset, page or source citations, source list), shared by section and window |
+| `src/core/library/coverage.ts` | What ZotSeek cannot see in a scope (standalone PDFs, excluded books, abstract mode), from Zotero and ZotSeek's global prefs |
 | `src/core/session.ts` | One `ChatSession` per provider key, streaming, abort; in memory only |
 | `src/ui/chat-section.ts` | Item pane section via `Zotero.ItemPaneManager.registerSection` (library + reader context pane) |
 | `src/ui/preferences.ts`, `content/preferences.xhtml` | Settings pane (fields wired manually, not via `preference=` binding) |

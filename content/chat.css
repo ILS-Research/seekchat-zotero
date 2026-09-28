@@ -32,3 +32,17 @@
 .seekchat-chapter-meta { font-size: 10px; color: var(--fill-secondary); white-space: nowrap; }
 .seekchat-chapter-sum { font-weight: bold; }
 .seekchat-chapter-sum.over { color: var(--accent-red, #c62828); }
+/* Answers: Markdown subset (turn-view.ts / markdown.ts) and the source list of the library chat. */
+.seekchat-md { white-space: normal; }
+.seekchat-md > :first-child { margin-top: 0; }
+.seekchat-md > :last-child { margin-bottom: 0; }
+.seekchat-md p { margin: 0 0 6px; white-space: pre-line; }
+.seekchat-md ul, .seekchat-md ol { margin: 0 0 6px; padding-left: 20px; }
+.seekchat-md li { margin: 2px 0; white-space: pre-line; }
+.seekchat-md h4, .seekchat-md h5, .seekchat-md h6 { margin: 8px 0 4px; font-size: 13px; }
+.seekchat-md code { font-family: monospace; font-size: 12px; background: var(--fill-quinary); padding: 0 3px; border-radius: 3px; }
+.seekchat-sources { white-space: normal; margin-top: 8px; padding-top: 6px; border-top: 1px solid var(--fill-quinary); font-size: 12px; }
+.seekchat-sources-title { font-size: 11px; color: var(--fill-secondary); margin-bottom: 2px; }
+.seekchat-sources-list { margin: 0; padding-left: 26px; }
+.seekchat-sources-list li { margin: 2px 0; }
+.seekchat-sources-list li.uncited { opacity: 0.6; }

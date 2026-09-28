@@ -69,7 +69,19 @@
     Faustregel: PDF-Text (Zeichen) ÷ 3,5 + Antwortlänge + Verlauf muss ins Kontextfenster passen.
     Längere PDFs werden auf die zur Frage passendsten Seiten gekürzt.
   </html:p>
-  <html:label for="seekchat-systemPrompt">System-Prompt (leer = Standard):</html:label>
+  <html:label for="seekchat-systemPrompt">System-Prompt für den PDF-Chat (leer = Standard):</html:label>
   <html:textarea id="seekchat-systemPrompt"/>
+</groupbox>
+<groupbox>
+  <label><html:h2>Chat über die Bibliothek (mit ZotSeek)</html:h2></label>
+  <html:div class="row">
+    <html:label for="seekchat-libraryTopK">Abschnitte pro Frage von ZotSeek:</html:label>
+    <html:input type="number" id="seekchat-libraryTopK" min="1" max="100"/>
+  </html:div>
+  <html:p class="help">
+    Wie viele passende Textabschnitte ZotSeek pro Frage liefert (1–100). Davon geht mit, was in „PDF-Text pro Frage“
+    passt. Bei Collections und ausgewählten Einträgen holt SeekChat immer 100 und behält die passenden.
+    Der Chat über die Bibliothek braucht ZotSeek mit „AI Agent Access“ und Zoteros lokalen HTTP-Server.
+  </html:p>
 </groupbox>
 </vbox>

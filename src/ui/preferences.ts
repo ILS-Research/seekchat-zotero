@@ -5,7 +5,7 @@ import { DEFAULT_SYSTEM_PROMPT } from '../core/prompt';
 import { getPref, readPrefs, setPref } from '../prefs';
 
 const TEXT_PREFS = ['baseUrl', 'apiKey'];
-const INT_PREFS = ['temperaturePercent', 'numCtx', 'contextChars', 'maxTokens', 'historyTurns'];
+const INT_PREFS = ['temperaturePercent', 'numCtx', 'contextChars', 'maxTokens', 'historyTurns', 'libraryTopK'];
 
 export function onPrefsLoad(win: Window): void {
   const doc = win.document;

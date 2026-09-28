@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.5.0 – 2026-09-28
+
+Library chat complete (stage 1).
+
+- Source list under each library answer: numbered sources with their pages, cited ones highlighted
+  ("Quellen (2 von 3 zitiert)"); the title selects the item, a page opens the PDF there.
+- Scope picker in the window: current selection, selected collection, every library.
+- Hint per scope on what ZotSeek cannot see: PDFs without parent item, books while ZotSeek excludes them,
+  abstract-only indexing mode.
+- Answers (PDF and library chat) are rendered as a small, safe Markdown subset: paragraphs, headings,
+  lists, bold, italic, code; citations stay clickable, also inside bold text.
+- Settings: new group "Chat über die Bibliothek" with the number of ZotSeek passages per question.
+
 ## 0.4.4 – 2026-09-28
 
 - Library chat window: ZotSeek's limits for books are shown as a short note under the source checkboxes

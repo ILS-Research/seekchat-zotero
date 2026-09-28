@@ -13,6 +13,7 @@ import { openSourceCitation } from '../core/library/zotero-items';
 import { getSession, type ChatSession } from '../core/session';
 import { getZotSeekStatus, type ZotSeekStatus } from '../core/zotseek/client';
 import { formatCount } from '../core/context/fit';
+import { describeCoverage, scopeCoverage } from '../core/library/coverage';
 import { readPrefs } from '../prefs';
 import { logError } from '../util/log';
 import { renderTurn } from './turn-view';
@@ -39,6 +40,33 @@ export function currentScope(win: any = Zotero.getMainWindow()): LibraryScope {
   const collection = pane.getSelectedCollection?.();
   if (collection) return collectionScope(collection);
   return libraryScope(pane.getSelectedLibraryID?.() ?? Zotero.Libraries.userLibraryID);
+}
+
+/**
+ * Scopes offered in the window: the current Zotero selection (several items),
+ * the selected collection, every library that ZotSeek can search, and the
+ * scope in use (kept even if the selection moved on).
+ */
+export function scopeChoices(current: LibraryScope | null, win: any = Zotero.getMainWindow()): LibraryScope[] {
+  const list: LibraryScope[] = [];
+  const add = (make: () => LibraryScope) => {
+    try {
+      const s = make();
+      if (!list.some((x) => x.key === s.key)) list.push(s);
+    } catch {
+      // not searchable (e.g. feeds): not offered
+    }
+  };
+  const pane = win?.ZoteroPane;
+  const items = (pane?.getSelectedItems?.() || []) as any[];
+  if (items.length > 1) add(() => itemsScope(items));
+  const collection = pane?.getSelectedCollection?.();
+  if (collection) add(() => collectionScope(collection));
+  for (const lib of Zotero.Libraries.getAll()) {
+    if (lib.libraryType === 'user' || lib.libraryType === 'group') add(() => libraryScope(lib.libraryID));
+  }
+  if (current && !list.some((x) => x.key === current.key)) list.unshift(current);
+  return list;
 }
 
 export function openLibraryChat(scope?: LibraryScope): void {
@@ -83,7 +111,9 @@ export function closeLibraryChat(): void {
 
 class LibraryChatView {
   private doc: Document;
-  private scopeEl: HTMLElement;
+  private scopeEl: HTMLSelectElement;
+  private scopeOptions: LibraryScope[] = [];
+  private coverageEl: HTMLElement;
   private zotseekBox: HTMLInputElement;
   /** Source "ZotSeek" (papers from ZotSeek's index); without any source there is nothing to ask. */
   private useZotSeek = true;
@@ -106,7 +136,14 @@ class LibraryChatView {
       r.append(this.el('span', 'seekchat-library-label', label), ...content);
       return r;
     };
-    this.scopeEl = this.el('span', 'seekchat-library-scope');
+    this.scopeEl = this.el('select', 'seekchat-library-scope') as HTMLSelectElement;
+    this.scopeEl.addEventListener('change', () => {
+      const chosen = this.scopeOptions[this.scopeEl.selectedIndex];
+      if (chosen) this.setScope(chosen);
+    });
+    // The Zotero selection may have changed since the list was built.
+    this.scopeEl.addEventListener('focus', () => this.fillScopes());
+    this.coverageEl = this.el('div', 'seekchat-library-note seekchat-library-coverage');
     this.statusEl = this.el('span', 'seekchat-library-status');
     this.modelEl = this.el('span', 'seekchat-library-status');
     this.zotseekBox = this.checkbox('seekchat-source-zotseek', 'ZotSeek', true, (on) => {
@@ -133,6 +170,7 @@ class LibraryChatView {
     footer.append(settings, this.el('span', 'spacer'), this.clearBtn, close);
     root.replaceChildren(
       row('Umfang:', this.scopeEl, this.statusEl),
+      row('', this.coverageEl),
       row('Quellen:', this.zotseekBox.parentElement!, books),
       // Plain text instead of a tooltip: title tooltips do not show in this chrome window.
       row('', this.el('div', 'seekchat-library-note',
@@ -188,8 +226,31 @@ class LibraryChatView {
     this.session = getSession(new LibraryContextProvider(scope));
     this.unsubscribe = this.session.subscribe(() => this.scheduleRender());
     this.win.document.title = `SeekChat – ${scope.label}`;
+    this.fillScopes();
     this.render();
     void this.checkStatus();
+    void this.checkCoverage(scope);
+  }
+
+  private fillScopes(): void {
+    this.scopeOptions = scopeChoices(this.scope);
+    this.scopeEl.replaceChildren(...this.scopeOptions.map((s) => {
+      const o = this.el('option', '', s.label) as HTMLOptionElement;
+      o.value = s.key;
+      return o;
+    }));
+    this.scopeEl.selectedIndex = Math.max(0, this.scopeOptions.findIndex((s) => s.key === this.scope?.key));
+  }
+
+  /** What ZotSeek cannot see in this scope (standalone PDFs, excluded books, abstract-only mode). */
+  private async checkCoverage(scope: LibraryScope): Promise<void> {
+    this.coverageEl.textContent = '';
+    try {
+      const text = describeCoverage(await scopeCoverage(scope));
+      if (this.scope?.key === scope.key) this.coverageEl.textContent = text;
+    } catch (e) {
+      logError(e);
+    }
   }
 
   /** ZotSeek can be switched off while the window is open; checked on open, scope change and before each question. */
@@ -229,7 +290,6 @@ class LibraryChatView {
   private render(): void {
     const s = this.session;
     const available = this.status?.available === true && this.useZotSeek;
-    this.scopeEl.textContent = this.scope?.label || '';
     this.statusEl.className = `seekchat-library-status${this.status && !available ? ' unavailable' : ''}`;
     this.statusEl.textContent = !this.status ? 'Prüfe ZotSeek …'
       : this.status.available ? `ZotSeek: ${formatCount(this.status.stats.indexedPapers)} Einträge indexiert`
