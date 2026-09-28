@@ -14,8 +14,8 @@ test('ollama /api/show: num_ctx and num_predict from the Modelfile, maximum from
   }), { configuredContext: undefined, numPredict: undefined, maxContext: 131072 });
 });
 
-test('limits: 80 % of the context, answer a tenth (max 4096), rest for the text', () => {
-  assert.deepEqual(limitsFromContext(131072, 24576), { numCtx: 104448, maxTokens: 4096, contextChars: 345000 });
+test('limits: 80 % of the context, answer a tenth (max 12288), rest for the text', () => {
+  assert.deepEqual(limitsFromContext(131072, 24576), { numCtx: 104448, maxTokens: 10444, contextChars: 323000 });
   assert.deepEqual(limitsFromContext(20480), { numCtx: 16384, maxTokens: 1638, contextChars: 46000 });
   assert.deepEqual(limitsFromContext(8192, 500), { numCtx: 6144, maxTokens: 400, contextChars: 14000 });
 });

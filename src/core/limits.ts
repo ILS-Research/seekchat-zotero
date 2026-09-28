@@ -29,7 +29,7 @@ export interface ResolvedLimits extends Limits {
 export const HEADROOM = 0.8;
 /** Tokens kept free for system prompt, history and question. */
 const RESERVE_TOKENS = 1500;
-const MAX_ANSWER_TOKENS = 4096;
+const MAX_ANSWER_TOKENS = 12288;
 
 /** Pure: limits from a context size in tokens (unit-tested). */
 export function limitsFromContext(context: number, numPredict?: number): Limits {

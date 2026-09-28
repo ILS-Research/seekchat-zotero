@@ -78,7 +78,7 @@
     <html:p class="help">
       SeekChat fragt den Server nach dem Modell: bei Ollama num_ctx aus der Modelldatei, sonst die maximale
       Kontextlänge des Modells (bei vLLM max_model_len). Davon nutzt es 80 %; die Antwortlänge ist ein Zehntel davon
-      (höchstens 4096), der Rest abzüglich Platz für Prompt und Verlauf geht an den Dokumenttext (~3,5 Zeichen je
+      (höchstens 12.288), der Rest abzüglich Platz für Prompt und Verlauf geht an den Dokumenttext (~3,5 Zeichen je
       Token). Meldet der Server nichts, gelten die manuellen Werte. Große Werte machen Antworten langsamer.
     </html:p>
   </html:div>

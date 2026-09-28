@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.5.5 – 2026-09-28
+
+- Automatic answer length: cap raised from 4096 to 12288 tokens (still a tenth of the context and at most
+  80 % of Ollama's num_predict). Thinking models (Qwen 3) count their `<think>` part against it.
+
 ## 0.5.4 – 2026-09-28
 
 - "Verlauf als Notiz speichern" in both chats. PDF chat: child note of the PDF's item; library chat:
