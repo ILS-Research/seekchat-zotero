@@ -2,8 +2,12 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { splitSourceCitations } from '../src/core/citations';
 import { buildSources, formatSources, sourceLabel } from '../src/core/library/sources';
-import { buildMessages, describeContext, DEFAULT_LIBRARY_PROMPT } from '../src/core/prompt';
+import { buildMessages, describeContext, defaultLibraryPrompt } from '../src/core/prompt';
 import type { ZotSeekPassage } from '../src/core/zotseek/client';
+import { setLocale } from '../src/i18n';
+
+// The expectations below are the German UI texts; English is covered in i18n.test.ts.
+setLocale('de');
 
 const p = (itemKey: string, page: number | undefined, text: string | undefined, extra: Partial<ZotSeekPassage> = {}): ZotSeekPassage => ({
   itemKey, libraryKey: 'user', title: `Titel ${itemKey}`, authors: ['Muster, Erika'], year: 2021,
@@ -49,7 +53,7 @@ test('sources: budget is respected, later passages are counted as over budget', 
 test('sources are formatted with number, label and page or note marker', () => {
   const set = buildSources([p('A', 12, 'Text A'), p('B', undefined, 'Notiztext', { textSource: 'note', noteKey: 'N1' })], 10_000);
   assert.equal(formatSources(set.sources),
-    '[1] Muster 2021 – Titel A\n(S. 12)\nText A\n\n---\n\n[2] Muster 2021 – Titel B\n(Notiz)\nNotiztext');
+    '[1] Muster 2021 – Titel A\n(S. 12)\nText A\n\n---\n\n[2] Muster 2021 – Titel B\n(note)\nNotiztext');
 });
 
 test('source citations: single, with page, ranges and lists; unknown numbers stay text', () => {
@@ -68,8 +72,9 @@ test('library context: meta line and prompt name scope and sources', () => {
   };
   assert.equal(describeContext(ctx), 'Bibliothek „Meine Bibliothek“: 1 Quelle, 1 Abschnitt (ZotSeek); 2 Treffer ohne Textauszug nicht verwendet');
   const system = buildMessages({ context: ctx, history: [], question: 'q' })[0].content;
-  assert.ok(system.startsWith(DEFAULT_LIBRARY_PROMPT));
-  assert.match(system, /<quellen>\n\[1\] Muster 2021 – Titel A\n\(S\. 12\)\nText A\n<\/quellen>/);
+  assert.ok(system.startsWith(defaultLibraryPrompt()));
+  assert.match(system, /<sources>\n\[1\] Muster 2021 – Titel A\n\(S\. 12\)\nText A\n<\/sources>/);
+  assert.match(system, /format \[2, S\. 12\]/, 'German UI: model is asked for [n, S. x]');
 });
 
 test('book answers: the no-match marker is recognised with quotes or a period', async () => {

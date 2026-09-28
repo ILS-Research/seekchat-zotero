@@ -1,6 +1,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { LineBuffer, parseOllamaLine, parseSseLine, stripThinking } from '../src/core/llm/stream-parsers';
+import { setLocale } from '../src/i18n';
+
+// The expectations below are the German UI texts; English is covered in i18n.test.ts.
+setLocale('de');
 
 test('LineBuffer keeps partial lines across chunks', () => {
   const b = new LineBuffer();

@@ -5,6 +5,7 @@
  * no fallback. ZotSeek filters by library only, so collection and item scopes
  * fetch the maximum number of passages and keep those of the allowed items.
  */
+import { t, tn } from '../../i18n';
 import { analyzeFit, type FitInfo } from '../context/fit';
 import type { Outline } from '../context/outline';
 import type { BuildOptions, ContextBlock, ContextProvider } from '../context/types';
@@ -33,7 +34,7 @@ export interface LibraryScope {
 }
 
 function libraryName(libraryID: number): string {
-  return Zotero.Libraries.get(libraryID)?.name || 'Bibliothek';
+  return Zotero.Libraries.get(libraryID)?.name || t('lib.libraryDefault');
 }
 
 /** The regular item behind a selected attachment or note. */
@@ -43,35 +44,35 @@ function topLevelID(item: any): number {
 
 export function libraryScope(libraryID: number): LibraryScope {
   const libraryKey = libraryKeyOf(libraryID);
-  if (!libraryKey) throw new UserFacingError('Diese Bibliothek kann ZotSeek nicht durchsuchen.');
-  return { key: `lib:${libraryKey}`, label: `Bibliothek „${libraryName(libraryID)}“`, libraryID, libraryKey };
+  if (!libraryKey) throw new UserFacingError(t('error.librarySearch'));
+  return { key: `lib:${libraryKey}`, label: t('lib.library', { name: libraryName(libraryID) }), libraryID, libraryKey };
 }
 
 /** A collection including its subcollections. */
 export function collectionScope(collection: any): LibraryScope {
   const libraryKey = libraryKeyOf(collection.libraryID);
-  if (!libraryKey) throw new UserFacingError('Diese Bibliothek kann ZotSeek nicht durchsuchen.');
+  if (!libraryKey) throw new UserFacingError(t('error.librarySearch'));
   const itemIDs = new Set<number>();
   const collect = (c: any) => {
     for (const item of c.getChildItems(false)) itemIDs.add(topLevelID(item));
     for (const child of c.getChildCollections(false)) collect(child);
   };
   collect(collection);
-  return { key: `col:${collection.libraryID}:${collection.key}`, label: `Collection „${collection.name}“`, libraryID: collection.libraryID, collectionID: collection.id, libraryKey, itemIDs };
+  return { key: `col:${collection.libraryID}:${collection.key}`, label: t('lib.collection', { name: collection.name }), libraryID: collection.libraryID, collectionID: collection.id, libraryKey, itemIDs };
 }
 
 export function itemsScope(items: any[]): LibraryScope {
-  if (!items.length) throw new UserFacingError('Keine Einträge ausgewählt.');
+  if (!items.length) throw new UserFacingError(t('error.noItems'));
   const libraryKey = libraryKeyOf(items[0].libraryID);
-  if (!libraryKey) throw new UserFacingError('Diese Bibliothek kann ZotSeek nicht durchsuchen.');
+  if (!libraryKey) throw new UserFacingError(t('error.librarySearch'));
   if (items.some((i) => i.libraryID !== items[0].libraryID)) {
-    throw new UserFacingError('Die ausgewählten Einträge liegen in verschiedenen Bibliotheken.');
+    throw new UserFacingError(t('error.mixedLibraries'));
   }
   const itemIDs = new Set(items.map(topLevelID));
   const ids = Array.from(itemIDs).sort((a, b) => a - b);
   return {
     key: `items:${ids.join(',')}`,
-    label: `${itemIDs.size} ausgewählte${itemIDs.size === 1 ? 'r Eintrag' : ' Einträge'}`,
+    label: tn('lib.items', itemIDs.size),
     libraryID: items[0].libraryID,
     libraryKey,
     itemIDs,
@@ -123,8 +124,8 @@ export class LibraryContextProvider implements ContextProvider {
     const set = buildSources(passages, budgetChars);
     if (!set.sources.length) {
       throw new UserFacingError(set.withoutText
-        ? `ZotSeek fand in ${this.scope.label} nur Treffer ohne Textauszug. Ist der Indexierungsmodus auf „full“ gestellt?`
-        : `ZotSeek fand in ${this.scope.label} keine passenden Textstellen.`);
+        ? t('error.onlyNoText', { scope: this.scope.label })
+        : t('error.noPassages', { scope: this.scope.label }));
     }
     return {
       title: this.scope.label,

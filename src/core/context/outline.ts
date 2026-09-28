@@ -5,6 +5,7 @@
  * the PDF is open. Source 2 (fallback): headings detected in the page text.
  * Source 3 (fallback): blocks of pages. Pure, unit-tested.
  */
+import { t } from '../../i18n';
 import { estimateTokens } from './fit';
 import type { Page } from './types';
 
@@ -65,9 +66,9 @@ export function outlineFromReader(items: ReaderOutlineItem[] | null | undefined,
   const page = (it: ReaderOutlineItem) => (it.location?.position?.pageIndex ?? -1) + 1;
   const entries = items
     .map((it) => ({
-      title: (it.title || '').trim() || '(ohne Titel)',
+      title: (it.title || '').trim() || `(${t('common.untitled')})`,
       page: page(it),
-      children: (it.items || []).map((c) => ({ title: (c.title || '').trim() || '(ohne Titel)', page: page(c) })),
+      children: (it.items || []).map((c) => ({ title: (c.title || '').trim() || `(${t('common.untitled')})`, page: page(c) })),
     }))
     .filter((e) => e.page >= 1);
   if (!entries.length) return null;

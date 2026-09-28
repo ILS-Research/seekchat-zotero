@@ -1,4 +1,5 @@
 /** Does a document fit into the prompt budget? Pure, unit-tested. */
+import { currentLocale } from '../../i18n';
 import type { Page } from './types';
 
 /** Rough token estimate for mixed German/English prose (~3.5 characters per token). */
@@ -29,7 +30,8 @@ export function analyzeFit(pages: Page[], budgetChars: number): FitInfo {
   };
 }
 
-/** 12345 -> "12.345" (German grouping, independent of the UI locale). */
+/** 12345 -> "12,345" (English) / "12.345" (German). */
 export function formatCount(n: number): string {
-  return String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  const sep = currentLocale() === 'de' ? '.' : ',';
+  return String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\d))/g, sep);
 }

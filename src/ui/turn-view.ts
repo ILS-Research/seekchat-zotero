@@ -4,6 +4,7 @@
  * cite pages ([S. 12]); library answers cite numbered sources ([2, S. 12]) and
  * get a source list below the text.
  */
+import { t } from '../i18n';
 import { splitCitations, splitSourceCitations } from '../core/citations';
 import type { LibrarySource } from '../core/library/sources';
 import type { Turn } from '../core/session';
@@ -41,21 +42,21 @@ export function citedSources(content: string, sourceCount: number): Set<number> 
 
 function sourceList(doc: Document, sources: LibrarySource[], cited: Set<number>, handlers: CitationHandlers): HTMLElement {
   const box = el(doc, 'div', 'seekchat-sources');
-  box.append(el(doc, 'div', 'seekchat-sources-title', `Quellen (${cited.size} von ${sources.length} zitiert)`));
+  box.append(el(doc, 'div', 'seekchat-sources-title', t('lib.sourceList', { cited: cited.size, total: sources.length })));
   const list = el(doc, 'ol', 'seekchat-sources-list');
   for (const s of sources) {
     const li = el(doc, 'li', cited.has(s.n) ? 'cited' : 'uncited') as HTMLLIElement;
     li.value = s.n;
-    li.append(cite(doc, s.label, 'In der Bibliothek zeigen', () => handlers.onSource?.(s)));
+    li.append(cite(doc, s.label, t('lib.showInLibrary'), () => handlers.onSource?.(s)));
     const pages = Array.from(new Set(s.excerpts.map((e) => e.page).filter((p): p is number => !!p))).sort((a, b) => a - b);
     if (pages.length) {
-      li.append(doc.createTextNode(' – S. '));
+      li.append(doc.createTextNode(` – ${t('cite.page')} `));
       pages.forEach((p, i) => {
         if (i) li.append(doc.createTextNode(', '));
-        li.append(cite(doc, String(p), `Seite ${p} im PDF öffnen`, () => handlers.onSource?.(s, p)));
+        li.append(cite(doc, String(p), t('pdf.openPage', { page: p }), () => handlers.onSource?.(s, p)));
       });
     } else if (s.excerpts.some((e) => e.textSource === 'note')) {
-      li.append(doc.createTextNode(' – Notiz'));
+      li.append(doc.createTextNode(` – ${t('lib.note')}`));
     }
     list.append(li);
   }
@@ -63,34 +64,34 @@ function sourceList(doc: Document, sources: LibrarySource[], cited: Set<number>,
   return box;
 }
 
-export function renderTurn(doc: Document, t: Turn, handlers: CitationHandlers, pendingText = 'Lese PDF …'): HTMLElement {
-  const box = el(doc, 'div', `seekchat-msg ${t.role}${t.error ? ' error' : ''}${t.book ? ' book' : ''}${t.noMatch ? ' nomatch' : ''}`);
-  if (t.book) box.append(el(doc, 'div', 'seekchat-book-title', `📖 ${t.book.label}`));
-  if (t.role === 'user' || t.error) {
-    box.append(doc.createTextNode(t.content));
+export function renderTurn(doc: Document, turn: Turn, handlers: CitationHandlers, pendingText = t('pdf.reading')): HTMLElement {
+  const box = el(doc, 'div', `seekchat-msg ${turn.role}${turn.error ? ' error' : ''}${turn.book ? ' book' : ''}${turn.noMatch ? ' nomatch' : ''}`);
+  if (turn.book) box.append(el(doc, 'div', 'seekchat-book-title', `📖 ${turn.book.label}`));
+  if (turn.role === 'user' || turn.error) {
+    box.append(doc.createTextNode(turn.content));
     return box;
   }
-  if (t.meta) box.append(el(doc, 'span', 'seekchat-meta', t.meta));
-  if (t.pending && !t.content) {
-    box.append(doc.createTextNode(t.meta ? '…' : pendingText));
+  if (turn.meta) box.append(el(doc, 'span', 'seekchat-meta', turn.meta));
+  if (turn.pending && !turn.content) {
+    box.append(doc.createTextNode(turn.meta ? '…' : pendingText));
     return box;
   }
-  const sources = t.sources;
+  const sources = turn.sources;
   let split: CitationSplitter;
   if (sources) {
     split = (text) => splitSourceCitations(text, sources.length).map((seg) => {
       if (seg.type === 'text') return seg;
       const source = sources[seg.n - 1];
-      const title = seg.page ? `${source.label}, S. ${seg.page} öffnen` : `${source.label} in der Bibliothek zeigen`;
+      const title = seg.page ? t('lib.openSourcePage', { label: source.label, pageLabel: t('cite.page'), page: seg.page }) : t('lib.showSource', { label: source.label });
       return { type: 'cite' as const, node: cite(doc, seg.text, title, () => handlers.onSource?.(source, seg.page)) };
     });
   } else {
     split = (text) => splitCitations(text).map((seg) => seg.type === 'text' ? seg
-      : { type: 'cite' as const, node: cite(doc, seg.text, `Seite ${seg.page} im PDF öffnen`, () => handlers.onPage?.(seg.page, t)) });
+      : { type: 'cite' as const, node: cite(doc, seg.text, t('pdf.openPage', { page: seg.page }), () => handlers.onPage?.(seg.page, turn)) });
   }
   const body = el(doc, 'div', 'seekchat-md');
-  body.append(renderMarkdown(doc, t.content, split));
+  body.append(renderMarkdown(doc, turn.content, split));
   box.append(body);
-  if (sources?.length && !t.pending) box.append(sourceList(doc, sources, citedSources(t.content, sources.length), handlers));
+  if (sources?.length && !turn.pending) box.append(sourceList(doc, sources, citedSources(turn.content, sources.length), handlers));
   return box;
 }

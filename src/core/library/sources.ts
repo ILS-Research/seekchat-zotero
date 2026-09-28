@@ -6,6 +6,7 @@
  * item join it. Passages without text (pure keyword hits) never go into the
  * prompt – they are only counted, so the meta line can say so.
  */
+import { t } from '../../i18n';
 import type { ZotSeekPassage } from '../zotseek/client';
 
 export interface SourceExcerpt {
@@ -41,9 +42,9 @@ export interface SourceSet {
 /** "Muster, Beispiel u. a. 2021 – Titel" from ZotSeek's result fields. */
 export function sourceLabel(p: Pick<ZotSeekPassage, 'authors' | 'year' | 'title'>): string {
   const names = p.authors.slice(0, 3).map((a) => a.split(',')[0].trim()).filter(Boolean);
-  const authors = names.length ? names.join(', ') + (p.authors.length > 3 ? ' u. a.' : '') : '';
+  const authors = names.length ? names.join(', ') + (p.authors.length > 3 ? t('common.etAl') : '') : '';
   const head = [authors, p.year ? String(p.year) : ''].filter(Boolean).join(' ');
-  const title = p.title || 'Ohne Titel';
+  const title = p.title || t('common.untitled');
   return head ? `${head} – ${title}` : title;
 }
 
@@ -107,7 +108,7 @@ export function buildSources(passages: ZotSeekPassage[], budgetChars: number): S
 export function formatSources(sources: LibrarySource[]): string {
   return sources.map((s) => {
     const parts = s.excerpts.map((e) => {
-      const where = e.page ? `(S. ${e.page})` : e.textSource === 'note' ? '(Notiz)' : '(ohne Seitenangabe)';
+      const where = e.page ? `(${t('cite.page')} ${e.page})` : e.textSource === 'note' ? '(note)' : '(no page)';
       return `${where}\n${e.text}`;
     });
     return `[${s.n}] ${s.label}\n${parts.join('\n\n')}`;

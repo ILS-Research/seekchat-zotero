@@ -1,30 +1,45 @@
 import type { ChatMessage } from './llm/types';
 import type { ContextBlock } from './context/types';
+import { quoted, t, tn } from '../i18n';
 
-export const DEFAULT_SYSTEM_PROMPT =
-  'Du bist ein wissenschaftlicher Assistent in Zotero. Beantworte Fragen ausschließlich auf Grundlage ' +
-  'des bereitgestellten Dokuments. Belege Aussagen mit der Seitenangabe im Format [S. 12] direkt hinter ' +
-  'der Aussage. Wenn das Dokument die Antwort nicht enthält, sage das offen, statt zu raten. ' +
-  'Antworte in der Sprache der Frage, knapp und präzise.';
-
-/** Marker the model answers with when a book has nothing on the question (library chat, source "books"). */
-export const NO_MATCH_MARKER = 'KEINE ANGABE';
-
-export const DEFAULT_BOOK_PROMPT =
-  DEFAULT_SYSTEM_PROMPT + ' Das Dokument ist eines von mehreren Büchern, die nacheinander befragt werden. ' +
-  `Enthält es nichts zur Frage, antworte ausschließlich mit „${NO_MATCH_MARKER}“ und sonst nichts.`;
-
-/** The answer is only the no-match marker (maybe with quotes or a period). */
-export function isNoMatch(answer: string): boolean {
-  return answer.replace(/[„“"'.!*\s]/g, '').toUpperCase() === NO_MATCH_MARKER.replace(/\s/g, '');
+/** Citation marker the model is asked to use: "[p. 12]" in English, "[S. 12]" in German. */
+function pageMark(): string {
+  return t('cite.page');
 }
 
-export const DEFAULT_LIBRARY_PROMPT =
-  'Du bist ein wissenschaftlicher Assistent in Zotero. Beantworte Fragen ausschließlich auf Grundlage ' +
-  'der bereitgestellten, nummerierten Quellen aus der Bibliothek des Nutzers. Belege jede Aussage direkt ' +
-  'dahinter mit Quellennummer und Seite im Format [2, S. 12], ohne Seitenangabe mit [2]; mehrere Belege ' +
-  'als [1, S. 3; 4, S. 7]. Nenne keine Quellen, die nicht bereitgestellt wurden. Enthalten die Quellen ' +
-  'die Antwort nicht, sage das offen, statt zu raten. Antworte in der Sprache der Frage, knapp und präzise.';
+/**
+ * Default system prompt of the PDF chat. Prompts are English (models follow them best);
+ * the model answers in the language of the question and cites pages with the UI's marker.
+ */
+export function defaultSystemPrompt(): string {
+  const p = pageMark();
+  return 'You are a scientific assistant in Zotero. Answer questions only on the basis of the provided document. ' +
+    `Support each statement with the page right after it, in the format [${p} 12]. If the document does not contain ` +
+    'the answer, say so openly instead of guessing. Answer in the language of the question, concisely and precisely.';
+}
+
+/** Marker the model answers with when a book has nothing on the question (library chat, source "books"). */
+export const NO_MATCH_MARKER = 'NO RELEVANT CONTENT';
+
+export function defaultBookPrompt(): string {
+  return defaultSystemPrompt() + ' The document is one of several books that are asked one after another. ' +
+    `If it contains nothing on the question, answer only with "${NO_MATCH_MARKER}" and nothing else.`;
+}
+
+/** The answer is only the no-match marker (maybe with quotes or a period; the German marker of 0.6.0 too). */
+export function isNoMatch(answer: string): boolean {
+  const norm = answer.replace(/[„“"'.!*\s]/g, '').toUpperCase();
+  return norm === NO_MATCH_MARKER.replace(/\s/g, '') || norm === 'KEINEANGABE';
+}
+
+export function defaultLibraryPrompt(): string {
+  const p = pageMark();
+  return 'You are a scientific assistant in Zotero. Answer questions only on the basis of the provided, numbered ' +
+    'sources from the user\'s library. Support every statement right after it with source number and page in the ' +
+    `format [2, ${p} 12], without a page as [2]; several references as [1, ${p} 3; 4, ${p} 7]. Do not cite sources ` +
+    'that were not provided. If the sources do not contain the answer, say so openly instead of guessing. ' +
+    'Answer in the language of the question, concisely and precisely.';
+}
 
 export interface HistoryTurn {
   role: 'user' | 'assistant';
@@ -32,31 +47,32 @@ export interface HistoryTurn {
 }
 
 export function formatPages(pages: { pageNumber: number; text: string }[]): string {
-  return pages.map((p) => `[Seite ${p.pageNumber}]\n${p.text.trim()}`).join('\n\n');
+  return pages.map((p) => `[Page ${p.pageNumber}]\n${p.text.trim()}`).join('\n\n');
 }
 
 export function describeContext(ctx: ContextBlock): string {
   if (ctx.library) {
     const l = ctx.library;
     const extra = [
-      l.withoutText ? `${l.withoutText} Treffer ohne Textauszug nicht verwendet` : '',
-      l.overBudget ? `${l.overBudget} Abschnitte über dem Budget` : '',
+      l.withoutText ? t('meta.withoutText', { n: l.withoutText }) : '',
+      l.overBudget ? t('meta.overBudget', { n: l.overBudget }) : '',
     ].filter(Boolean).join(', ');
-    const n = l.sources.length;
-    const counts = `${n} ${n === 1 ? 'Quelle' : 'Quellen'}, ${l.passagesUsed} ${l.passagesUsed === 1 ? 'Abschnitt' : 'Abschnitte'}`;
-    return `${l.scope}: ${counts} (ZotSeek)${extra ? `; ${extra}` : ''}`;
+    const head = t('meta.library', { scope: l.scope, sources: tn('meta.sources', l.sources.length), passages: tn('meta.passages', l.passagesUsed) });
+    return extra ? `${head}; ${extra}` : head;
   }
-  if (ctx.mode === 'full') return `vollständiger Text, ${ctx.totalPages} Seiten`;
+  if (ctx.mode === 'full') return t('meta.fullText', { pages: ctx.totalPages });
+  const pageLabel = t('cite.page');
+  const range = compressRanges(ctx.includedPages);
   if (ctx.chapters?.complete) {
-    return `${chapterList(ctx.chapters.titles)} vollständig: S. ${compressRanges(ctx.includedPages)} von ${ctx.totalPages} Seiten`;
+    return t('meta.chaptersWhole', { chapters: chapterList(ctx.chapters.titles), pageLabel, range, pages: ctx.totalPages });
   }
   const scope = ctx.chapters ? `${chapterList(ctx.chapters.titles)}, ` : '';
-  const how = ctx.noMatches ? 'keine Treffer, verteilte Seiten' : `${ctx.matchedPages ?? 0} Seiten mit Treffern`;
-  return `${scope}Auszüge: S. ${compressRanges(ctx.includedPages)} von ${ctx.totalPages} Seiten (${how})`;
+  const how = ctx.noMatches ? t('meta.noHits') : t('meta.hitPages', { n: ctx.matchedPages ?? 0 });
+  return t('meta.excerpts', { scope, pageLabel, range, pages: ctx.totalPages, how });
 }
 
 function chapterList(titles: string[]): string {
-  return `Kapitel ${titles.map((t) => `„${t}“`).join(', ')}`;
+  return t(titles.length === 1 ? 'meta.chapter' : 'meta.chapters', { titles: titles.map(quoted).join(', ') });
 }
 
 /** [1,2,3,5,7,8] -> "1–3, 5, 7–8" */
@@ -80,29 +96,30 @@ export function buildMessages(opts: {
   const { context } = opts;
   if (context.library) {
     const system =
-      `${opts.systemPrompt || DEFAULT_LIBRARY_PROMPT}\n\n` +
-      `Suchbereich: ${context.library.scope}. Es folgen die zur Frage passendsten Textabschnitte, ` +
-      `gefunden mit ZotSeek; andere Stellen der Bibliothek sind nicht enthalten.\n\n` +
-      `<quellen>\n${context.body}\n</quellen>`;
+      `${opts.systemPrompt || defaultLibraryPrompt()}\n\n` +
+      `Search scope: ${context.library.scope}. Below are the passages that best match the question, ` +
+      `found with ZotSeek; other parts of the library are not included.\n\n` +
+      `<sources>\n${context.body}\n</sources>`;
     return [
       { role: 'system', content: system },
-      ...opts.history.map((t) => ({ role: t.role, content: t.content })),
+      ...opts.history.map((h) => ({ role: h.role, content: h.content })),
       { role: 'user', content: opts.question },
     ];
   }
+  const pages = `pages ${compressRanges(context.includedPages)} of ${context.totalPages}`;
   const note = context.mode === 'full'
-    ? 'Es folgt der vollständige Text des Dokuments.'
+    ? 'The full text of the document follows.'
     : context.chapters?.complete
-    ? `Das Dokument ist zu lang für den Kontext. Es folgen nur die vom Nutzer ausgewählten Teile (${describeContext(context)}). ` +
-      'Wenn die Antwort in anderen Teilen des Dokuments stehen könnte, weise darauf hin.'
-    : `Das Dokument ist zu lang für den Kontext. Es folgen die zur Frage passendsten Seiten (${describeContext(context)}). ` +
-      'Wenn die Antwort auf anderen Seiten stehen könnte, weise darauf hin.';
+    ? `The document is too long for the context. Only the parts selected by the user follow (${pages}). ` +
+      'If the answer could be in other parts of the document, point that out.'
+    : `The document is too long for the context. The pages that best match the question follow (${pages}). ` +
+      'If the answer could be on other pages, point that out.';
   const system =
-    `${opts.systemPrompt || DEFAULT_SYSTEM_PROMPT}\n\n` +
-    `Dokument: ${context.title}\n${note}\n\n<dokument>\n${context.body}\n</dokument>`;
+    `${opts.systemPrompt || defaultSystemPrompt()}\n\n` +
+    `Document: ${context.title}\n${note}\n\n<document>\n${context.body}\n</document>`;
   return [
     { role: 'system', content: system },
-    ...opts.history.map((t) => ({ role: t.role, content: t.content })),
+    ...opts.history.map((h) => ({ role: h.role, content: h.content })),
     { role: 'user', content: opts.question },
   ];
 }

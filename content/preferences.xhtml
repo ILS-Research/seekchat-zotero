@@ -16,39 +16,29 @@
 </html:style>
 
 <groupbox>
-  <label><html:h2>Chat-Server</html:h2></label>
+  <label><html:h2 data-i18n="prefs.server">Chat server</html:h2></label>
   <html:div class="row">
-    <html:label for="seekchat-provider">Schnittstelle:</html:label>
+    <html:label for="seekchat-provider" data-i18n="prefs.provider">Interface:</html:label>
     <html:select id="seekchat-provider">
-      <html:option value="ollama">Ollama (nativ, Kontextfenster einstellbar)</html:option>
-      <html:option value="openai">OpenAI-kompatibel (/v1)</html:option>
+      <html:option value="ollama" data-i18n="prefs.providerOllama">Ollama (native, context window adjustable)</html:option>
+      <html:option value="openai" data-i18n="prefs.providerOpenai">OpenAI-compatible (/v1)</html:option>
     </html:select>
-    <html:label for="seekchat-baseUrl">Server-URL:</html:label>
+    <html:label for="seekchat-baseUrl" data-i18n="prefs.baseUrl">Server URL:</html:label>
     <html:input type="text" id="seekchat-baseUrl" placeholder="http://127.0.0.1:11434"/>
-    <html:label for="seekchat-apiKey">API-Key (optional):</html:label>
+    <html:label for="seekchat-apiKey" data-i18n="prefs.apiKey">API key (optional):</html:label>
     <html:input type="password" id="seekchat-apiKey"/>
     <html:span/>
-    <html:div><html:button id="seekchat-test">Verbindung testen</html:button> <html:span id="seekchat-status" class="help"/></html:div>
-    <html:label for="seekchat-model">Chat-Modell:</html:label>
+    <html:div><html:button id="seekchat-test" data-i18n="prefs.test">Test connection</html:button> <html:span id="seekchat-status" class="help"/></html:div>
+    <html:label for="seekchat-model" data-i18n="prefs.model">Chat model:</html:label>
     <html:select id="seekchat-model"/>
   </html:div>
-  <html:p class="help">
-    Ollama: Server-Wurzel, z. B. https://ollama.example.local. OpenAI-kompatibel: Basis inkl. /v1,
-    z. B. https://llm.example.local/v1. Der API-Key wird unverschlüsselt in den Zotero-Einstellungen gespeichert.
-  </html:p>
+  <html:p class="help" data-i18n="prefs.serverHelp">Ollama: server root, e.g. https://ollama.example.local.</html:p>
 
   <html:div class="danger">
-    <html:p style="margin: 0 0 6px 0;"><html:b>Erlaubte entfernte Hosts (Vorsicht)</html:b></html:p>
-    <html:p class="help" style="color: inherit;">
-      Ohne Eintrag spricht SeekChat nur mit einem Server auf diesem Rechner (127.0.0.1, localhost).
-      Hier eingetragene Hosts (kommagetrennt, ohne http:// und Port, z. B. ollama.example.local)
-      erhalten bei jeder Frage den Text des PDFs bzw. der ausgewählten Seiten, die Frage und den
-      bisherigen Chatverlauf. Wer diesen Host betreibt, administriert oder seine Logs lesen kann,
-      kann diese Inhalte lesen; bei http:// statt https:// zusätzlich jeder im Netzwerk dazwischen.
-      Nur Hosts im eigenen, vertrauenswürdigen Netz eintragen, an die diese Daten gehen dürfen.
-    </html:p>
+    <html:p style="margin: 0 0 6px 0;"><html:b data-i18n="prefs.remoteTitle">Allowed remote hosts (caution)</html:b></html:p>
+    <html:p class="help" style="color: inherit;" data-i18n="prefs.remoteHelp">Without an entry SeekChat only talks to a server on this computer.</html:p>
     <html:div class="row">
-      <html:label for="seekchat-allowedRemoteHosts">Erlaubte Hosts:</html:label>
+      <html:label for="seekchat-allowedRemoteHosts" data-i18n="prefs.remoteHosts">Allowed hosts:</html:label>
       <html:input type="text" id="seekchat-allowedRemoteHosts" placeholder="ollama.example.local"/>
     </html:div>
     <html:p id="seekchat-remote-status" class="help"/>
@@ -56,60 +46,47 @@
 </groupbox>
 
 <groupbox>
-  <label><html:h2>Antwort und Kontext</html:h2></label>
+  <label><html:h2 data-i18n="prefs.answer">Answer and context</html:h2></label>
   <html:div class="row">
-    <html:label for="seekchat-temperaturePercent">Temperatur (%):</html:label>
+    <html:label for="seekchat-temperaturePercent" data-i18n="prefs.temperature">Temperature (%):</html:label>
     <html:input type="number" id="seekchat-temperaturePercent" min="0" max="200"/>
-    <html:label for="seekchat-historyTurns">Mitgesendete Vorfragen:</html:label>
+    <html:label for="seekchat-historyTurns" data-i18n="prefs.history">Previous questions sent:</html:label>
     <html:input type="number" id="seekchat-historyTurns" min="0" max="50"/>
   </html:div>
 
   <html:div class="tabs" role="tablist">
-    <html:button id="seekchat-limits-auto" class="tab" role="tab">Automatisch aus dem Modell</html:button>
-    <html:button id="seekchat-limits-manual" class="tab" role="tab">Manuell</html:button>
+    <html:button id="seekchat-limits-auto" class="tab" role="tab" data-i18n="prefs.limitsAuto">Automatic from the model</html:button>
+    <html:button id="seekchat-limits-manual" class="tab" role="tab" data-i18n="prefs.limitsManual">Manual</html:button>
   </html:div>
   <html:div id="seekchat-limits-auto-panel" class="tabpanel">
     <html:div class="row">
-      <html:span>Kontextfenster:</html:span><html:span id="seekchat-auto-numCtx">–</html:span>
-      <html:span>PDF-Text pro Frage:</html:span><html:span id="seekchat-auto-contextChars">–</html:span>
-      <html:span>Max. Antwortlänge:</html:span><html:span id="seekchat-auto-maxTokens">–</html:span>
+      <html:span data-i18n="prefs.numCtx">Context window:</html:span><html:span id="seekchat-auto-numCtx">–</html:span>
+      <html:span data-i18n="prefs.contextChars">PDF text per question:</html:span><html:span id="seekchat-auto-contextChars">–</html:span>
+      <html:span data-i18n="prefs.maxTokens">Max. answer length:</html:span><html:span id="seekchat-auto-maxTokens">–</html:span>
     </html:div>
-    <html:p class="help"><html:span id="seekchat-auto-detail"/> <html:button id="seekchat-auto-refresh">Neu ermitteln</html:button></html:p>
-    <html:p class="help">
-      SeekChat fragt den Server nach dem Modell: bei Ollama num_ctx aus der Modelldatei, sonst die maximale
-      Kontextlänge des Modells (bei vLLM max_model_len). Davon nutzt es 80 %; die Antwortlänge ist ein Zehntel davon
-      (höchstens 12.288), der Rest abzüglich Platz für Prompt und Verlauf geht an den Dokumenttext (~3,5 Zeichen je
-      Token). Meldet der Server nichts, gelten die manuellen Werte. Große Werte machen Antworten langsamer.
-    </html:p>
+    <html:p class="help"><html:span id="seekchat-auto-detail"/> <html:button id="seekchat-auto-refresh" data-i18n="prefs.refresh">Detect again</html:button></html:p>
+    <html:p class="help" data-i18n="prefs.autoHelp">SeekChat asks the server about the model.</html:p>
   </html:div>
   <html:div id="seekchat-limits-manual-panel" class="tabpanel">
     <html:div class="row">
-      <html:label for="seekchat-numCtx">Kontextfenster (Tokens):</html:label>
+      <html:label for="seekchat-numCtx" data-i18n="prefs.numCtxManual">Context window (tokens):</html:label>
       <html:input type="number" id="seekchat-numCtx" min="1024" step="1024"/>
-      <html:label for="seekchat-contextChars">PDF-Text pro Frage (Zeichen):</html:label>
+      <html:label for="seekchat-contextChars" data-i18n="prefs.contextCharsManual">PDF text per question (characters):</html:label>
       <html:input type="number" id="seekchat-contextChars" min="2000" step="1000"/>
-      <html:label for="seekchat-maxTokens">Max. Antwortlänge (Tokens):</html:label>
+      <html:label for="seekchat-maxTokens" data-i18n="prefs.maxTokensManual">Max. answer length (tokens):</html:label>
       <html:input type="number" id="seekchat-maxTokens" min="64" step="64"/>
     </html:div>
-    <html:p class="help">
-      Das Kontextfenster gilt nur für Ollama (num_ctx); bei OpenAI-kompatiblen Servern legt es der Server fest.
-      Faustregel: PDF-Text (Zeichen) ÷ 3,5 + Antwortlänge + Verlauf muss ins Kontextfenster passen.
-      Längere PDFs werden auf die zur Frage passendsten Seiten gekürzt.
-    </html:p>
+    <html:p class="help" data-i18n="prefs.manualHelp">The context window only applies to Ollama (num_ctx).</html:p>
   </html:div>
-  <html:label for="seekchat-systemPrompt">System-Prompt für den PDF-Chat (leer = Standard):</html:label>
+  <html:label for="seekchat-systemPrompt" data-i18n="prefs.systemPrompt">System prompt for the PDF chat (empty = default):</html:label>
   <html:textarea id="seekchat-systemPrompt"/>
 </groupbox>
 <groupbox>
-  <label><html:h2>Chat über die Bibliothek (mit ZotSeek)</html:h2></label>
+  <label><html:h2 data-i18n="prefs.library">Library chat (with ZotSeek)</html:h2></label>
   <html:div class="row">
-    <html:label for="seekchat-libraryTopK">Abschnitte pro Frage von ZotSeek:</html:label>
+    <html:label for="seekchat-libraryTopK" data-i18n="prefs.libraryTopK">Passages per question from ZotSeek:</html:label>
     <html:input type="number" id="seekchat-libraryTopK" min="1" max="100"/>
   </html:div>
-  <html:p class="help">
-    Wie viele passende Textabschnitte ZotSeek pro Frage liefert (1–100). Davon geht mit, was in „PDF-Text pro Frage“
-    passt. Bei Collections und ausgewählten Einträgen holt SeekChat immer 100 und behält die passenden.
-    Der Chat über die Bibliothek braucht ZotSeek mit „AI Agent Access“ und Zoteros lokalen HTTP-Server.
-  </html:p>
+  <html:p class="help" data-i18n="prefs.libraryHelp">How many matching passages ZotSeek returns per question (1–100).</html:p>
 </groupbox>
 </vbox>

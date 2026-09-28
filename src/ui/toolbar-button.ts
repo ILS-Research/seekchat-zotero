@@ -7,11 +7,11 @@
  */
 import { logError } from '../util/log';
 import { openLibraryChat } from './library-window';
+import { t } from '../i18n';
 
 const BUTTON_ID = 'seekchat-toolbar-button';
 const ZOTSEEK_BUTTON_ID = 'zotseek-toolbar-button';
 const ICON = 'chrome://seekchat/content/icons/seekchat.svg';
-const TOOLTIP = 'SeekChat: Chat über die Bibliothek (mit ZotSeek)';
 
 const observers = new WeakMap<any, MutationObserver>();
 
@@ -27,7 +27,7 @@ function createButton(doc: any): any {
   }
   button.id = BUTTON_ID;
   button.setAttribute('label', 'SeekChat');
-  button.setAttribute('tooltiptext', TOOLTIP);
+  button.setAttribute('tooltiptext', t('lib.tooltip'));
   button.style.listStyleImage = `url("${ICON}")`;
   button.addEventListener('command', () => openLibraryChat());
   return button;

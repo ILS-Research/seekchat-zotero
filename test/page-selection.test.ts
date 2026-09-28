@@ -1,6 +1,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { buildTerms, searchKey, selectPages, selectPagesByTerms, tokenize } from '../src/core/context/page-selection';
+import { setLocale } from '../src/i18n';
+
+// The expectations below are the German UI texts; English is covered in i18n.test.ts.
+setLocale('de');
 
 const filler = (n: number) => 'lorem ipsum dolor sit amet '.repeat(n);
 const pages = [

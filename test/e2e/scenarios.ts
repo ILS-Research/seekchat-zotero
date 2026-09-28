@@ -64,9 +64,9 @@ function chapterBox(section: Element, title: string): HTMLInputElement {
   return row.querySelector('input') as HTMLInputElement;
 }
 
-/** Page numbers marked [Seite N] in a system prompt. */
+/** Page numbers marked [Page N] in a system prompt. */
 function sentPages(system: string): number[] {
-  return [...system.matchAll(/\[Seite (\d+)\]/g)].map((m) => Number(m[1]));
+  return [...system.matchAll(/\[Page (\d+)\]/g)].map((m) => Number(m[1]));
 }
 
 /**
@@ -217,7 +217,7 @@ export const scenarios: Scenario[] = [
     assert(req.model === 'mock-model', 'wrong model sent');
     // Auto limits from the mock's /api/show: 80 % of 20480 -> 16384, answer 1638, text (16384-1638-1500)*3.5 -> 46000 chars.
     assert(req.options?.num_ctx === 16384 && req.options?.num_predict === 1638, `auto limits not applied: ${JSON.stringify(req.options)}`);
-    assert(req.messages[0].content.includes('[Seite 2]'), 'document pages missing in system prompt');
+    assert(req.messages[0].content.includes('[Page 2]'), 'document pages missing in system prompt');
     session.clear();
   }],
 
@@ -319,12 +319,12 @@ export const scenarios: Scenario[] = [
     assert(answer.meta?.includes('Dokumentsprache: Deutsch (vom Modell erkannt)'), `language missing in meta: ${answer.meta}`);
     const reqs = (await mockRequests()).slice(before);
     assert(reqs.length === 3, `expected language + keyword + answer request, got ${reqs.length}`);
-    assert(reqs[0].messages[0].content.includes('Sprache des folgenden Textauszugs'), 'first request is not the language request');
+    assert(reqs[0].messages[0].content.includes('Identify the language'), 'first request is not the language request');
     assert(reqs[0].messages[1].content.includes('Kapitel 1') || reqs[0].messages[1].content.includes('Langes Buch'), 'language sample lacks the first pages');
-    assert(reqs[1].messages[0].content.includes('ausschließlich auf Deutsch'), 'keyword request not restricted to the document language');
+    assert(reqs[1].messages[0].content.includes('only in German'), 'keyword request not restricted to the document language');
     const system: string = reqs[2].messages[0].content;
-    assert(system.includes('[Seite 27]') && system.includes('Waermeinseln'), 'matching page 27 not sent');
-    const pagesSent = (system.match(/\[Seite \d+\]/g) || []).length;
+    assert(system.includes('[Page 27]') && system.includes('Waermeinseln'), 'matching page 27 not sent');
+    const pagesSent = (system.match(/\[Page \d+\]/g) || []).length;
     assert(pagesSent < 40, `whole book sent (${pagesSent} pages)`);
     ctx.longSession = session;
   }],
@@ -343,7 +343,7 @@ export const scenarios: Scenario[] = [
     await session.ask('Was steht zu Hitze?');
     reqs = (await mockRequests()).slice(before);
     assert(reqs.length === 2, `expected keyword + answer request, got ${reqs.length}`);
-    assert(reqs[0].messages[0].content.includes('ausschließlich auf Englisch'), 'metadata language not used for keywords');
+    assert(reqs[0].messages[0].content.includes('only in English'), 'metadata language not used for keywords');
     const meta = session.turns[session.turns.length - 1].meta;
     assert(meta?.includes('Dokumentsprache: Englisch (aus Metadaten)'), `unexpected meta: ${meta}`);
     session.clear();
@@ -456,7 +456,7 @@ export const scenarios: Scenario[] = [
       assert(sources[0].excerpts.map((e) => e.page).join() === '1,2', `excerpts of [1]: ${JSON.stringify(sources[0].excerpts)}`);
       assert(answer.meta?.includes('2 Quellen, 3 Abschnitte (ZotSeek); 1 Treffer ohne Textauszug'), `meta: ${answer.meta}`);
       const system: string = (await mockLastRequest()).messages[0].content;
-      assert(system.includes('<quellen>') && system.includes('[1] Muster 2021 – SeekChat E2E Testdokument') && system.includes('(S. 27)'),
+      assert(system.includes('<sources>') && system.includes('[1] Muster 2021 – SeekChat E2E Testdokument') && system.includes('(S. 27)'),
         `system prompt: ${system.slice(0, 600)}`);
       assert(!system.includes('Nur Stichwort'), 'hit without text went into the prompt');
       const cites = splitSourceCitations(answer.content, sources.length).filter((s) => s.type === 'source') as any[];
@@ -594,7 +594,7 @@ export const scenarios: Scenario[] = [
       const zsBox = doc.getElementById('seekchat-source-zotseek') as HTMLInputElement;
       const booksBox = doc.getElementById('seekchat-source-books') as HTMLInputElement;
       assert(zsBox?.checked && !zsBox.disabled, 'ZotSeek source not on by default');
-      assert(doc.querySelector('.seekchat-library-note:not(.seekchat-library-coverage):not(.seekchat-library-books)')?.textContent?.includes('Literaturverzeichnis'), 'note on ZotSeek limits missing');
+      assert(doc.querySelector('.seekchat-library-zotseek-note')?.textContent?.includes('Literaturverzeichnis'), 'note on ZotSeek limits missing');
       assert(booksBox && booksBox.disabled && !booksBox.checked, 'books source not greyed out');
       zsBox.click();
       await waitFor('input disabled without source', () => (doc.querySelector('textarea.seekchat-input') as HTMLTextAreaElement).disabled
@@ -635,7 +635,7 @@ export const scenarios: Scenario[] = [
       setSaveChatTestPath(null);
       assert(exported.startsWith('# SeekChat – 2 ausgewählte Einträge') && exported.includes('> Was sagen die beiden')
         && exported.includes('2. Muster 2021 – SeekChat E2E Langes Buch – S. 27')
-        && exported.includes('Anfrage 1 an das Modell: Antwort') && exported.includes('<quellen>'), `export: ${exported.slice(0, 400)}`);
+        && exported.includes('Anfrage 1 an das Modell: Antwort') && exported.includes('<sources>'), `export: ${exported.slice(0, 400)}`);
       const cite = answer.querySelectorAll('.seekchat-md .seekchat-cite')[1] as HTMLElement;
       assert(cite.textContent === '[2, S. 27]', `second citation: ${cite.textContent}`);
       cite.click();

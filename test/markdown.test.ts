@@ -3,6 +3,10 @@ import assert from 'node:assert/strict';
 import { parseBlocks, tokenizeInline } from '../src/ui/markdown';
 import { citedSources } from '../src/ui/turn-view';
 import { countCoverage, describeCoverage } from '../src/core/library/coverage';
+import { setLocale } from '../src/i18n';
+
+// The expectations below are the German UI texts; English is covered in i18n.test.ts.
+setLocale('de');
 
 test('markdown blocks: paragraphs, headings, bullet and numbered lists', () => {
   const blocks = parseBlocks('# Titel\n\nErster Absatz\nzweite Zeile\n\n- a\n- b\n  weiter\n1. eins\n2) zwei\n\nEnde');

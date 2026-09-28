@@ -4,6 +4,7 @@
  * library chat's sources are appended as a numbered list per answer.
  */
 import type { LlmRequestLog, Turn } from './session';
+import { currentLocale, t } from '../i18n';
 
 export interface ExportInfo {
   /** "PDF: Muster 2021 – Titel" or "Bibliothek „Meine Bibliothek“" */
@@ -16,8 +17,12 @@ function pad(n: number): string {
   return String(n).padStart(2, '0');
 }
 
+/** "28.09.2026, 14:05" (German) / "2026-09-28 14:05" (English). */
 export function formatDateTime(d: Date): string {
-  return `${pad(d.getDate())}.${pad(d.getMonth() + 1)}.${d.getFullYear()}, ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  const time = `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  return currentLocale() === 'de'
+    ? `${pad(d.getDate())}.${pad(d.getMonth() + 1)}.${d.getFullYear()}, ${time}`
+    : `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${time}`;
 }
 
 /** Quotes every line, so multi-line questions stay one block. */
@@ -29,27 +34,27 @@ export function chatToMarkdown(turns: Turn[], info: ExportInfo): string {
   const out: string[] = [
     `# SeekChat – ${info.subject}`,
     '',
-    `Exportiert am ${formatDateTime(info.date)}${info.model ? ` · Modell: ${info.model}` : ''}`,
+    t('export.exported', { date: formatDateTime(info.date) }) + (info.model ? t('export.model', { model: info.model }) : ''),
   ];
   let n = 0;
-  for (const t of turns) {
-    if (t.pending) continue;
-    if (t.role === 'user') {
+  for (const turn of turns) {
+    if (turn.pending) continue;
+    if (turn.role === 'user') {
       n++;
-      out.push('', `## Frage ${n}`, '', quote(t.content));
+      out.push('', `## ${t('export.question', { n })}`, '', quote(turn.content));
       continue;
     }
-    if (t.book) out.push('', `### Buch: ${t.book.label}`);
-    out.push('', t.error ? `**${t.content.trim()}**` : t.content.trim());
-    if (t.meta) out.push('', ...t.meta.split('\n').map((l) => `*${l.trim()}*  `));
-    if (t.sources?.length) {
-      out.push('', 'Quellen:', '');
-      for (const s of t.sources) {
+    if (turn.book) out.push('', `### ${t('export.book', { label: turn.book.label })}`);
+    out.push('', turn.error ? `**${turn.content.trim()}**` : turn.content.trim());
+    if (turn.meta) out.push('', ...turn.meta.split('\n').map((l) => `*${l.trim()}*  `));
+    if (turn.sources?.length) {
+      out.push('', t('export.sources'), '');
+      for (const s of turn.sources) {
         const pages = Array.from(new Set(s.excerpts.map((e) => e.page).filter((p): p is number => !!p))).sort((a, b) => a - b);
         out.push(`${s.n}. ${s.label}${pages.length ? ` – S. ${pages.join(', ')}` : ''}`);
       }
     }
-    if (t.requests?.length) out.push('', ...requestsToMarkdown(t.requests));
+    if (turn.requests?.length) out.push('', ...requestsToMarkdown(turn.requests));
   }
   return out.join('\n').trimEnd() + '\n';
 }
@@ -75,10 +80,10 @@ function fence(text: string): string {
 export function requestsToMarkdown(requests: LlmRequestLog[]): string[] {
   const out: string[] = [];
   requests.forEach((r, i) => {
-    const params = [`Modell ${r.model}`, `Temperatur ${r.temperature}`, `max. ${r.maxTokens} Tokens`];
-    if (r.numCtx) params.push(`num_ctx ${r.numCtx}`);
+    const params = [t('export.params', { model: r.model, temperature: r.temperature, maxTokens: r.maxTokens })];
+    if (r.numCtx) params.push(t('export.numCtx', { n: r.numCtx }));
     const chars = r.messages.reduce((n, m) => n + m.content.length, 0);
-    out.push('<details>', `<summary>Anfrage ${i + 1} an das Modell: ${r.purpose} (${params.join(', ')}; ${chars} Zeichen)</summary>`, '');
+    out.push('<details>', `<summary>${t('export.request', { i: i + 1, purpose: r.purpose, params: params.join(', '), chars })}</summary>`, '');
     for (const m of r.messages) {
       const f = fence(m.content);
       out.push(`**${m.role}:**`, '', `${f}text`, m.content, f, '');

@@ -3,7 +3,8 @@ import { clearLimitsCache, resolveLimits } from '../core/limits';
 import { formatCount } from '../core/context/fit';
 import { createClient } from '../core/llm';
 import { parseAllowedHosts } from '../core/host-guard';
-import { DEFAULT_SYSTEM_PROMPT } from '../core/prompt';
+import { defaultSystemPrompt } from '../core/prompt';
+import { t, type Key } from '../i18n';
 import { getPref, readPrefs, setPref } from '../prefs';
 
 const TEXT_PREFS = ['baseUrl', 'apiKey'];
@@ -11,6 +12,10 @@ const INT_PREFS = ['temperaturePercent', 'numCtx', 'contextChars', 'maxTokens', 
 
 export function onPrefsLoad(win: Window): void {
   const doc = win.document;
+  // Texts: English in the xhtml, replaced by the UI language's version here.
+  for (const el of Array.from(doc.querySelectorAll('#seekchat-preferences [data-i18n]')) as HTMLElement[]) {
+    el.textContent = t(el.dataset.i18n as Key);
+  }
   const $ = <T extends HTMLElement>(id: string) => doc.getElementById(`seekchat-${id}`) as T | null;
   const status = $('status');
   const setStatus = (text: string) => { if (status) status.textContent = text; };
@@ -38,7 +43,7 @@ export function onPrefsLoad(win: Window): void {
 
   const prompt = $<HTMLTextAreaElement>('systemPrompt');
   if (prompt) {
-    prompt.placeholder = DEFAULT_SYSTEM_PROMPT;
+    prompt.placeholder = defaultSystemPrompt();
     prompt.value = String(getPref('systemPrompt') ?? '');
     prompt.addEventListener('change', () => setPref('systemPrompt', prompt.value.trim()));
   }
@@ -48,8 +53,8 @@ export function onPrefsLoad(win: Window): void {
   const showHosts = (list: string[]) => {
     if (remoteStatus) {
       remoteStatus.textContent = list.length
-        ? `Freigegeben: ${list.join(', ')}. PDF-Text und Fragen an diese Hosts verlassen diesen Rechner.`
-        : 'Keine entfernten Hosts freigegeben: SeekChat bleibt auf diesem Rechner.';
+        ? t('prefs.remoteOn', { hosts: list.join(', ') })
+        : t('prefs.remoteOff');
     }
   };
   if (hosts) {
@@ -72,12 +77,12 @@ export function onPrefsLoad(win: Window): void {
   const showAuto = async (refresh = false) => {
     if (refresh) clearLimitsCache();
     const set = (id: string, text: string) => { const e = $(id); if (e) e.textContent = text; };
-    set('auto-detail', 'Frage Server …');
+    set('auto-detail', t('prefs.asking'));
     const l = await resolveLimits({ ...readPrefs(), limitsMode: 'auto' });
-    set('auto-numCtx', `${formatCount(l.numCtx)} Tokens`);
-    set('auto-contextChars', `${formatCount(l.contextChars)} Zeichen (~${formatCount(l.contextChars / 3.5)} Tokens)`);
-    set('auto-maxTokens', `${formatCount(l.maxTokens)} Tokens`);
-    set('auto-detail', l.source === 'auto' ? `Ermittelt: ${l.detail}.` : `Nicht ermittelbar (${l.detail}).`);
+    set('auto-numCtx', t('prefs.tokens', { n: formatCount(l.numCtx) }));
+    set('auto-contextChars', t('prefs.chars', { n: formatCount(l.contextChars), tokens: formatCount(l.contextChars / 3.5) }));
+    set('auto-maxTokens', t('prefs.tokens', { n: formatCount(l.maxTokens) }));
+    set('auto-detail', t(l.source === 'auto' ? 'prefs.detected' : 'prefs.notDetected', { detail: l.detail }));
   };
   const selectTab = (mode: 'auto' | 'manual') => {
     setPref('limitsMode', mode);
@@ -113,12 +118,12 @@ export function onPrefsLoad(win: Window): void {
   });
 
   $('test')?.addEventListener('click', async () => {
-    setStatus('Verbinde …');
+    setStatus(t('prefs.connecting'));
     try {
       const names = await createClient(readPrefs()).listModels();
       fillModels(names);
       if (readPrefs().limitsMode === 'auto') void showAuto(true);
-      setStatus(names.length ? `Verbunden, ${names.length} Modell(e).` : 'Verbunden, aber der Server meldet keine Modelle.');
+      setStatus(names.length ? t('prefs.connected', { n: names.length }) : t('prefs.connectedEmpty'));
     } catch (e: any) {
       setStatus(`Fehler: ${e?.message || e}`);
     }

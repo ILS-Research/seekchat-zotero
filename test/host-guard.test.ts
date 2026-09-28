@@ -1,6 +1,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { assertAllowedUrl, parseAllowedHosts } from '../src/core/host-guard';
+import { setLocale } from '../src/i18n';
+
+// The expectations below are the German UI texts; English is covered in i18n.test.ts.
+setLocale('de');
 
 test('loopback is allowed without configuration', () => {
   for (const url of ['http://127.0.0.1:11434', 'http://localhost:1234/v1/models', 'http://[::1]:8080']) {

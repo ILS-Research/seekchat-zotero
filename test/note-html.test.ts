@@ -2,6 +2,10 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { markdownToHtml } from '../src/ui/markdown';
 import { chatToNoteHtml } from '../src/ui/note-html';
+import { setLocale } from '../src/i18n';
+
+// The expectations below are the German UI texts; English is covered in i18n.test.ts.
+setLocale('de');
 
 const plain = (text: string) => [{ type: 'text' as const, text }];
 

@@ -9,16 +9,16 @@ import { stripThinking } from '../llm/stream-parsers';
 export interface Language {
   /** ISO 639-1 code, e.g. "de". */
   code: string;
-  /** German display name, e.g. "Deutsch". */
+  /** English name for prompts, e.g. "German" (UI: i18n languageName). */
   name: string;
 }
 
 export type LanguageSource = 'metadata' | 'model' | 'guess';
 
 const NAMES: Record<string, string> = {
-  de: 'Deutsch', en: 'Englisch', fr: 'Französisch', es: 'Spanisch', it: 'Italienisch', nl: 'Niederländisch',
-  pt: 'Portugiesisch', pl: 'Polnisch', cs: 'Tschechisch', da: 'Dänisch', sv: 'Schwedisch', no: 'Norwegisch',
-  fi: 'Finnisch', ru: 'Russisch', tr: 'Türkisch', zh: 'Chinesisch', ja: 'Japanisch', ko: 'Koreanisch',
+  de: 'German', en: 'English', fr: 'French', es: 'Spanish', it: 'Italian', nl: 'Dutch', pt: 'Portuguese',
+  pl: 'Polish', cs: 'Czech', da: 'Danish', sv: 'Swedish', no: 'Norwegian', fi: 'Finnish', ru: 'Russian',
+  tr: 'Turkish', zh: 'Chinese', ja: 'Japanese', ko: 'Korean',
 };
 
 const ALIASES: Record<string, string> = {
@@ -32,7 +32,7 @@ const ALIASES: Record<string, string> = {
   polish: 'pl', polski: 'pl', polnisch: 'pl', pol: 'pl',
 };
 
-/** "de-DE", "German", "Deutsch", "ger" -> { code: "de", name: "Deutsch" }; null if unknown or empty. */
+/** "de-DE", "German", "Deutsch", "ger" -> { code: "de", name: "German" }; null if unknown or empty. */
 export function normalizeLanguage(raw: unknown): Language | null {
   if (typeof raw !== 'string') return null;
   // Zotero's field is free text; take the first entry of "de; en" or "German, English".
@@ -47,8 +47,8 @@ export function buildLanguageMessages(sample: string): ChatMessage[] {
   return [
     {
       role: 'system',
-      content: 'Bestimme die Sprache des folgenden Textauszugs (Anfang eines Dokuments). ' +
-        'Antworte nur mit dem zweibuchstabigen ISO-639-1-Code der Hauptsprache, z. B. de oder en.',
+      content: 'Identify the language of the following text excerpt (beginning of a document). ' +
+        'Answer only with the two-letter ISO 639-1 code of the main language, e.g. de or en.',
     },
     { role: 'user', content: `${sample}\n/no_think` },
   ];

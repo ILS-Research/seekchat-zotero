@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.7.0 – 2026-09-28
+
+- English is the plugin's language; German is a translation (`src/i18n.ts`, keys shared, a unit test checks
+  that every key and placeholder exists in both). The UI follows Zotero's language; the pref
+  `extensions.zotero.seekchat.locale` ("en"/"de") forces one. Settings pane texts come from the same table.
+- Prompts to the model are English (answers stay in the language of the question). The citation marker
+  follows the UI: `[p. 12]` in English, `[S. 12]` in German; both are recognised. Document pages are marked
+  `[Page N]`, library sources are wrapped in `<sources>`, the book no-match marker is "NO RELEVANT CONTENT".
+- Numbers and dates are formatted per UI language.
+
 ## 0.6.1 – 2026-09-28
 
 - E2E live tests: optional `E2E_LIVE_API_KEY` (bearer key for servers that need one); the live report only

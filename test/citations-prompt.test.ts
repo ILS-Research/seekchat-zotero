@@ -1,7 +1,11 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { splitCitations } from '../src/core/citations';
-import { buildMessages, compressRanges, DEFAULT_SYSTEM_PROMPT } from '../src/core/prompt';
+import { buildMessages, compressRanges, defaultSystemPrompt } from '../src/core/prompt';
+import { setLocale } from '../src/i18n';
+
+// The expectations below are the German UI texts; English is covered in i18n.test.ts.
+setLocale('de');
 
 test('page citations become cite segments', () => {
   const segs = splitCitations('A [S. 3], B [S. 4–5] und C [Seite 7] sowie [p. 9] und [pp. 2, 6].');
@@ -24,7 +28,7 @@ test('messages: system with document, history, then question', () => {
     question: 'Frage 2',
   });
   assert.deepEqual(msgs.map((m) => m.role), ['system', 'user', 'assistant', 'user']);
-  assert.ok(msgs[0].content.startsWith(DEFAULT_SYSTEM_PROMPT));
+  assert.ok(msgs[0].content.startsWith(defaultSystemPrompt()));
   assert.ok(msgs[0].content.includes('Müller 2021 – Test'));
   assert.ok(msgs[0].content.includes('[Seite 1]\nInhalt'));
   assert.equal(msgs[3].content, 'Frage 2');

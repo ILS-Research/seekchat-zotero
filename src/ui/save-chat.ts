@@ -6,6 +6,7 @@ import { chatToMarkdown, exportFileName } from '../core/export';
 import type { ChatSession } from '../core/session';
 import { readPrefs } from '../prefs';
 import { logError } from '../util/log';
+import { t } from '../i18n';
 
 /** Test hook: when set, the file picker is skipped and the file goes here. */
 let testPath: string | null = null;
@@ -23,7 +24,7 @@ export async function withFeedback(btn: HTMLButtonElement, action: () => Promise
     btn.textContent = done;
   } catch (e) {
     logError(e);
-    btn.textContent = 'Fehler beim Speichern';
+    btn.textContent = t('common.saveFailed');
   }
   const win = btn.ownerDocument?.defaultView;
   win?.setTimeout(() => {
@@ -40,7 +41,7 @@ export async function saveChat(session: ChatSession, subject: string, win: any):
     if (!path) {
       const { FilePicker } = ChromeUtils.importESModule('chrome://zotero/content/modules/filePicker.mjs');
       const fp = new FilePicker();
-      fp.init(win, 'Chat als Markdown speichern', fp.modeSave);
+      fp.init(win, t('common.saveMdTitle'), fp.modeSave);
       fp.appendFilter('Markdown', '*.md');
       fp.defaultString = exportFileName(subject, date);
       fp.defaultExtension = 'md';

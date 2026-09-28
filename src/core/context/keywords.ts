@@ -12,21 +12,21 @@ export function buildKeywordMessages(opts: {
   question: string;
   previousQuestion?: string;
   docTitle: string;
-  /** Language of the document; keywords are generated in it only. Null: German and English. */
+  /** Language of the document; keywords are generated in it only. Null: English and German. */
   language?: { name: string } | null;
 }): ChatMessage[] {
   const system =
-    'Du erzeugst Suchbegriffe für eine Stichwortsuche in einem langen wissenschaftlichen Dokument. ' +
-    'Gib 8 bis 15 Begriffe zurück: zentrale Begriffe der Frage, Synonyme, Fachbegriffe und verwandte Begriffe. ' +
+    'You generate search terms for a keyword search in a long scientific document. ' +
+    'Return 8 to 15 terms: key terms of the question, synonyms, technical terms and related terms. ' +
     (opts.language
-      ? `Das Dokument ist auf ${opts.language.name}: Alle Begriffe ausschließlich auf ${opts.language.name}, ` +
-        'so wie sie im Dokument stehen würden; übersetze die Frage dafür, falls nötig. '
-      : 'Jeweils auf Deutsch und Englisch. ') +
-    'Einzelwörter oder kurze Wortgruppen, keine Sätze. ' +
-    'Antworte nur mit einem JSON-Array von Strings, z. B. ["Starkregen", "Überflutung", "Niederschlag"].';
-  const context = opts.previousQuestion ? `Vorherige Frage (Kontext): ${opts.previousQuestion}\n` : '';
+      ? `The document is in ${opts.language.name}: all terms only in ${opts.language.name}, as they would appear ` +
+        'in the document; translate the question for this if necessary. '
+      : 'Each in English and German. ') +
+    'Single words or short phrases, no sentences. ' +
+    'Answer only with a JSON array of strings, e.g. ["heavy rain", "flooding", "precipitation"].';
+  const context = opts.previousQuestion ? `Previous question (context): ${opts.previousQuestion}\n` : '';
   // "/no_think" switches off Qwen 3's reasoning; other models read it as noise.
-  const user = `Dokument: ${opts.docTitle}\n${context}Frage: ${opts.question}\n/no_think`;
+  const user = `Document: ${opts.docTitle}\n${context}Question: ${opts.question}\n/no_think`;
   return [
     { role: 'system', content: system },
     { role: 'user', content: user },

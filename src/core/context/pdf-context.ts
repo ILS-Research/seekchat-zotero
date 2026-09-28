@@ -1,3 +1,4 @@
+import { t } from '../../i18n';
 import { formatPages } from '../prompt';
 import { analyzeFit, type FitInfo } from './fit';
 import { buildOutline, type Outline } from './outline';
@@ -20,13 +21,13 @@ export async function getPdfPages(attachment: any): Promise<Page[]> {
 
   const path = await attachment.getFilePathAsync();
   if (!path) {
-    throw new UserFacingError('Die PDF-Datei ist auf diesem Rechner nicht vorhanden (noch nicht synchronisiert/heruntergeladen).');
+    throw new UserFacingError(t('pdf.missingFile'));
   }
   const result = await Zotero.PDFWorker.getFullText(attachment.id, null, true);
   const text: string = result?.text || '';
   const pages = text.split('\f').map((t, i) => ({ pageNumber: i + 1, text: t.trim() }));
   if (!pages.some((p) => p.text)) {
-    throw new UserFacingError('Das PDF enthält keinen Text (gescannt?). Bitte zuerst OCR ausführen.');
+    throw new UserFacingError(t('pdf.noText'));
   }
   pageCache.set(attachment.id, { version, pages });
   return pages;
@@ -39,10 +40,10 @@ export function clearPageCache(): void {
 /** "Müller, Schmidt 2021 – Titel" from the parent item, falling back to the attachment title. */
 export function describeItem(attachment: any): string {
   const parent = attachment.parentItem || attachment;
-  const title = parent.getField?.('title') || attachment.getField?.('title') || 'Unbenanntes Dokument';
+  const title = parent.getField?.('title') || attachment.getField?.('title') || t('common.untitledDoc');
   const creators: any[] = parent.getCreators?.() || [];
   const names = creators.slice(0, 3).map((c) => c.lastName || c.name).filter(Boolean);
-  const authors = names.length ? names.join(', ') + (creators.length > 3 ? ' u. a.' : '') : '';
+  const authors = names.length ? names.join(', ') + (creators.length > 3 ? t('common.etAl') : '') : '';
   const year = String(parent.getField?.('date', true, true) || '').slice(0, 4);
   const head = [authors, /^\d{4}$/.test(year) ? year : ''].filter(Boolean).join(' ');
   return head ? `${head} – ${title}` : title;

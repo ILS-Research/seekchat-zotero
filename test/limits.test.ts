@@ -2,6 +2,10 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { describeSource, limitsFromContext } from '../src/core/limits';
 import { parseOllamaShow } from '../src/core/llm/ollama-client';
+import { setLocale } from '../src/i18n';
+
+// The expectations below are the German UI texts; English is covered in i18n.test.ts.
+setLocale('de');
 
 test('ollama /api/show: num_ctx and num_predict from the Modelfile, maximum from model_info', () => {
   assert.deepEqual(parseOllamaShow({

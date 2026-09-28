@@ -7,6 +7,7 @@
  * 20 % headroom. Mode "manual": the values from the settings. If the server
  * reports nothing, auto falls back to the manual values.
  */
+import { t } from '../i18n';
 import { CHARS_PER_TOKEN } from './context/fit';
 import { createClient } from './llm';
 import type { ModelInfo } from './llm/types';
@@ -43,9 +44,9 @@ export function limitsFromContext(context: number, numPredict?: number): Limits 
 }
 
 export function describeSource(info: ModelInfo): { context?: number; detail: string } {
-  if (info.configuredContext) return { context: info.configuredContext, detail: `Kontext ${info.configuredContext} laut Server-Konfiguration` };
-  if (info.maxContext) return { context: info.maxContext, detail: `Kontext ${info.maxContext} (Maximum des Modells)` };
-  return { detail: 'Server meldet keine Kontextgröße' };
+  if (info.configuredContext) return { context: info.configuredContext, detail: t('limits.configured', { n: info.configuredContext }) };
+  if (info.maxContext) return { context: info.maxContext, detail: t('limits.maximum', { n: info.maxContext }) };
+  return { detail: t('limits.none') };
 }
 
 const cache = new Map<string, Promise<ModelInfo | null>>();
@@ -73,12 +74,12 @@ export function manualLimits(prefs: SeekChatPrefs): Limits {
 }
 
 export async function resolveLimits(prefs: SeekChatPrefs): Promise<ResolvedLimits> {
-  if (prefs.limitsMode === 'manual') return { ...manualLimits(prefs), source: 'manual', detail: 'manuell festgelegt' };
+  if (prefs.limitsMode === 'manual') return { ...manualLimits(prefs), source: 'manual', detail: t('limits.manual') };
   if (!prefs.baseUrl || !prefs.model) {
-    return { ...manualLimits(prefs), source: 'fallback', detail: 'kein Modell gewählt, manuelle Werte' };
+    return { ...manualLimits(prefs), source: 'fallback', detail: t('limits.noModel') };
   }
   const info = await modelInfo(prefs);
   const { context, detail } = describeSource(info || {});
-  if (!context) return { ...manualLimits(prefs), source: 'fallback', detail: `${info ? detail : 'Server nicht erreichbar'}, manuelle Werte` };
-  return { ...limitsFromContext(context, info?.numPredict), source: 'auto', detail: `${detail}, davon ${Math.round(HEADROOM * 100)} %` };
+  if (!context) return { ...manualLimits(prefs), source: 'fallback', detail: t('limits.fallback', { detail: info ? detail : t('limits.unreachable') }) };
+  return { ...limitsFromContext(context, info?.numPredict), source: 'auto', detail: t('limits.share', { detail, percent: Math.round(HEADROOM * 100) }) };
 }

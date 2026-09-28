@@ -6,6 +6,7 @@
  */
 import { getFetch } from '../../util/env';
 import { UserFacingError } from '../errors';
+import { t, type Key } from '../../i18n';
 
 export const SEARCH_PATH = '/zotseek/search';
 export const STATS_PATH = '/zotseek/stats';
@@ -56,18 +57,22 @@ export type ZotSeekStatus =
   | { available: false; reason: UnavailableReason; message: string };
 
 /** User-facing explanation why the library chat is not available. */
-export const UNAVAILABLE_MESSAGES: Record<UnavailableReason, string> = {
-  'not-installed': 'Chat über die Bibliothek braucht das Plugin ZotSeek. Ohne ZotSeek steht nur der Chat mit einzelnen PDFs zur Verfügung.',
-  'server-off': 'Chat über die Bibliothek braucht Zoteros lokalen HTTP-Server: Einstellungen → Erweitert → ' +
-    '„Anderen Anwendungen auf diesem Computer erlauben, mit Zotero zu kommunizieren“.',
-  'endpoint-off': 'Chat über die Bibliothek braucht in den ZotSeek-Einstellungen „AI Agent Access“.',
-  'no-index': 'ZotSeek hat noch nichts indexiert. Bitte zuerst in ZotSeek die Bibliothek indexieren (Modus „full“ für PDF-Inhalte).',
-  'error': 'ZotSeek-Suche nicht erreichbar.',
+const MESSAGE_KEYS: Record<UnavailableReason, Key> = {
+  'not-installed': 'zotseek.notInstalled',
+  'server-off': 'zotseek.serverOff',
+  'endpoint-off': 'zotseek.endpointOff',
+  'no-index': 'zotseek.noIndex',
+  'error': 'zotseek.error',
 };
+
+/** User-facing explanation why the library chat is not available (UI language). */
+export function unavailableMessage(reason: UnavailableReason): string {
+  return t(MESSAGE_KEYS[reason]);
+}
 
 export class ZotSeekUnavailableError extends UserFacingError {
   constructor(public reason: UnavailableReason, detail?: string) {
-    super(UNAVAILABLE_MESSAGES[reason] + (detail ? ` (${detail})` : ''));
+    super(unavailableMessage(reason) + (detail ? ` (${detail})` : ''));
     this.name = 'ZotSeekUnavailableError';
   }
 }
@@ -179,10 +184,10 @@ async function getJson(url: string, signal?: AbortSignal): Promise<any> {
 export async function getZotSeekStatus(signal?: AbortSignal): Promise<ZotSeekStatus> {
   const env = readEnvironment();
   const local = diagnose(env);
-  if (local) return { available: false, reason: local, message: UNAVAILABLE_MESSAGES[local] };
+  if (local) return { available: false, reason: local, message: unavailableMessage(local) };
   try {
     const stats = parseStats(await getJson(`http://127.0.0.1:${env.serverPort}${STATS_PATH}`, signal));
-    if (!stats.ready) return { available: false, reason: 'no-index', message: UNAVAILABLE_MESSAGES['no-index'] };
+    if (!stats.ready) return { available: false, reason: 'no-index', message: unavailableMessage('no-index') };
     return { available: true, stats };
   } catch (e: any) {
     if (e instanceof ZotSeekUnavailableError) return { available: false, reason: e.reason, message: e.message };

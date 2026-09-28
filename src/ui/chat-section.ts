@@ -3,6 +3,7 @@
  * (for a selected item with a PDF, or the PDF itself) and in the reader's
  * context pane (for the open PDF).
  */
+import { t } from '../i18n';
 import { describeItem, PdfContextProvider } from '../core/context/pdf-context';
 import { getSession, type ChatSession } from '../core/session';
 import { LongDocPanel } from './long-doc-panel';
@@ -58,26 +59,26 @@ class ChatView {
     this.longDoc = new LongDocPanel(doc);
     this.messages = this.el('div', 'seekchat-messages');
     this.input = this.el('textarea', 'seekchat-input') as HTMLTextAreaElement;
-    this.input.placeholder = 'Frage zum PDF … (Enter senden, Shift+Enter neue Zeile)';
+    this.input.placeholder = t('pdf.placeholder');
     this.sendBtn = this.el('button') as HTMLButtonElement;
     this.clearBtn = this.el('button') as HTMLButtonElement;
-    this.clearBtn.textContent = 'Neuer Chat';
+    this.clearBtn.textContent = t('common.newChat');
     const actions = this.el('div', 'seekchat-actions');
     const hint = this.el('span', 'seekchat-hint');
     const spacer = this.el('span', 'spacer');
     actions.append(hint, spacer, this.clearBtn, this.sendBtn);
     // Small, at the very bottom: download the whole chat as Markdown.
     this.saveBtn = this.el('button', 'seekchat-save') as HTMLButtonElement;
-    this.saveBtn.textContent = '⤓ Chat als .md speichern';
+    this.saveBtn.textContent = t('common.saveMd');
     this.saveBtn.addEventListener('click', () => {
       if (this.session && this.attachment) void saveChat(this.session, `PDF ${describeItem(this.attachment)}`, this.doc.defaultView);
     });
     this.noteBtn = this.el('button', 'seekchat-save seekchat-save-note') as HTMLButtonElement;
-    this.noteBtn.textContent = 'Verlauf als Notiz speichern';
+    this.noteBtn.textContent = t('common.saveNote');
     this.noteBtn.addEventListener('click', () => {
       const s = this.session;
       const att = this.attachment;
-      if (s && att) void withFeedback(this.noteBtn, () => savePdfChatAsNote(s, `PDF ${describeItem(att)}`, att), 'Notiz gespeichert ✓');
+      if (s && att) void withFeedback(this.noteBtn, () => savePdfChatAsNote(s, `PDF ${describeItem(att)}`, att), t('common.noteSaved'));
     });
     const saveRow = this.el('div', 'seekchat-save-row');
     saveRow.append(this.noteBtn, this.saveBtn);
@@ -139,21 +140,21 @@ class ChatView {
     const s = this.session;
     const prefs = readPrefs();
     this.target.textContent = this.attachment
-      ? `PDF: ${describeItem(this.attachment)}`
-      : 'Kein PDF zu diesem Eintrag gefunden.';
+      ? t('pdf.target', { label: describeItem(this.attachment) })
+      : t('pdf.none');
     this.input.disabled = !s;
     this.sendBtn.disabled = !s;
-    this.sendBtn.textContent = s?.busy ? 'Stopp' : 'Senden';
+    this.sendBtn.textContent = s?.busy ? t('common.stop') : t('common.send');
     this.clearBtn.disabled = !s || s.turns.length === 0;
     this.saveBtn.disabled = !s || s.busy || s.turns.length === 0;
     if (!this.noteBtn.textContent?.includes('✓')) this.noteBtn.disabled = this.saveBtn.disabled;
     this.longDoc.render();
-    this.hintEl.textContent = prefs.model ? `Modell: ${prefs.model}` : 'Kein Modell gewählt – siehe Einstellungen → SeekChat';
+    this.hintEl.textContent = prefs.model ? t('common.model', { model: prefs.model }) : t('common.noModel');
 
     const atBottom = this.messages.scrollHeight - this.messages.scrollTop - this.messages.clientHeight < 40;
     const attachmentID = this.attachment?.id;
     const onPage = (page: number) => Zotero.Reader.open(attachmentID, { pageIndex: page - 1 }).catch(logError);
-    this.messages.replaceChildren(...(s?.turns || []).map((t) => renderTurn(this.doc, t, { onPage })));
+    this.messages.replaceChildren(...(s?.turns || []).map((turn) => renderTurn(this.doc, turn, { onPage })));
     if (atBottom || s?.busy) this.messages.scrollTop = this.messages.scrollHeight;
   }
 

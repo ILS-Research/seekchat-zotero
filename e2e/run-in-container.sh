@@ -25,6 +25,8 @@ user_pref("extensions.zotero.seekchat.e2e.resultsPath", "/out/results.json");
 user_pref("extensions.zotero.seekchat.e2e.outDir", "/out");
 user_pref("extensions.zotero.seekchat.e2e.fixturesDir", "/fixtures");
 user_pref("extensions.zotero.seekchat.e2e.assetsDir", "/assets");
+// UI texts in the scenarios are German; English is checked in its own scenario.
+user_pref("extensions.zotero.seekchat.locale", "de");
 PREFS
 
 # Trust the in-house CAs in Zotero (NSS database of the profile).

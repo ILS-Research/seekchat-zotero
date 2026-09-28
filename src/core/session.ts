@@ -4,7 +4,8 @@
  */
 import { createClient } from './llm';
 import { stripThinking } from './llm/stream-parsers';
-import { buildMessages, DEFAULT_BOOK_PROMPT, describeContext, isNoMatch, type HistoryTurn } from './prompt';
+import { buildMessages, defaultBookPrompt, describeContext, isNoMatch, type HistoryTurn } from './prompt';
+import { languageName, t } from '../i18n';
 import { UserFacingError } from './errors';
 import { PdfContextProvider } from './context/pdf-context';
 import { buildKeywordMessages, parseKeywords } from './context/keywords';
@@ -252,7 +253,7 @@ export class ChatSession {
     const bookTurns: Turn[] = books.map((b, i) => ({
       role: 'assistant', content: '', pending: true,
       book: { attachmentID: b.attachment.id, label: b.label },
-      meta: `Buch ${i + 1} von ${books.length} · wartet`,
+      meta: `${t('meta.book', { i: i + 1, n: books.length })} · ${t('meta.bookWaiting')}`,
     }));
     this.turns.push({ role: 'user', content: q }, ...(main ? [main] : []), ...bookTurns);
     const ctrl = newAbortController();
@@ -261,16 +262,16 @@ export class ChatSession {
     try {
       if (main) await this.answerInto(main, this.provider, q, lastQuestion, history, ctrl, { chapters: true });
       for (let i = 0; i < bookTurns.length; i++) {
-        const t = bookTurns[i];
+        const turn = bookTurns[i];
         if (ctrl.signal.aborted) {
-          t.content = '[abgebrochen]';
-          t.meta = `Buch ${i + 1} von ${books.length} · nicht mehr bearbeitet`;
-          t.pending = false;
+          turn.content = t('common.cancelled');
+          turn.meta = `${t('meta.book', { i: i + 1, n: books.length })} · ${t('meta.bookSkipped')}`;
+          turn.pending = false;
           continue;
         }
         const left = bookTurns.length - i - 1;
-        const progress = `Buch ${i + 1} von ${books.length}${left ? ` · noch ${left} ausstehend` : ''}`;
-        await this.answerInto(t, new PdfContextProvider(books[i].attachment), q, lastQuestion, [], ctrl, { book: true, progress });
+        const progress = left ? t('meta.bookLeft', { i: i + 1, n: books.length, left }) : t('meta.book', { i: i + 1, n: books.length });
+        await this.answerInto(turn, new PdfContextProvider(books[i].attachment), q, lastQuestion, [], ctrl, { book: true, progress });
       }
     } finally {
       this.abortCtrl = null;
@@ -295,13 +296,13 @@ export class ChatSession {
     };
     let raw = '';
     try {
-      if (!prefs.model) throw new UserFacingError('Kein Chat-Modell gewählt (SeekChat-Einstellungen).');
+      if (!prefs.model) throw new UserFacingError(t('error.noModel'));
       // Auto limits need one server round trip per model (cached); without an answer the manual values apply.
       const limits = await resolveLimits(prefs);
       prefs = { ...prefs, numCtx: limits.numCtx, maxTokens: limits.maxTokens, contextChars: limits.contextChars };
-      let purpose = 'Antwort';
+      let purpose = t('purpose.answer');
       const client = this.recordingClient(createClient(prefs), answer, () => purpose);
-      if (opts.progress) status('lese PDF …');
+      if (opts.progress) status(t('meta.bookReading'));
       const fit = provider === this.provider && this.fit?.budgetChars === prefs.contextChars
         ? this.fit : await provider.analyze(prefs.contextChars);
       const notes: string[] = [];
@@ -311,26 +312,26 @@ export class ChatSession {
       let needKeywords = !fit.fits;
       if (opts.chapters && !fit.fits && this.strategy === 'chapters') {
         const scope = chapterScope(await this.outline(), this.selectedChapters);
-        if (!scope) throw new UserFacingError('Keine Kapitel ausgewählt. Bitte oben im Inhaltsverzeichnis Kapitel ankreuzen.');
+        if (!scope) throw new UserFacingError(t('error.noChapters'));
         chapters = { titles: scope.titles, pages: scope.pages };
         needKeywords = scope.tokens > fit.budgetTokens;
-        if (needKeywords) notes.push('Auswahl größer als das Budget: Suche innerhalb der Kapitel.');
+        if (needKeywords) notes.push(t('meta.chaptersOver'));
       }
       if (needKeywords) {
         if (opts.chapters && !IMPLEMENTED_STRATEGIES.includes(this.strategy)) {
-          notes.push('Gewählte Strategie noch nicht verfügbar, nutze Stichwort-Erweiterung.');
+          notes.push(t('meta.strategyFallback'));
         }
-        status('Bestimme Dokumentsprache …');
-        purpose = 'Spracherkennung';
+        status(t('meta.detectLanguage'));
+        purpose = t('purpose.language');
         const { lang, source } = await this.resolveLanguage(provider, client, prefs, ctrl.signal);
-        const sourceText = source === 'metadata' ? 'aus Metadaten' : source === 'model' ? 'vom Modell erkannt' : 'geschätzt';
-        notes.push(lang ? `Dokumentsprache: ${lang.name} (${sourceText})` : 'Dokumentsprache unbekannt, Suchbegriffe auf Deutsch und Englisch.');
-        status('Erzeuge Suchbegriffe …');
-        purpose = 'Suchbegriffe';
+        const sourceText = t(source === 'metadata' ? 'meta.languageMetadata' : source === 'model' ? 'meta.languageModel' : 'meta.languageGuess');
+        notes.push(lang ? t('meta.language', { language: languageName(lang.code), source: sourceText }) : t('meta.languageUnknown'));
+        status(t('meta.makeKeywords'));
+        purpose = t('purpose.keywords');
         keywords = await this.expandKeywords(provider, client, prefs, question, lastQuestion, lang, ctrl.signal);
-        notes.push(keywords.length ? `Suchbegriffe: ${keywords.join(', ')}` : 'Keine Suchbegriffe erhalten, suche nur mit der Frage.');
+        notes.push(keywords.length ? t('meta.keywords', { keywords: keywords.join(', ') }) : t('meta.noKeywords'));
       }
-      purpose = 'Antwort';
+      purpose = t('purpose.answer');
       const context = await provider.build(`${question}\n${lastQuestion}`, prefs.contextChars, { keywords, chapters });
       const head = `${prefs.model} · ${describeContext(context)}`;
       answer.meta = [opts.progress ? `${opts.progress} · ${head}` : head, ...notes].join('\n');
@@ -338,7 +339,7 @@ export class ChatSession {
       this.notify();
       // The PDF prompt setting asks for [S. N]; the library chat has its own citation format,
       // book answers the PDF format plus a marker for "nothing relevant".
-      const systemPrompt = context.library ? '' : opts.book ? DEFAULT_BOOK_PROMPT : prefs.systemPrompt;
+      const systemPrompt = context.library ? '' : opts.book ? defaultBookPrompt() : prefs.systemPrompt;
       await client.streamChat(
         {
           model: prefs.model,
@@ -356,17 +357,17 @@ export class ChatSession {
       );
       if (opts.book && isNoMatch(answer.content)) {
         answer.noMatch = true;
-        answer.content = 'Keine passenden Stellen in diesem Buch gefunden.';
+        answer.content = t('book.noMatch');
       }
-      if (!answer.content.trim()) answer.content = '(keine Antwort erhalten)';
+      if (!answer.content.trim()) answer.content = t('common.noAnswer');
     } catch (e: any) {
       if (ctrl.signal.aborted) {
-        answer.content = (answer.content ? answer.content + '\n' : '') + '[abgebrochen]';
-        if (answer.meta?.endsWith('…')) answer.meta = answer.meta.replace(/\s*[^·]*…$/, ' abgebrochen');
+        answer.content = (answer.content ? answer.content + '\n' : '') + t('common.cancelled');
+        if (answer.meta?.endsWith('…')) answer.meta = answer.meta.replace(/\s*[^·]*…$/, ` ${t('meta.cancelled')}`);
       } else {
         if (!(e instanceof UserFacingError)) logError(e);
         answer.error = true;
-        answer.content = `Fehler: ${e?.message || e}`;
+        answer.content = t('common.error', { message: String(e?.message || e) });
       }
     } finally {
       answer.pending = false;

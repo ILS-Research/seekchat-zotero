@@ -1,6 +1,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { buildSearchUrl, diagnose, parseSearchResponse, parseStats } from '../src/core/zotseek/client';
+import { setLocale } from '../src/i18n';
+
+// The expectations below are the German UI texts; English is covered in i18n.test.ts.
+setLocale('de');
 
 const env = { pluginLoaded: true, serverPort: 23119, searchEndpointRegistered: true };
 

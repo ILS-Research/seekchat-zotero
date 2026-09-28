@@ -31,3 +31,5 @@ pref("extensions.zotero.seekchat.libraryTopK", 30);
 // "auto": context window, answer length and text budget from the model (server info minus 20 %),
 // "manual": the three values above.
 pref("extensions.zotero.seekchat.limitsMode", "auto");
+// UI language: "" = follow Zotero, or "en" / "de".
+pref("extensions.zotero.seekchat.locale", "");

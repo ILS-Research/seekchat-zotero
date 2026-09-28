@@ -5,6 +5,10 @@ import { buildKeywordMessages, parseKeywords } from '../src/core/context/keyword
 import { buildOutline, chapterScope, detectHeading, outlineFromBlocks, outlineFromHeadings, outlineFromReader } from '../src/core/context/outline';
 import { buildMessages, describeContext } from '../src/core/prompt';
 import { buildTerms, selectPagesByTerms } from '../src/core/context/page-selection';
+import { setLocale } from '../src/i18n';
+
+// The expectations below are the German UI texts; English is covered in i18n.test.ts.
+setLocale('de');
 
 const filler = (n: number) => 'lorem ipsum dolor sit amet '.repeat(n);
 const book = Array.from({ length: 40 }, (_, i) => ({ pageNumber: i + 1, text: filler(40) }));
@@ -104,7 +108,7 @@ test('outline: a single root entry is unwrapped to its chapters', () => {
 import { buildLanguageMessages, guessLanguage, normalizeLanguage, parseLanguageReply } from '../src/core/context/language';
 
 test('language: metadata values are normalized', () => {
-  assert.deepEqual(normalizeLanguage('de-DE'), { code: 'de', name: 'Deutsch' });
+  assert.deepEqual(normalizeLanguage('de-DE'), { code: 'de', name: 'German' });
   assert.equal(normalizeLanguage('German')?.code, 'de');
   assert.equal(normalizeLanguage('Deutsch; Englisch')?.code, 'de');
   assert.equal(normalizeLanguage('en_US')?.code, 'en');
@@ -130,11 +134,11 @@ test('language: local guess from stopwords', () => {
 });
 
 test('keywords: prompt restricts terms to the document language', () => {
-  const withLang = buildKeywordMessages({ question: 'Wie plane ich einen Sprint?', docTitle: 'Jira', language: { name: 'Englisch' } });
-  assert.ok(withLang[0].content.includes('ausschließlich auf Englisch'));
-  assert.ok(!withLang[0].content.includes('Deutsch und Englisch'));
+  const withLang = buildKeywordMessages({ question: 'Wie plane ich einen Sprint?', docTitle: 'Jira', language: { name: 'English' } });
+  assert.ok(withLang[0].content.includes('all terms only in English'));
+  assert.ok(!withLang[0].content.includes('English and German'));
   const without = buildKeywordMessages({ question: 'x', docTitle: 'y' });
-  assert.ok(without[0].content.includes('Deutsch und Englisch'));
+  assert.ok(without[0].content.includes('English and German'));
 });
 
 test('chapter scope: a chapter covers its sections, pages are merged', () => {
@@ -159,7 +163,7 @@ test('chapter context is described and announced to the model', () => {
   const whole = { ...base, chapters: { titles: ['Ergebnisse'], complete: true } };
   assert.equal(describeContext(whole), 'Kapitel „Ergebnisse“ vollständig: S. 5–7 von 40 Seiten');
   const system = buildMessages({ context: whole, history: [], question: 'q' })[0].content;
-  assert.match(system, /nur die vom Nutzer ausgewählten Teile/);
+  assert.match(system, /Only the parts selected by the user follow/);
   const part = { ...base, matchedPages: 2, chapters: { titles: ['A', 'B'], complete: false } };
   assert.equal(describeContext(part), 'Kapitel „A“, „B“, Auszüge: S. 5–7 von 40 Seiten (2 Seiten mit Treffern)');
 });

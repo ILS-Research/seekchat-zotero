@@ -5,6 +5,7 @@
  * "exclude books" is off, PDF contents only in indexing mode "full".
  * ZotSeek reads its prefs globally ("zotseek.*", not "extensions.zotero.zotseek.*").
  */
+import { t, tn } from '../../i18n';
 import type { LibraryScope } from './library-context';
 
 export interface ZotSeekSettings {
@@ -43,14 +44,14 @@ export function countCoverage(
 export function describeCoverage(c: Coverage): string {
   const parts: string[] = [];
   if (c.standalonePdfs) {
-    parts.push(`${c.standalonePdfs} ${c.standalonePdfs === 1 ? 'PDF' : 'PDFs'} ohne übergeordneten Eintrag`);
+    parts.push(tn('cov.pdfs', c.standalonePdfs));
   }
   if (c.excludedBooks) {
-    parts.push(`${c.excludedBooks} ${c.excludedBooks === 1 ? 'Buch' : 'Bücher'} (in ZotSeek „Bücher ausschließen“ an)`);
+    parts.push(tn('cov.books', c.excludedBooks));
   }
   const hints: string[] = [];
-  if (parts.length) hints.push(`Nicht durchsuchbar: ${parts.join(', ')}.`);
-  if (!c.fullText) hints.push('ZotSeek indexiert nur Titel und Abstracts (Indexierungsmodus „abstract“), keine PDF-Inhalte.');
+  if (parts.length) hints.push(t('cov.notSearchable', { parts: parts.join(', ') }));
+  if (!c.fullText) hints.push(t('cov.abstractOnly'));
   return hints.join(' ');
 }
 

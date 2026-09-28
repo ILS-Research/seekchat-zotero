@@ -19,6 +19,7 @@ import type { BookTarget } from '../core/session';
 import { readPrefs } from '../prefs';
 import { logError } from '../util/log';
 import { renderTurn } from './turn-view';
+import { t, tn } from '../i18n';
 import { saveChat, withFeedback } from './save-chat';
 import { saveLibraryChatAsNote } from './save-note';
 
@@ -160,55 +161,51 @@ class LibraryChatView {
     this.coverageEl = this.el('div', 'seekchat-library-note seekchat-library-coverage');
     this.statusEl = this.el('span', 'seekchat-library-status');
     this.modelEl = this.el('span', 'seekchat-library-status');
-    this.zotseekBox = this.checkbox('seekchat-source-zotseek', 'ZotSeek', true, (on) => {
+    this.zotseekBox = this.checkbox('seekchat-source-zotseek', t('lib.sourceZotSeek'), true, (on) => {
       this.useZotSeek = on;
       this.render();
     });
-    const keywordBooksBox = this.checkbox('seekchat-source-books-keywords', 'Bücher (Stichwortsuche, ohne Index)', false, (on) => {
+    const keywordBooksBox = this.checkbox('seekchat-source-books-keywords', t('lib.sourceBooksKeywords'), false, (on) => {
       this.useBooks = on;
       this.render();
     });
     this.booksEl = this.el('div', 'seekchat-library-note seekchat-library-books');
     // Planned: own vector index for whole books (ZotSeek only indexes the beginning of long documents).
-    const booksBox = this.checkbox('seekchat-source-books', 'Bücher (eigener Index)', false, () => {});
+    const booksBox = this.checkbox('seekchat-source-books', t('lib.sourceBooksIndex'), false, () => {});
     booksBox.disabled = true;
     const books = booksBox.parentElement!;
     books.classList.add('disabled');
-    books.append(this.doc.createTextNode(' '), this.el('span', 'seekchat-badge', 'noch ohne Funktion'));
+    books.append(this.doc.createTextNode(' '), this.el('span', 'seekchat-badge', t('common.notYet')));
     this.messages = this.el('div', 'seekchat-messages');
     this.input = this.el('textarea', 'seekchat-input') as HTMLTextAreaElement;
-    this.input.placeholder = 'Frage an die Bibliothek … (Enter senden, Shift+Enter neue Zeile)';
-    this.sendBtn = this.button('Senden', () => (this.session?.busy ? this.session.stop() : this.send()));
-    this.clearBtn = this.button('Neuer Chat', () => this.session?.clear());
-    const settings = this.button('⚙ Einstellungen', () => this.openSettings());
-    const close = this.button('Schließen', () => this.win.close());
+    this.input.placeholder = t('lib.placeholder');
+    this.sendBtn = this.button(t('common.send'), () => (this.session?.busy ? this.session.stop() : this.send()));
+    this.clearBtn = this.button(t('common.newChat'), () => this.session?.clear());
+    const settings = this.button(t('common.settings'), () => this.openSettings());
+    const close = this.button(t('common.close'), () => this.win.close());
     const inputRow = this.el('div', 'seekchat-library-row');
     this.input.style.flex = '1';
     inputRow.append(this.input, this.sendBtn);
     const footer = this.el('div', 'seekchat-library-footer');
-    this.saveBtn = this.button('⤓ Chat als .md', () => {
+    this.saveBtn = this.button(t('common.saveMdShort'), () => {
       if (this.session && this.scope) void saveChat(this.session, this.scope.label, this.win);
     });
     this.saveBtn.className = 'seekchat-save';
-    this.noteBtn = this.button('Verlauf als Notiz', () => {
+    this.noteBtn = this.button(t('common.saveNoteShort'), () => {
       const s = this.session;
       const scope = this.scope;
-      if (s && scope) void withFeedback(this.noteBtn, () => saveLibraryChatAsNote(s, scope), 'Notiz gespeichert ✓');
+      if (s && scope) void withFeedback(this.noteBtn, () => saveLibraryChatAsNote(s, scope), t('common.noteSaved'));
     });
     this.noteBtn.className = 'seekchat-save seekchat-save-note';
     footer.append(settings, this.saveBtn, this.noteBtn, this.el('span', 'spacer'), this.clearBtn, close);
     root.replaceChildren(
-      row('Umfang:', this.scopeEl, this.statusEl),
+      row(t('lib.scope'), this.scopeEl, this.statusEl),
       row('', this.coverageEl),
-      row('Quellen:', this.zotseekBox.parentElement!, keywordBooksBox.parentElement!, books),
+      row(t('lib.sources'), this.zotseekBox.parentElement!, keywordBooksBox.parentElement!, books),
       row('', this.booksEl),
       // Plain text instead of a tooltip: title tooltips do not show in this chrome window.
-      row('', this.el('div', 'seekchat-library-note',
-        'ZotSeek ist für Paper gebaut: Bücher nur, wenn dort „Bücher ausschließen“ aus ist, und PDF-Inhalte nur im ' +
-        'Modus „full“. Pro Eintrag höchstens 100–200 Abschnitte (bei Büchern meist nur die ersten Kapitel); Schluss ' +
-        'beim ersten Literaturverzeichnis; PDFs ohne übergeordneten Eintrag fehlen. Ganze Bücher: Chat mit dem PDF ' +
-        'im Eintragsbereich. Ein eigener Index für Bücher ist geplant.')),
-      row('Modell:', this.modelEl),
+      row('', this.el('div', 'seekchat-library-note seekchat-library-zotseek-note', t('lib.zotseekNote'))),
+      row(t('lib.model'), this.modelEl),
       this.messages,
       inputRow,
       footer,
@@ -255,7 +252,7 @@ class LibraryChatView {
     this.scope = scope;
     this.session = getSession(new LibraryContextProvider(scope));
     this.unsubscribe = this.session.subscribe(() => this.scheduleRender());
-    this.win.document.title = `SeekChat – ${scope.label}`;
+    this.win.document.title = t('lib.windowTitle', { scope: scope.label });
     this.fillScopes();
     this.render();
     void this.checkStatus();
@@ -340,19 +337,18 @@ class LibraryChatView {
     const booksOk = this.useBooks && nBooks > 0;
     const available = zotseekOk || booksOk;
     this.booksEl.textContent = !this.useBooks ? ''
-      : this.books === null ? 'Suche Bücher im Umfang …'
-      : !nBooks ? 'Keine Bücher mit PDF in diesem Umfang.'
-      : `${nBooks} ${nBooks === 1 ? 'Buch' : 'Bücher'} mit PDF in diesem Umfang. Jedes Buch wird einzeln befragt wie im PDF-Chat ` +
-        `(Stichwortsuche, je Buch 2–3 Modellaufrufe) – das dauert pro Buch etwa so lange wie eine PDF-Frage; mit „Stopp“ abbrechbar.`;
+      : this.books === null ? t('lib.booksSearching')
+      : !nBooks ? t('lib.booksNone')
+      : tn('lib.books', nBooks);
     this.statusEl.className = `seekchat-library-status${this.status && !this.status.available && this.useZotSeek ? ' unavailable' : ''}`;
-    this.statusEl.textContent = !this.status ? 'Prüfe ZotSeek …'
-      : this.status.available ? `ZotSeek: ${formatCount(this.status.stats.indexedPapers)} Einträge indexiert`
+    this.statusEl.textContent = !this.status ? t('lib.checking')
+      : this.status.available ? t('lib.indexed', { n: formatCount(this.status.stats.indexedPapers) })
       : this.status.message;
     const model = readPrefs().model;
-    this.modelEl.textContent = model || 'Kein Modell gewählt – siehe Einstellungen';
+    this.modelEl.textContent = model || t('common.noModel');
     this.input.disabled = !available;
     this.sendBtn.disabled = !available && !s?.busy;
-    this.sendBtn.textContent = s?.busy ? 'Stopp' : 'Senden';
+    this.sendBtn.textContent = s?.busy ? t('common.stop') : t('common.send');
     this.clearBtn.disabled = !s || s.turns.length === 0;
     this.saveBtn.disabled = !s || s.busy || s.turns.length === 0;
     if (!this.noteBtn.textContent?.includes('✓')) this.noteBtn.disabled = this.saveBtn.disabled;
@@ -361,13 +357,12 @@ class LibraryChatView {
     const turns = s?.turns || [];
     if (!turns.length) {
       this.messages.replaceChildren(this.el('div', 'seekchat-library-empty', !this.useZotSeek && !this.useBooks
-        ? 'Keine Quelle ausgewählt. Bitte oben unter „Quellen“ ZotSeek oder Bücher anhaken.'
+        ? t('lib.noSource')
         : available
-        ? `Fragen an ${this.scope?.label}. ` +
-          (zotseekOk ? 'ZotSeek liefert die passendsten Textstellen, zitiert als [Nr., S. x]. ' : '') +
-          (booksOk ? `Danach wird jedes der ${nBooks} Bücher einzeln befragt, zitiert als [S. x].` : '')
-        : this.status ? 'Chat über die Bibliothek ist gerade nicht möglich (siehe oben). Der Chat mit einzelnen PDFs im ' +
-          'Eintragsbereich funktioniert weiterhin.' : ''));
+        ? t('lib.intro', { scope: this.scope?.label || '' }) +
+          (zotseekOk ? t('lib.introZotSeek', { pageLabel: t('cite.page') }) : '') +
+          (booksOk ? t('lib.introBooks', { n: nBooks, pageLabel: t('cite.page') }) : '')
+        : this.status ? t('lib.unavailable') : ''));
       return;
     }
     const onPage = (page: number, turn: any) => {
@@ -376,7 +371,7 @@ class LibraryChatView {
     const onSource = (source: any, page?: number) => {
       openSourceCitation(source, page).then(() => Zotero.getMainWindow().focus()).catch(logError);
     };
-    this.messages.replaceChildren(...turns.map((t) => renderTurn(this.doc, t, { onSource, onPage }, t.book ? 'wartet …' : 'Suche in der Bibliothek …')));
+    this.messages.replaceChildren(...turns.map((turn) => renderTurn(this.doc, turn, { onSource, onPage }, turn.book ? t('book.waiting') : t('lib.searching'))));
     if (atBottom || s?.busy) this.messages.scrollTop = this.messages.scrollHeight;
   }
 

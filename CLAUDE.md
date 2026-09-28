@@ -2,7 +2,8 @@
 
 Chat with a PDF (item pane section) and with the library via ZotSeek (own window, button next to
 ZotSeek's) in Zotero 7–10, using a self-hosted model (Ollama native API or any OpenAI-compatible server). Plan and status: `../ideas-zotseek.md` (German) — keep it updated
-when scope or decisions change. User-facing UI text is German.
+when scope or decisions change. User-facing UI text is English with a German translation: every string goes through `t()` in `src/i18n.ts`
+(add the key to both tables); prompts to the model are English in code. Section header and context menu use Fluent (`locale/*.ftl`).
 
 ## Commands
 
