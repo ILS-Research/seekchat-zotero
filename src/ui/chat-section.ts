@@ -7,7 +7,8 @@ import { describeItem, PdfContextProvider } from '../core/context/pdf-context';
 import { getSession, type ChatSession } from '../core/session';
 import { LongDocPanel } from './long-doc-panel';
 import { renderTurn } from './turn-view';
-import { saveChat } from './save-chat';
+import { saveChat, withFeedback } from './save-chat';
+import { savePdfChatAsNote } from './save-note';
 import { readPrefs } from '../prefs';
 import { logError } from '../util/log';
 
@@ -16,7 +17,7 @@ const HTML_NS = 'http://www.w3.org/1999/xhtml';
 let registeredPaneID: string | false = false;
 
 /** The PDF the chat is about: the one open in the reader, the selected PDF, or the item's best PDF. */
-async function resolveAttachment(item: any, tabType: string, doc: Document): Promise<any | null> {
+export async function resolveAttachment(item: any, tabType: string, doc: Document): Promise<any | null> {
   if (tabType === 'reader') {
     const win: any = doc.defaultView;
     const reader = Zotero.Reader.getByTabID(win?.Zotero_Tabs?.selectedID);
@@ -45,6 +46,7 @@ class ChatView {
   private sendBtn: HTMLButtonElement;
   private clearBtn: HTMLButtonElement;
   private saveBtn: HTMLButtonElement;
+  private noteBtn: HTMLButtonElement;
   private session: ChatSession | null = null;
   private attachment: any = null;
   private unsubscribe: (() => void) | null = null;
@@ -70,8 +72,15 @@ class ChatView {
     this.saveBtn.addEventListener('click', () => {
       if (this.session && this.attachment) void saveChat(this.session, `PDF ${describeItem(this.attachment)}`, this.doc.defaultView);
     });
+    this.noteBtn = this.el('button', 'seekchat-save seekchat-save-note') as HTMLButtonElement;
+    this.noteBtn.textContent = '🗎 Verlauf als Notiz speichern';
+    this.noteBtn.addEventListener('click', () => {
+      const s = this.session;
+      const att = this.attachment;
+      if (s && att) void withFeedback(this.noteBtn, () => savePdfChatAsNote(s, `PDF ${describeItem(att)}`, att), 'Notiz gespeichert ✓');
+    });
     const saveRow = this.el('div', 'seekchat-save-row');
-    saveRow.append(this.saveBtn);
+    saveRow.append(this.noteBtn, this.saveBtn);
     this.root.append(this.target, this.longDoc.root, this.messages, this.input, actions, saveRow);
     body.replaceChildren(this.root);
 
@@ -137,6 +146,7 @@ class ChatView {
     this.sendBtn.textContent = s?.busy ? 'Stopp' : 'Senden';
     this.clearBtn.disabled = !s || s.turns.length === 0;
     this.saveBtn.disabled = !s || s.busy || s.turns.length === 0;
+    if (!this.noteBtn.textContent?.includes('✓')) this.noteBtn.disabled = this.saveBtn.disabled;
     this.longDoc.render();
     this.hintEl.textContent = prefs.model ? `Modell: ${prefs.model}` : 'Kein Modell gewählt – siehe Einstellungen → SeekChat';
 

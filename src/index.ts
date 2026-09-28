@@ -10,6 +10,7 @@ import {
   closeLibraryChat, onLibraryWindowLoad, onLibraryWindowUnload, openLibraryChat, setPrefsPaneID,
 } from './ui/library-window';
 import { addToolbarButton, removeToolbarButton } from './ui/toolbar-button';
+import { addLegacyMenu, registerMenus, removeLegacyMenu, unregisterMenus } from './ui/context-menu';
 import { log, logError } from './util/log';
 
 const FTL = 'seekchat-main.ftl';
@@ -24,6 +25,8 @@ class SeekChatPlugin {
 
   async startup(info: { id: string; version: string; rootURI: string }): Promise<void> {
     this.info = info;
+    // Zotero 8+: MenuManager; Zotero 7: menu items added per window in onMainWindowLoad.
+    registerMenus(info.id, `${info.rootURI}content/icons/seekchat.svg`);
     for (const win of Zotero.getMainWindows()) this.onMainWindowLoad(win);
     registerChatSection(info);
     const paneID = Zotero.PreferencePanes.register({
@@ -47,6 +50,7 @@ class SeekChatPlugin {
         win.document.documentElement.appendChild(link);
       }
       addToolbarButton(win);
+      addLegacyMenu(win);
     } catch (e) {
       logError(e);
     }
@@ -54,11 +58,13 @@ class SeekChatPlugin {
 
   onMainWindowUnload(win: any): void {
     removeToolbarButton(win);
+    removeLegacyMenu(win);
     win.document.getElementById(CSS_ID)?.remove();
     win.document.querySelector(`link[href="${FTL}"]`)?.remove();
   }
 
   shutdown(): void {
+    unregisterMenus();
     closeLibraryChat();
     stopAllSessions();
     unregisterChatSection();

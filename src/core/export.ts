@@ -56,7 +56,8 @@ export function chatToMarkdown(turns: Turn[], info: ExportInfo): string {
 /** File name without characters Windows or macOS reject. */
 export function exportFileName(subject: string, date: Date): string {
   const safe = subject.replace(/[\\/:*?"<>|„“”]/g, '').replace(/\s+/g, ' ').trim().slice(0, 80) || 'Chat';
-  const stamp = `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+  // No colon in the time: Windows rejects it in file names.
+  const stamp = `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}-${pad(date.getMinutes())}`;
   return `SeekChat ${stamp} ${safe}.md`;
 }
 

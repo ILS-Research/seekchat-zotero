@@ -25,8 +25,8 @@ test('chat export: questions quoted, answers as Markdown, meta and sources', () 
 });
 
 test('export file name is safe for all systems', () => {
-  assert.equal(exportFileName('PDF Muster 2021 – Titel: "A/B"?', date), 'SeekChat 2026-09-28 PDF Muster 2021 – Titel AB.md');
-  assert.equal(exportFileName('Bibliothek „Meine Bibliothek“', date), 'SeekChat 2026-09-28 Bibliothek Meine Bibliothek.md');
+  assert.equal(exportFileName('PDF Muster 2021 – Titel: "A/B"?', date), 'SeekChat 2026-09-28 14-05 PDF Muster 2021 – Titel AB.md');
+  assert.equal(exportFileName('Bibliothek „Meine Bibliothek“', date), 'SeekChat 2026-09-28 14-05 Bibliothek Meine Bibliothek.md');
 });
 
 test('model requests are exported verbatim in collapsible blocks', () => {

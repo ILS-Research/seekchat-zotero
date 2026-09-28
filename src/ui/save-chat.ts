@@ -14,6 +14,24 @@ export function setSaveChatTestPath(path: string | null): void {
   testPath = path;
 }
 
+/** Runs a save action and shows the outcome on the button for a moment. */
+export async function withFeedback(btn: HTMLButtonElement, action: () => Promise<unknown>, done: string): Promise<void> {
+  const label = btn.textContent;
+  btn.disabled = true;
+  try {
+    await action();
+    btn.textContent = done;
+  } catch (e) {
+    logError(e);
+    btn.textContent = 'Fehler beim Speichern';
+  }
+  const win = btn.ownerDocument?.defaultView;
+  win?.setTimeout(() => {
+    btn.textContent = label;
+    btn.disabled = false;
+  }, 2000);
+}
+
 export async function saveChat(session: ChatSession, subject: string, win: any): Promise<void> {
   try {
     const date = new Date();

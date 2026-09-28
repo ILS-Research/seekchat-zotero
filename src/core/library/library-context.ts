@@ -26,6 +26,8 @@ export interface LibraryScope {
   libraryID: number;
   /** ZotSeek library key; omitted = all indexed libraries. */
   libraryKey?: string;
+  /** Collection scope: the collection's ID (a saved chat note goes there). */
+  collectionID?: number;
   /** Allowed regular items (IDs); omitted = everything in the library. */
   itemIDs?: Set<number>;
 }
@@ -55,7 +57,7 @@ export function collectionScope(collection: any): LibraryScope {
     for (const child of c.getChildCollections(false)) collect(child);
   };
   collect(collection);
-  return { key: `col:${collection.libraryID}:${collection.key}`, label: `Collection „${collection.name}“`, libraryID: collection.libraryID, libraryKey, itemIDs };
+  return { key: `col:${collection.libraryID}:${collection.key}`, label: `Collection „${collection.name}“`, libraryID: collection.libraryID, collectionID: collection.id, libraryKey, itemIDs };
 }
 
 export function itemsScope(items: any[]): LibraryScope {

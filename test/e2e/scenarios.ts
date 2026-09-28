@@ -17,6 +17,7 @@ import { openSourceCitation } from '../../src/core/library/zotero-items';
 import { getLibraryChatWindow, getPrefsPaneID } from '../../src/ui/library-window';
 import { getToolbarButton } from '../../src/ui/toolbar-button';
 import { setSaveChatTestPath } from '../../src/ui/save-chat';
+import { addLegacyMenu, chatWithFile, chatWithSelection, menuState, registerMenus, removeLegacyMenu, unregisterMenus } from '../../src/ui/context-menu';
 import { splitSourceCitations } from '../../src/core/citations';
 import { assert, screenshot, SkipError, waitFor, type E2EContext } from './harness';
 
@@ -689,6 +690,106 @@ export const scenarios: Scenario[] = [
     doc.getElementById('seekchat-limits-auto').click();
     assert(readPrefs().limitsMode === 'auto', 'auto tab not applied');
     pw.close();
+  }],
+
+  ['notes: both chats save their history as a Zotero note', async (ctx) => {
+    // PDF chat: child note of the PDF's item, citations as zotero:// links.
+    const session = getSession(new PdfContextProvider(ctx.attachment));
+    session.clear();
+    await session.ask('Was steht zu Starkregen?');
+    const section = await openSectionInLibrary(ctx.parentID);
+    const noteBtn = await waitFor('note button enabled', () => {
+      const b = section.querySelector('.seekchat-save-note') as HTMLButtonElement | null;
+      return b && !b.disabled ? b : null;
+    }, 5000);
+    const before = Zotero.Items.get(ctx.parentID).getNotes().length;
+    noteBtn.click();
+    const noteID = await waitFor('child note', () => Zotero.Items.get(ctx.parentID).getNotes().length > before
+      && Zotero.Items.get(ctx.parentID).getNotes().slice(-1)[0], 5000);
+    const html: string = Zotero.Items.get(noteID).getNote();
+    assert(html.includes('SeekChat – PDF') && html.includes(`zotero://open-pdf/library/items/${ctx.attachment.key}?page=2`),
+      `PDF note: ${html.slice(0, 400)}`);
+    session.clear();
+
+    // Library chat, collection scope: standalone note in that collection.
+    const a = Zotero.Items.get(ctx.parentID);
+    const zs = installZotSeek({ results: [passage(a.key, 'SeekChat E2E Testdokument', 2, 'Starkregenereignisse fuehren in Staedten zu Ueberflutungen.')] });
+    try {
+      const col = Zotero.Collections.getByLibrary(Zotero.Libraries.userLibraryID).find((c: any) => c.name === 'SeekChat E2E Collection');
+      const { collectionScope } = await import('../../src/core/library/library-context');
+      const { saveLibraryChatAsNote } = await import('../../src/ui/save-note');
+      const scope = collectionScope(col);
+      const libSession = getSession(new LibraryContextProvider(scope));
+      libSession.clear();
+      await libSession.ask('Was steht zu Starkregen?');
+      const note = await saveLibraryChatAsNote(libSession, scope);
+      assert(note.isNote() && !note.parentItemID && note.getCollections().includes(col.id), 'library note not in the collection');
+      assert(note.getNote().includes(`zotero://select/library/items/${a.key}`), `library note: ${note.getNote().slice(0, 400)}`);
+      libSession.clear();
+    } finally {
+      zs.uninstall();
+    }
+  }],
+
+  ['context menu: entries for one file and for a selection', async (ctx) => {
+    const win = Zotero.getMainWindow();
+    const a = Zotero.Items.get(ctx.parentID);
+    const b = Zotero.Items.get(ctx.longParentID);
+    win.Zotero_Tabs.select('zotero-pane');
+    await win.ZoteroPane.collectionsView.selectLibrary(Zotero.Libraries.userLibraryID);
+    await win.ZoteroPane.selectItems([a.id]);
+    // Zotero 10 has MenuManager: the entries come from there, not from the DOM fallback.
+    assert((Zotero as any).MenuManager, 'MenuManager missing in Zotero 10');
+    const popup = win.document.getElementById('zotero-itemmenu');
+    popup.openPopup(null, 'overlap', 0, 0, true, false);
+    const file = await waitFor('file entry', () => popup.querySelector('[data-l10n-id="seekchat-menu-chat-file"]'), 5000);
+    assert(!file.hidden, 'file entry hidden for one item with PDF');
+    assert(popup.querySelector('[data-l10n-id="seekchat-menu-chat-selection"]')?.hidden, 'selection entry shown for one item');
+    popup.hidePopup();
+
+    await win.ZoteroPane.selectItems([a.id, b.id]);
+    let state = menuState();
+    assert(!state.file && state.selection && !state.selectionEnabled, `two items without ZotSeek: ${JSON.stringify(state)}`);
+    const zs = installZotSeek();
+    try {
+      zs.addButton();
+      state = menuState();
+      assert(state.selectionEnabled, 'selection entry not enabled with ZotSeek');
+      chatWithSelection();
+      const cw = await waitFor('chat window with the selection', () => {
+        const w = getLibraryChatWindow();
+        const sel = w?.document?.querySelector('.seekchat-library-scope') as HTMLSelectElement | null;
+        return sel?.selectedOptions[0]?.textContent === '2 ausgewählte Einträge' ? w : null;
+      }, 15000);
+      cw.close();
+    } finally {
+      zs.uninstall();
+    }
+
+    await chatWithFile(a);
+    const pane = win.document.getElementById('zotero-context-pane');
+    await waitFor('reader with chat section', () => win.Zotero_Tabs.selectedType === 'reader' && findSection(pane), 10000);
+    win.Zotero_Tabs.select('zotero-pane');
+  }],
+
+  ['context menu: Zotero 7 fallback adds the same entries to the DOM', async (ctx) => {
+    const win = Zotero.getMainWindow();
+    unregisterMenus();
+    try {
+      addLegacyMenu(win);
+      await win.ZoteroPane.selectItems([ctx.parentID]);
+      const popup = win.document.getElementById('zotero-itemmenu');
+      popup.openPopup(null, 'overlap', 0, 0, true, false);
+      await waitFor('legacy entries', () => {
+        const file = win.document.getElementById('seekchat-menu-chat-file');
+        const sel = win.document.getElementById('seekchat-menu-chat-selection');
+        return file && !file.hidden && sel?.hidden && file.getAttribute('label') ? file : null;
+      }, 5000);
+      popup.hidePopup();
+    } finally {
+      removeLegacyMenu(win);
+      registerMenus(Zotero.SeekChat.info.id, `${Zotero.SeekChat.info.rootURI}content/icons/seekchat.svg`);
+    }
   }],
 
   // Optional: real PDFs from test/assets (mounted read-only, not part of the image).

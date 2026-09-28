@@ -176,3 +176,35 @@ export function renderMarkdown(doc: Document, markdown: string, split: CitationS
   }
   return frag;
 }
+
+export function escapeHtml(text: string): string {
+  return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+/** Pieces for the HTML renderer: text is escaped there, citations come as ready HTML. */
+export type HtmlPiece = { type: 'text'; text: string } | { type: 'cite'; html: string };
+
+function inlineHtml(text: string, split: (text: string) => HtmlPiece[]): string {
+  const pieces = split(text);
+  const asInline = pieces.map((p) => (p.type === 'text' ? p : { type: 'cite' as const, node: null as unknown as Node }));
+  return tokenizeInline(asInline).map((tok) => {
+    let html = tok.type === 'cite'
+      ? (pieces[tok.index] as { html: string }).html
+      : escapeHtml(tok.text).replace(/\n/g, '<br>');
+    if (tok.type === 'text' && tok.code) html = `<code>${html}</code>`;
+    if (tok.italic) html = `<em>${html}</em>`;
+    if (tok.bold) html = `<strong>${html}</strong>`;
+    return html;
+  }).join('');
+}
+
+/** Same Markdown subset as renderMarkdown, as an HTML string (for Zotero notes). Pure, unit-tested. */
+export function markdownToHtml(markdown: string, split: (text: string) => HtmlPiece[]): string {
+  return parseBlocks(markdown).map((block) => {
+    if (block.type === 'ul' || block.type === 'ol') {
+      return `<${block.type}>${block.items.map((i) => `<li>${inlineHtml(i, split)}</li>`).join('')}</${block.type}>`;
+    }
+    const tag = block.type === 'h' ? `h${Math.min(6, block.level + 2)}` : 'p';
+    return `<${tag}>${inlineHtml((block as { text: string }).text, split)}</${tag}>`;
+  }).join('\n');
+}

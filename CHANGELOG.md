@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.5.4 – 2026-09-28
+
+- "Verlauf als Notiz speichern" in both chats. PDF chat: child note of the PDF's item; library chat:
+  standalone note, in the collection for a collection scope, related to the items for a selection scope.
+  Citations become zotero:// links (PDF page or item); model requests are left out.
+- Item context menu: "Mit dieser Datei chatten" (one item with a PDF: opens it in the reader with the
+  chat section in view) and "Mit dieser Auswahl chatten" (several items: library chat window; disabled
+  without ZotSeek). Zotero 8+ via Zotero.MenuManager, Zotero 7 via the DOM.
+- The Markdown export's file name includes the time (`SeekChat 2026-09-28 14-05 ….md`).
+
 ## 0.5.3 – 2026-09-28
 
 - Token limits (context window, document text per question, answer length) default to a best guess from
