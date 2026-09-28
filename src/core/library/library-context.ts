@@ -12,7 +12,7 @@ import type { BuildOptions, ContextBlock, ContextProvider } from '../context/typ
 import { UserFacingError } from '../errors';
 import { readPrefs } from '../../prefs';
 import { searchPassages, type ZotSeekPassage } from '../zotseek/client';
-import { buildSources, formatSources } from './sources';
+import { buildSources, formatSources, fromZotSeek, interleave, type Evidence } from './sources';
 import { libraryIDOf, libraryKeyOf } from './zotero-items';
 
 /** ZotSeek's upper limit for topK. */
@@ -118,10 +118,23 @@ export class LibraryContextProvider implements ContextProvider {
     return { source: 'blocks', nodes: [] };
   }
 
-  async build(query: string, budgetChars: number, _opts: BuildOptions = {}): Promise<ContextBlock> {
+  /**
+   * ZotSeek passages for one or more queries (in the scope), as evidence. Several
+   * queries are interleaved by rank, so each aspect of the question gets its best hits.
+   */
+  async searchEvidence(queries: string[], signal?: AbortSignal): Promise<Evidence[]> {
     const topK = this.scope.itemIDs ? MAX_TOP_K : readPrefs().libraryTopK;
-    const passages = filterPassages(await searchPassages(query, { topK, libraryKey: this.scope.libraryKey }), this.scope);
-    const set = buildSources(passages, budgetChars);
+    const lists: Evidence[][] = [];
+    for (const q of queries) {
+      const passages = await searchPassages(q, { topK, libraryKey: this.scope.libraryKey, signal });
+      lists.push(filterPassages(passages, this.scope).map(fromZotSeek));
+    }
+    return interleave(...lists);
+  }
+
+  /** ZotSeek alone, one query (the library chat itself goes through ChatSession's pipeline). */
+  async build(query: string, budgetChars: number, _opts: BuildOptions = {}): Promise<ContextBlock> {
+    const set = buildSources(await this.searchEvidence([query]), budgetChars);
     if (!set.sources.length) {
       throw new UserFacingError(set.withoutText
         ? t('error.onlyNoText', { scope: this.scope.label })

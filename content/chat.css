@@ -48,5 +48,11 @@
 .seekchat-sources-list li.uncited { opacity: 0.6; }
 .seekchat-save-row { display: flex; justify-content: flex-end; gap: 6px; flex-wrap: wrap; }
 .seekchat-save { font-size: 11px; padding: 1px 6px; min-height: 0; }
-.seekchat-book-title { font-weight: 600; margin-bottom: 4px; white-space: normal; }
-.seekchat-msg.nomatch { opacity: 0.6; }
+.seekchat-books-progress { white-space: normal; font-size: 12px; margin-bottom: 6px; }
+.seekchat-books-progress summary { cursor: pointer; color: var(--fill-secondary); }
+.seekchat-books-progress ul { margin: 2px 0 0; padding-left: 18px; list-style: none; }
+.seekchat-books-progress li { margin: 1px 0; }
+.seekchat-books-progress li.state-skipped, .seekchat-books-progress li.state-nohits,
+.seekchat-books-progress li.state-none, .seekchat-books-progress li.state-limit { opacity: 0.6; }
+.seekchat-books-progress li.state-error .seekchat-book-state { color: var(--accent-red, #c00); }
+.seekchat-book-skip { font-size: 11px; padding: 0 6px; margin: 0; min-height: 0; }

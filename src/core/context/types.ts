@@ -34,6 +34,10 @@ export interface ContextBlock {
     passagesUsed: number;
     withoutText: number;
     overBudget: number;
+    /** Sources per origin; missing = ZotSeek only (PDF-less callers, older chats). */
+    origins?: { zotseek: number; books: number };
+    /** Sources carried over from earlier answers. */
+    carried?: number;
   };
 }
 

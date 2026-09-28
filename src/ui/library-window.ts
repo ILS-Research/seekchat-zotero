@@ -15,7 +15,7 @@ import { getZotSeekStatus, type ZotSeekStatus } from '../core/zotseek/client';
 import { formatCount } from '../core/context/fit';
 import { describeCoverage, scopeCoverage } from '../core/library/coverage';
 import { booksInScope } from '../core/library/books';
-import type { BookTarget } from '../core/session';
+import { MAX_BOOKS_READ, type BookTarget } from '../core/library/books';
 import { readPrefs } from '../prefs';
 import { logError } from '../util/log';
 import { renderTurn } from './turn-view';
@@ -339,7 +339,7 @@ class LibraryChatView {
     this.booksEl.textContent = !this.useBooks ? ''
       : this.books === null ? t('lib.booksSearching')
       : !nBooks ? t('lib.booksNone')
-      : tn('lib.books', nBooks);
+      : tn('lib.books', nBooks, { max: MAX_BOOKS_READ });
     this.statusEl.className = `seekchat-library-status${this.status && !this.status.available && this.useZotSeek ? ' unavailable' : ''}`;
     this.statusEl.textContent = !this.status ? t('lib.checking')
       : this.status.available ? t('lib.indexed', { n: formatCount(this.status.stats.indexedPapers) })
@@ -365,13 +365,11 @@ class LibraryChatView {
         : this.status ? t('lib.unavailable') : ''));
       return;
     }
-    const onPage = (page: number, turn: any) => {
-      if (turn.book) Zotero.Reader.open(turn.book.attachmentID, { pageIndex: page - 1 }).catch(logError);
-    };
     const onSource = (source: any, page?: number) => {
       openSourceCitation(source, page).then(() => Zotero.getMainWindow().focus()).catch(logError);
     };
-    this.messages.replaceChildren(...turns.map((turn) => renderTurn(this.doc, turn, { onSource, onPage }, turn.book ? t('book.waiting') : t('lib.searching'))));
+    const onSkipBook = (turn: any, index: number) => s?.skipBook(turn, index);
+    this.messages.replaceChildren(...turns.map((turn) => renderTurn(this.doc, turn, { onSource, onSkipBook }, t('lib.searching'))));
     if (atBottom || s?.busy) this.messages.scrollTop = this.messages.scrollHeight;
   }
 

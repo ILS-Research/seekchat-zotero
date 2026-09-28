@@ -5,13 +5,13 @@
  */
 import { splitCitations, splitSourceCitations } from '../core/citations';
 import { formatDateTime, type ExportInfo } from '../core/export';
-import type { LibrarySource } from '../core/library/sources';
+import { sourcePages, type LibrarySource } from '../core/library/sources';
 import type { Turn } from '../core/session';
 import { escapeHtml, markdownToHtml, type HtmlPiece } from './markdown';
 import { t } from '../i18n';
 
 export interface NoteLinks {
-  /** Link for a page citation (book answers: in the turn's book). */
+  /** PDF chat: link for a page citation. */
   page?: (page: number, turn: Turn) => string | null;
   /** Library chat: link for a source citation (page if given). */
   source?: (source: LibrarySource, page?: number) => string | null;
@@ -34,24 +34,25 @@ export function chatToNoteHtml(turns: Turn[], info: ExportInfo, links: NoteLinks
       out.push(`<h2>${escapeHtml(t('export.question', { n }))}</h2>`, `<blockquote><p>${escapeHtml(turn.content.trim()).replace(/\n/g, '<br>')}</p></blockquote>`);
       continue;
     }
-    if (turn.book) out.push(`<h3>${escapeHtml(t('export.book', { label: turn.book.label }))}</h3>`);
     if (turn.error) {
       out.push(`<p><strong>${escapeHtml(turn.content.trim())}</strong></p>`);
       continue;
     }
     const sources = turn.sources;
+    const byN = new Map((sources || []).map((s) => [s.n, s]));
     const split = (text: string): HtmlPiece[] => sources
-      ? splitSourceCitations(text, sources.length).map((seg) => seg.type === 'text' ? seg
-        : { type: 'cite' as const, html: link(seg.text, links.source?.(sources[seg.n - 1], seg.page) ?? null) })
+      ? splitSourceCitations(text, (n) => byN.has(n)).map((seg) => seg.type === 'text' ? seg
+        : { type: 'cite' as const, html: link(seg.text, links.source?.(byN.get(seg.n)!, seg.page) ?? null) })
       : splitCitations(text).map((seg) => seg.type === 'text' ? seg
         : { type: 'cite' as const, html: link(seg.text, links.page?.(seg.page, turn) ?? null) });
     out.push(markdownToHtml(turn.content.trim(), split));
     if (turn.meta) out.push(`<p><em>${escapeHtml(turn.meta.trim()).replace(/\n/g, '<br>')}</em></p>`);
     if (sources?.length) {
       const items = sources.map((s) => {
-        const pages = Array.from(new Set(s.excerpts.map((e) => e.page).filter((p): p is number => !!p))).sort((a, b) => a - b);
+        const pages = sourcePages(s);
         const pageLinks = pages.map((p) => link(String(p), links.source?.(s, p) ?? null)).join(', ');
-        return `<li>${link(s.label, links.source?.(s) ?? null)}${pages.length ? ` – S. ${pageLinks}` : ''}</li>`;
+        const origin = s.origin === 'book' ? ` (${escapeHtml(t('lib.originBook'))})` : '';
+        return `<li value="${s.n}">${link(s.label, links.source?.(s) ?? null)}${origin}${pages.length ? ` – ${escapeHtml(t('cite.page'))} ${pageLinks}` : ''}</li>`;
       });
       out.push(`<p>${escapeHtml(t('export.sources'))}</p>`, `<ol>${items.join('')}</ol>`);
     }

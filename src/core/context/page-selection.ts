@@ -160,6 +160,11 @@ export function selectPagesByTerms(pages: Page[], terms: WeightedTerm[], budgetC
   return { pages: chosen, mode: 'excerpt', matchedPages: relevant.length, noMatches: false };
 }
 
+/** Pages with at least one term hit (to rank documents before reading them). */
+export function countMatchingPages(pages: Page[], terms: WeightedTerm[]): number {
+  return scorePages(pages, terms).filter((s) => s > 0).length;
+}
+
 export function selectPages(pages: Page[], query: string, budgetChars: number): Selection {
   return selectPagesByTerms(pages, buildTerms(query), budgetChars);
 }

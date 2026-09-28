@@ -793,7 +793,7 @@ export const scenarios: Scenario[] = [
     }
   }],
 
-  ['library window: books are asked one by one, without ZotSeek, with progress and stop', async (ctx) => {
+  ['library window: books are pre-read into one answer, single books can be skipped, stop cancels', async (ctx) => {
     const a = Zotero.Items.get(ctx.parentID);
     const b = Zotero.Items.get(ctx.longParentID);
     assert(b.itemType === 'book' && a.itemType !== 'book', 'fixture item types changed');
@@ -813,30 +813,55 @@ export const scenarios: Scenario[] = [
     const session = getSession(new LibraryContextProvider(itemsScope([a, b])));
     session.clear();
 
-    const ask = async (question: string) => {
+    const send = (question: string) => {
       input.value = question;
       input.dispatchEvent(new cw.KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
-      await waitFor('book answer done', () => session.turns.length && !session.busy && session.turns.every((t) => !t.pending), 20000);
+    };
+    const ask = async (question: string) => {
+      send(question);
+      await waitFor('answer done', () => session.turns.length && !session.busy && session.turns.every((t) => !t.pending), 20000);
       return session.turns[session.turns.length - 1];
     };
+    const before = (await mockRequests()).length;
     let t = await ask('Was sagt das Buch zum Stadtklima?');
-    assert(session.turns.filter((x) => x.role === 'assistant').length === 1, 'ZotSeek answer despite unchecked source');
-    assert(t.book?.label.includes('Langes Buch') && t.content.includes('[S. 2]'), `book answer: ${JSON.stringify(t).slice(0, 300)}`);
-    assert(t.meta?.startsWith('Buch 1 von 1') && t.meta.includes('Suchbegriffe'), `meta: ${t.meta}`);
-    await waitFor('book heading rendered', () => doc.querySelector('.seekchat-msg.book .seekchat-book-title')?.textContent?.includes('Langes Buch'), 5000);
+    assert(session.turns.filter((x) => x.role === 'assistant').length === 1, 'more than one answer');
+    assert(!t.error, `answer is an error: ${t.content}`);
+    assert(t.bookProgress?.[0].state === 'found', `book state: ${JSON.stringify(t.bookProgress)}`);
+    const source = t.sources?.find((s) => s.origin === 'book');
+    assert(source?.n === 1 && source.label.includes('Langes Buch') && source.attachmentID === ctx.longAttachment.id,
+      `book source: ${JSON.stringify(t.sources)}`);
+    assert(t.content.includes('[1, S. 2]'), `answer: ${t.content}`);
+    assert(t.meta?.includes('(Bücher 1)') && t.meta.includes('Bücher: 1 mit Fundstellen') && t.meta.includes('Suchbegriffe:'), `meta: ${t.meta}`);
+    // Plan, pre-reading, answer: three requests, the answer sees the book's passages as a source.
+    const reqs = (await mockRequests()).slice(before);
+    const systems = reqs.map((r: any) => r.messages[0].content as string);
+    assert(systems.length === 3 && systems[0].includes('literature search') && systems[1].includes('pre-read a book')
+      && systems[2].includes('<sources>') && systems[2].includes('(book)'), `requests: ${systems.map((x: string) => x.slice(0, 60)).join(' | ')}`);
+    await waitFor('book list and source marked as book', () => doc.querySelector('.seekchat-books-progress li.state-found')
+      && doc.querySelector('.seekchat-sources-list li')?.textContent?.includes('📖'), 5000);
 
+    // No keyword hits: the book is not read; the source cited before is carried into the answer.
     t = await ask('Was steht zu Vulkane?');
-    assert(t.noMatch && t.content.startsWith('Keine passenden Stellen'), `no match: ${t.content}`);
+    assert(['nohits', 'none'].includes(t.bookProgress?.[0].state || ''), `book state: ${JSON.stringify(t.bookProgress)}`);
+    assert(!t.error && t.meta?.includes('1 Quelle aus früheren Antworten') && t.sources?.[0]?.n === 1, `carried: ${t.meta} / ${t.content}`);
 
-    // Stop right away: the running book is marked as cancelled.
-    input.value = 'Und zu Hitze?';
-    input.dispatchEvent(new cw.KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
-    await waitFor('running', () => session.busy, 5000);
+    // Skipping the book being read: the question still gets its answer.
+    send('Was steht zur Hitze?');
+    const skip = await waitFor('skip button while reading', () =>
+      doc.querySelector('.seekchat-books-progress li.state-reading .seekchat-book-skip') as HTMLButtonElement | null, 10000);
+    await screenshot(ctx, 'library-books', cw);
+    skip.click();
+    await waitFor('done after skip', () => !session.busy, 10000);
+    t = session.turns[session.turns.length - 1];
+    assert(t.bookProgress?.[0].state === 'skipped' && !t.error && t.meta?.includes('1 übersprungen'), `after skip: ${t.meta} / ${t.content}`);
+
+    // Stop cancels the whole question.
+    send('Und zu Hitze?');
+    await waitFor('reading', () => session.turns[session.turns.length - 1].bookProgress?.[0].state === 'reading', 10000);
     session.stop();
     await waitFor('stopped', () => !session.busy, 10000);
     t = session.turns[session.turns.length - 1];
-    assert(t.content.includes('[abgebrochen]'), `after stop: ${t.content}`);
-    await screenshot(ctx, 'library-books', cw);
+    assert(t.content.includes('[abgebrochen]') && t.bookProgress?.[0].state === 'skipped', `after stop: ${t.content}`);
     session.clear();
     cw.close();
   }],
@@ -940,7 +965,7 @@ export const scenarios: Scenario[] = [
     session.clear();
   }],
 
-  ['live: books are asked one by one (library chat without ZotSeek)', async (ctx) => {
+  ['live: books are pre-read and answered together (library chat without ZotSeek)', async (ctx) => {
     useLiveServer(ctx);
     const b = Zotero.Items.get(ctx.longParentID);
     const session = getSession(new LibraryContextProvider(itemsScope([b])));
@@ -950,8 +975,11 @@ export const scenarios: Scenario[] = [
     const book = session.turns[session.turns.length - 1];
     await session.ask('Was steht im Buch über Vulkane?', { zotseek: false, books: [{ attachment: ctx.longAttachment, label: 'SeekChat E2E Langes Buch' }] });
     const none = session.turns[session.turns.length - 1];
-    await reportLive(ctx, { step: 'books', ms: Date.now() - t0, meta: book.meta, answer: book.content, noMatch: { meta: none.meta, answer: none.content, flagged: !!none.noMatch } });
-    assert(!book.error && book.book && /\[S\. \d+\]/.test(book.content), `book answer: ${book.content}`);
+    await reportLive(ctx, {
+      step: 'books', ms: Date.now() - t0, meta: book.meta, answer: book.content, books: book.bookProgress, sources: book.sources,
+      noMatch: { meta: none.meta, answer: none.content, books: none.bookProgress },
+    });
+    assert(!book.error && book.sources?.some((s) => s.origin === 'book') && /\[\d+, S\. \d+\]/.test(book.content), `book answer: ${book.content}`);
     assert(!none.error, `no-match question failed: ${none.content}`);
     session.clear();
   }],

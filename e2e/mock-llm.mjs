@@ -1,9 +1,9 @@
 // Minimal Ollama stand-in for E2E tests: /api/tags, streaming /api/chat,
 // GET /__requests (all chat requests so far) and GET /__last.
-// Replies by request kind (from the system prompt): language detection ("Sprache
-// des folgenden Textauszugs") -> "de", search terms ("Suchbegriffe") -> JSON
-// keyword list, library chat ("<quellen>") -> answer with source citations,
-// anything else -> a fixed answer with a page citation.
+// Replies by request kind (from the system prompt): language detection -> "de",
+// search terms -> JSON keyword list, library search plan -> JSON plan, pre-reading
+// a book -> the first page of the document as passage, library chat ("<sources>")
+// -> answer with source citations, anything else -> a fixed answer with a page citation.
 import http from 'node:http';
 
 const ANSWER = 'Laut Dokument fuehren Starkregenereignisse in Staedten zu Ueberflutungen [S. 2].';
@@ -40,8 +40,20 @@ const server = http.createServer(async (req, res) => {
     const system = parsed.messages?.[0]?.content || '';
     if (system.includes('Identify the language')) return stream(res, 'de');
     const question = parsed.messages?.[parsed.messages.length - 1]?.content || '';
-    // Book answers ("mehreren Büchern" in the system prompt): no match for questions about "Vulkane".
-    if (system.includes('one of several books') && question.includes('Vulkane')) return stream(res, 'NO RELEVANT CONTENT');
+    // Library plan: the question itself, its words as keywords (plus one that hits the long book, except for "Vulkane").
+    if (system.includes('literature search')) {
+      const q = (question.match(/New question: (.*)/) || [])[1] || '';
+      const words = q.split(/[^\p{L}]+/u).filter((w) => w.length >= 4);
+      const keywords = q.includes('Vulkane') ? words : [...words, 'Waermeinseln'];
+      return stream(res, JSON.stringify({ question: q, queries: [q], keywords }));
+    }
+    // Pre-reading a book: nothing for "Vulkane", else the first page sent; slow for "Hitze" (skip/stop tests).
+    if (system.includes('pre-read a book')) {
+      if (question.includes('Vulkane')) return stream(res, 'NO RELEVANT CONTENT');
+      if (question.includes('Hitze')) await new Promise((r) => setTimeout(r, 4000));
+      const page = (system.match(/\[Page (\d+)\]/) || [])[1] || '1';
+      return stream(res, `[Page ${page}] Starkregen und Waermeinseln praegen das Stadtklima in dicht bebauten Quartieren.`);
+    }
     if (system.includes('<sources>')) return stream(res, LIBRARY_ANSWER);
     return stream(res, system.includes('search terms') ? KEYWORDS : ANSWER);
   }

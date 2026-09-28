@@ -31,5 +31,5 @@ test('note: PDF chat with page links, library chat with source links and list', 
     { role: 'assistant', content: '**[1, S. 5]** sagt es.', sources: [source] },
   ], { subject: 'Bibliothek', model: 'm', date }, { source: (s, p) => (p ? `pdf:${s.itemKey}:${p}` : `sel:${s.itemKey}`) });
   assert.ok(lib.includes('<p><strong><a href="pdf:K:5">[1, S. 5]</a></strong> sagt es.</p>'));
-  assert.ok(lib.includes('<ol><li><a href="sel:K">Muster 2021 – T</a> – S. <a href="pdf:K:5">5</a></li></ol>'));
+  assert.ok(lib.includes('<ol><li value="1"><a href="sel:K">Muster 2021 – T</a> – S. <a href="pdf:K:5">5</a></li></ol>'));
 });

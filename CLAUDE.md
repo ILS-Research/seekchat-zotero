@@ -43,12 +43,12 @@ they use `docker` or fall back to `sudo docker`, and run containers with the cal
 | `src/core/context/` | `ContextProvider` interface; `pdf-context.ts` (PDF worker text, split on `\f`), `page-selection.ts` (full text or page 1 + BM25 pages) |
 | `src/core/prompt.ts`, `citations.ts` | Messages (system prompt + document), `[S. N]` citation parsing |
 | `src/core/zotseek/client.ts` | ZotSeek REST (`/zotseek/search`, `/zotseek/stats`) on Zotero's local server: status/diagnosis, passage search. No fallback: without the endpoint there is no library chat |
-| `src/core/library/` | Library chat without UI: `sources.ts` (numbered sources from passages), `library-context.ts` (`LibraryContextProvider`, scopes library/collection/items), `zotero-items.ts` (library keys, `openSourceCitation`) |
+| `src/core/library/` | Library chat without UI: `sources.ts` (`Evidence` from all sources → numbered sources, stable numbers, carry-over), `plan.ts` (planning call: standalone question, queries, keywords as JSON), `books.ts` + `book-excerpts.ts` (keyword scan per book, pre-reading prompt `[Page N]` passages), `library-context.ts` (`LibraryContextProvider`, scopes, multi-query ZotSeek search), `zotero-items.ts` (library keys, `openSourceCitation`) |
 | `src/ui/library-window.ts`, `content/libraryChat.xhtml` | Library chat window (one instance; the xhtml calls `Zotero.SeekChat.onLibraryWindowLoad`, the plugin builds the DOM) |
 | `src/ui/toolbar-button.ts` | Button right after `#zotseek-toolbar-button`, kept in sync by a MutationObserver (plugin start order is not fixed) |
 | `src/ui/turn-view.ts`, `src/ui/markdown.ts` | Rendering of one chat turn (safe Markdown subset, page or source citations, source list), shared by section and window |
 | `src/core/library/coverage.ts` | What ZotSeek cannot see in a scope (standalone PDFs, excluded books, abstract mode), from Zotero and ZotSeek's global prefs |
-| `src/core/session.ts` | One `ChatSession` per provider key, streaming, abort; in memory only |
+| `src/core/session.ts` | One `ChatSession` per provider key, streaming, abort; in memory only. Library chat pipeline: plan → ZotSeek + books (two at a time, each skippable via `skipBook`) → merged sources → one answer |
 | `src/ui/chat-section.ts` | Item pane section via `Zotero.ItemPaneManager.registerSection` (library + reader context pane) |
 | `src/ui/preferences.ts`, `content/preferences.xhtml` | Settings pane (fields wired manually, not via `preference=` binding) |
 | `test/*.test.ts` | Unit tests (Node test runner, bundled by esbuild), no Zotero |
@@ -79,7 +79,7 @@ Extending: new sources are new `ContextProvider`s; session, prompt and turn rend
 - Find the section by the namespaced id from `getRegisteredPaneID()` on any `[data-pane]` element,
   not by a fixed element name.
 - The section header needs Fluent ids (`locale/*/seekchat-main.ftl`, inserted per window);
-  everything else in the UI is plain German text.
+  everything else in the UI goes through `t()` (`src/i18n.ts`).
 - **PDF outline:** Zotero 10's reader loads the outline only while its sidebar shows the outline view,
   so `reader._internalReader._state.outline` stays `null` otherwise. `src/core/context/pdf-outline.ts`
   reads it from the file instead, with Zotero's own pdf.js (`resource://zotero/reader/pdf/build/pdf.mjs`)

@@ -35,7 +35,9 @@ export async function openSourceCitation(source: LibrarySource, page?: number): 
   if (!item) throw new Error(`Eintrag ${source.itemKey} nicht gefunden.`);
   const win = Zotero.getMainWindow();
   if (page) {
-    const att = item.isAttachment?.() ? item : await item.getBestAttachment();
+    // Book excerpts name the PDF they were read from; ZotSeek passages the item.
+    const att = (source.attachmentID && Zotero.Items.get(source.attachmentID))
+      || (item.isAttachment?.() ? item : await item.getBestAttachment());
     if (att?.isPDFAttachment?.()) {
       await Zotero.Reader.open(att.id, { pageIndex: page - 1 });
       return;

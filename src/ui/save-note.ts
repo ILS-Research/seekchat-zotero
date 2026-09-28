@@ -48,15 +48,12 @@ export async function savePdfChatAsNote(session: ChatSession, subject: string, a
 
 export async function saveLibraryChatAsNote(session: ChatSession, scope: LibraryScope): Promise<any> {
   const links: NoteLinks = {
-    page: (p, turn) => {
-      const att = turn.book ? Zotero.Items.get(turn.book.attachmentID) : null;
-      return att ? openPdfLink(att, p) : null;
-    },
     source: (s, p) => {
       const item = itemOfSource(s);
       if (!item) return null;
       if (p) {
-        const att = item.isAttachment?.() ? item : Zotero.Items.get(item.getAttachments()).find((a: any) => a.isPDFAttachment?.());
+        const att = (s.attachmentID && Zotero.Items.get(s.attachmentID))
+          || (item.isAttachment?.() ? item : Zotero.Items.get(item.getAttachments()).find((a: any) => a.isPDFAttachment?.()));
         if (att) return openPdfLink(att, p);
       }
       return selectLink(item);

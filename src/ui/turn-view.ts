@@ -4,19 +4,21 @@
  * cite pages ([S. 12]); library answers cite numbered sources ([2, S. 12]) and
  * get a source list below the text.
  */
-import { t } from '../i18n';
-import { splitCitations, splitSourceCitations } from '../core/citations';
-import type { LibrarySource } from '../core/library/sources';
-import type { Turn } from '../core/session';
+import { t, tn, type Key } from '../i18n';
+import { citedSourceNumbers, splitCitations, splitSourceCitations } from '../core/citations';
+import { sourcePages, type LibrarySource } from '../core/library/sources';
+import { SKIPPABLE, type BookProgress, type Turn } from '../core/session';
 import { renderMarkdown, type CitationSplitter } from './markdown';
 
 const HTML_NS = 'http://www.w3.org/1999/xhtml';
 
 export interface CitationHandlers {
-  /** Page citation: open the document on this page (book answers: the turn's book). */
+  /** PDF chat: open the document on this page. */
   onPage?: (page: number, turn: Turn) => void;
   /** Library chat: follow a source citation (page if given). */
   onSource?: (source: LibrarySource, page?: number) => void;
+  /** Library chat: skip one book of the running question. */
+  onSkipBook?: (turn: Turn, index: number) => void;
 }
 
 function el(doc: Document, tag: string, cls?: string, text?: string): HTMLElement {
@@ -33,11 +35,42 @@ function cite(doc: Document, text: string, title: string, onClick: () => void): 
   return a;
 }
 
-/** Numbers of the sources an answer cites. */
-export function citedSources(content: string, sourceCount: number): Set<number> {
-  const cited = new Set<number>();
-  for (const seg of splitSourceCitations(content, sourceCount)) if (seg.type === 'source') cited.add(seg.n);
-  return cited;
+/** Numbers of the sources an answer cites (1..count, or the numbers of the given sources). */
+export function citedSources(content: string, sources: number | LibrarySource[]): Set<number> {
+  if (typeof sources === 'number') return citedSourceNumbers(content, sources);
+  const known = new Set(sources.map((s) => s.n));
+  return citedSourceNumbers(content, (n) => known.has(n));
+}
+
+function bookStateText(b: BookProgress): string {
+  switch (b.state) {
+    case 'found': return tn('meta.passages', b.found ?? 0);
+    case 'error': return t('book.error', { message: b.error || '' });
+    default: return t(`book.${b.state}` as Key);
+  }
+}
+
+/** Books of a library question: state per book, "skip" while it is still open. */
+function bookList(doc: Document, turn: Turn, handlers: CitationHandlers): HTMLElement {
+  const progress = turn.bookProgress!;
+  const done = progress.filter((b) => !SKIPPABLE.includes(b.state)).length;
+  const box = el(doc, 'details', 'seekchat-books-progress') as HTMLDetailsElement;
+  box.open = !!turn.pending;
+  box.append(el(doc, 'summary', '', t('book.progress', { done, n: progress.length })));
+  const list = el(doc, 'ul');
+  progress.forEach((b, i) => {
+    const li = el(doc, 'li', `state-${b.state}`);
+    li.append(el(doc, 'span', 'seekchat-book-label', `📖 ${b.label}`), doc.createTextNode(' – '), el(doc, 'span', 'seekchat-book-state', bookStateText(b)));
+    if (turn.pending && SKIPPABLE.includes(b.state) && handlers.onSkipBook) {
+      const skip = el(doc, 'button', 'seekchat-book-skip', t('book.skip')) as HTMLButtonElement;
+      skip.title = t('book.skipTitle');
+      skip.addEventListener('click', () => handlers.onSkipBook!(turn, i));
+      li.append(doc.createTextNode(' '), skip);
+    }
+    list.append(li);
+  });
+  box.append(list);
+  return box;
 }
 
 function sourceList(doc: Document, sources: LibrarySource[], cited: Set<number>, handlers: CitationHandlers): HTMLElement {
@@ -47,8 +80,9 @@ function sourceList(doc: Document, sources: LibrarySource[], cited: Set<number>,
   for (const s of sources) {
     const li = el(doc, 'li', cited.has(s.n) ? 'cited' : 'uncited') as HTMLLIElement;
     li.value = s.n;
+    if (s.origin === 'book') li.append(doc.createTextNode('📖 '));
     li.append(cite(doc, s.label, t('lib.showInLibrary'), () => handlers.onSource?.(s)));
-    const pages = Array.from(new Set(s.excerpts.map((e) => e.page).filter((p): p is number => !!p))).sort((a, b) => a - b);
+    const pages = sourcePages(s);
     if (pages.length) {
       li.append(doc.createTextNode(` – ${t('cite.page')} `));
       pages.forEach((p, i) => {
@@ -65,9 +99,13 @@ function sourceList(doc: Document, sources: LibrarySource[], cited: Set<number>,
 }
 
 export function renderTurn(doc: Document, turn: Turn, handlers: CitationHandlers, pendingText = t('pdf.reading')): HTMLElement {
-  const box = el(doc, 'div', `seekchat-msg ${turn.role}${turn.error ? ' error' : ''}${turn.book ? ' book' : ''}${turn.noMatch ? ' nomatch' : ''}`);
-  if (turn.book) box.append(el(doc, 'div', 'seekchat-book-title', `📖 ${turn.book.label}`));
-  if (turn.role === 'user' || turn.error) {
+  const box = el(doc, 'div', `seekchat-msg ${turn.role}${turn.error ? ' error' : ''}`);
+  if (turn.role === 'user') {
+    box.append(doc.createTextNode(turn.content));
+    return box;
+  }
+  if (turn.bookProgress?.length) box.append(bookList(doc, turn, handlers));
+  if (turn.error) {
     box.append(doc.createTextNode(turn.content));
     return box;
   }
@@ -79,9 +117,10 @@ export function renderTurn(doc: Document, turn: Turn, handlers: CitationHandlers
   const sources = turn.sources;
   let split: CitationSplitter;
   if (sources) {
-    split = (text) => splitSourceCitations(text, sources.length).map((seg) => {
+    const byN = new Map(sources.map((s) => [s.n, s]));
+    split = (text) => splitSourceCitations(text, (n) => byN.has(n)).map((seg) => {
       if (seg.type === 'text') return seg;
-      const source = sources[seg.n - 1];
+      const source = byN.get(seg.n)!;
       const title = seg.page ? t('lib.openSourcePage', { label: source.label, pageLabel: t('cite.page'), page: seg.page }) : t('lib.showSource', { label: source.label });
       return { type: 'cite' as const, node: cite(doc, seg.text, title, () => handlers.onSource?.(source, seg.page)) };
     });
@@ -92,6 +131,6 @@ export function renderTurn(doc: Document, turn: Turn, handlers: CitationHandlers
   const body = el(doc, 'div', 'seekchat-md');
   body.append(renderMarkdown(doc, turn.content, split));
   box.append(body);
-  if (sources?.length && !turn.pending) box.append(sourceList(doc, sources, citedSources(turn.content, sources.length), handlers));
+  if (sources?.length && !turn.pending) box.append(sourceList(doc, sources, citedSources(turn.content, sources), handlers));
   return box;
 }

@@ -5,6 +5,7 @@
  */
 import type { LlmRequestLog, Turn } from './session';
 import { currentLocale, t } from '../i18n';
+import { sourcePages } from './library/sources';
 
 export interface ExportInfo {
   /** "PDF: Muster 2021 – Titel" or "Bibliothek „Meine Bibliothek“" */
@@ -44,14 +45,14 @@ export function chatToMarkdown(turns: Turn[], info: ExportInfo): string {
       out.push('', `## ${t('export.question', { n })}`, '', quote(turn.content));
       continue;
     }
-    if (turn.book) out.push('', `### ${t('export.book', { label: turn.book.label })}`);
     out.push('', turn.error ? `**${turn.content.trim()}**` : turn.content.trim());
     if (turn.meta) out.push('', ...turn.meta.split('\n').map((l) => `*${l.trim()}*  `));
     if (turn.sources?.length) {
       out.push('', t('export.sources'), '');
       for (const s of turn.sources) {
-        const pages = Array.from(new Set(s.excerpts.map((e) => e.page).filter((p): p is number => !!p))).sort((a, b) => a - b);
-        out.push(`${s.n}. ${s.label}${pages.length ? ` – S. ${pages.join(', ')}` : ''}`);
+        const pages = sourcePages(s);
+        const origin = s.origin === 'book' ? ` (${t('lib.originBook')})` : '';
+        out.push(`${s.n}. ${s.label}${origin}${pages.length ? ` – ${t('cite.page')} ${pages.join(', ')}` : ''}`);
       }
     }
     if (turn.requests?.length) out.push('', ...requestsToMarkdown(turn.requests));

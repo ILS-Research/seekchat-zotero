@@ -18,15 +18,10 @@ export function defaultSystemPrompt(): string {
     'the answer, say so openly instead of guessing. Answer in the language of the question, concisely and precisely.';
 }
 
-/** Marker the model answers with when a book has nothing on the question (library chat, source "books"). */
+/** Marker the model answers with when a pre-read book has nothing on the question (library chat, source "books"). */
 export const NO_MATCH_MARKER = 'NO RELEVANT CONTENT';
 
-export function defaultBookPrompt(): string {
-  return defaultSystemPrompt() + ' The document is one of several books that are asked one after another. ' +
-    `If it contains nothing on the question, answer only with "${NO_MATCH_MARKER}" and nothing else.`;
-}
-
-/** The answer is only the no-match marker (maybe with quotes or a period; the German marker of 0.6.0 too). */
+/** The reply is only the no-match marker (maybe with quotes or a period; the German marker of 0.6.0 too). */
 export function isNoMatch(answer: string): boolean {
   const norm = answer.replace(/[„“"'.!*\s]/g, '').toUpperCase();
   return norm === NO_MATCH_MARKER.replace(/\s/g, '') || norm === 'KEINEANGABE';
@@ -57,7 +52,11 @@ export function describeContext(ctx: ContextBlock): string {
       l.withoutText ? t('meta.withoutText', { n: l.withoutText }) : '',
       l.overBudget ? t('meta.overBudget', { n: l.overBudget }) : '',
     ].filter(Boolean).join(', ');
-    const head = t('meta.library', { scope: l.scope, sources: tn('meta.sources', l.sources.length), passages: tn('meta.passages', l.passagesUsed) });
+    const o = l.origins;
+    const origins = !o || !o.books ? 'ZotSeek'
+      : !o.zotseek ? t('meta.originBooks', { n: o.books })
+      : `${t('meta.originZotSeek', { n: o.zotseek })}, ${t('meta.originBooks', { n: o.books })}`;
+    const head = t('meta.library', { scope: l.scope, sources: tn('meta.sources', l.sources.length), passages: tn('meta.passages', l.passagesUsed), origins });
     return extra ? `${head}; ${extra}` : head;
   }
   if (ctx.mode === 'full') return t('meta.fullText', { pages: ctx.totalPages });
@@ -87,6 +86,15 @@ export function compressRanges(nums: number[]): string {
   return parts.join(', ');
 }
 
+/** Where the sources in the prompt come from, for the model. */
+function describeOrigins(l: NonNullable<ContextBlock['library']>): string {
+  const parts: string[] = [];
+  if (!l.origins || l.origins.zotseek) parts.push('passages found with ZotSeek, a search index of the library');
+  if (l.origins?.books) parts.push('passages that were pre-read from books by keyword search, marked "(book)"');
+  const carried = l.carried ? ' Sources cited in earlier answers are included again with their numbers.' : '';
+  return `Below are the sources that best match the question: ${parts.join(', and ')}.${carried}`;
+}
+
 export function buildMessages(opts: {
   systemPrompt?: string;
   context: ContextBlock;
@@ -97,8 +105,8 @@ export function buildMessages(opts: {
   if (context.library) {
     const system =
       `${opts.systemPrompt || defaultLibraryPrompt()}\n\n` +
-      `Search scope: ${context.library.scope}. Below are the passages that best match the question, ` +
-      `found with ZotSeek; other parts of the library are not included.\n\n` +
+      `Search scope: ${context.library.scope}. ${describeOrigins(context.library)} ` +
+      'Other parts of the library are not included.\n\n' +
       `<sources>\n${context.body}\n</sources>`;
     return [
       { role: 'system', content: system },
