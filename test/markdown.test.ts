@@ -33,15 +33,24 @@ test('cited sources are collected from the answer', () => {
   assert.deepEqual([...citedSources('A [2, S. 3]; B [1] und [2]. [7]', 3)].sort(), [1, 2]);
 });
 
-test('coverage: standalone PDFs always, books only when ZotSeek excludes them', () => {
+test('coverage: what ZotSeek searches, where its books come from, what it cannot see', () => {
   const items = [
     { isPdfAttachment: true, isRegular: false, itemType: 'attachment' },
     { isPdfAttachment: false, isRegular: true, itemType: 'book' },
     { isPdfAttachment: false, isRegular: true, itemType: 'journalArticle' },
   ];
   const c = countCoverage(items, { excludeBooks: true, fullText: false });
-  assert.deepEqual(c, { standalonePdfs: 1, excludedBooks: 1, fullText: false });
-  assert.equal(describeCoverage(c), 'Nicht durchsuchbar: 1 PDF ohne übergeordneten Eintrag, 1 Buch (in ZotSeek „Bücher ausschließen“ an). ' +
+  assert.deepEqual(c, { standalonePdfs: 1, papers: 1, books: 1, excludedBooks: 1, fullText: false, bookMode: 'excluded' });
+  assert.equal(describeCoverage(c), 'ZotSeek durchsucht hier 1 Eintrag. ' +
+    'Nicht durchsuchbar: 1 PDF ohne übergeordneten Eintrag, 1 Buch (in ZotSeek „Bücher ausschließen“ an). ' +
     'ZotSeek indexiert nur Titel und Abstracts (Indexierungsmodus „abstract“), keine PDF-Inhalte.');
-  assert.equal(describeCoverage(countCoverage(items.slice(1), { excludeBooks: false, fullText: true })), '');
+  assert.equal(describeCoverage(countCoverage(items.slice(1), { excludeBooks: false, fullText: true })),
+    'ZotSeek durchsucht hier 2 Einträge. Das Buch ist in ZotSeeks eigenem Index (dort ist „Bücher ausschließen“ aus).');
+  // Bound to SeekBook: only while SeekBook is ready; then it wins over ZotSeek's own books.
+  const bound = { excludeBooks: true, fullText: true, includeSeekBook: true };
+  assert.equal(countCoverage(items.slice(1), bound, true).bookMode, 'seekbook');
+  assert.equal(countCoverage(items.slice(1), bound, false).bookMode, 'excluded');
+  assert.equal(countCoverage(items.slice(1), { ...bound, excludeBooks: false }, true).bookMode, 'seekbook');
+  assert.equal(describeCoverage(countCoverage(items.slice(1), bound, true)),
+    'ZotSeek durchsucht hier 2 Einträge. Das Buch kommt über SeekBook, das ZotSeek einbindet.');
 });

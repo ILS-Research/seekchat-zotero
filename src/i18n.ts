@@ -171,6 +171,15 @@ const EN = {
   'lib.sourceZotSeek': 'ZotSeek',
   'lib.sourceBooksKeywords': 'Books (keyword search, no index)',
   'lib.sourceBooksIndex': 'Books (own index)',
+  'lib.seekbookReady': 'SeekBook: {n} books indexed.',
+  'lib.seekbookViaZotSeek': 'Locked: ZotSeek already includes SeekBook (Settings → ZotSeek → "Include book results from SeekBook"). Untick ZotSeek to ask SeekBook directly.',
+  'lib.seekbookNativeToo': 'ZotSeek indexes books itself as well; the same books may then be found twice.',
+  'lib.seekbookPreview': 'Preview: book passages from SeekBook are not used in answers yet.',
+  'seekbook.notInstalled': 'SeekBook is not installed or not enabled.',
+  'seekbook.serverOff': 'Zotero\'s local HTTP server is off (Settings → Advanced), SeekBook cannot be reached.',
+  'seekbook.endpointOff': 'SeekBook does not allow access by other plugins (Settings → SeekBook).',
+  'seekbook.noIndex': 'SeekBook has no indexed books yet (Settings → SeekBook → Index now).',
+  'seekbook.error': 'SeekBook did not answer: {detail}',
   'lib.zotseekNote': 'ZotSeek is built for papers: books only if "Exclude books" is off there, and PDF contents only in ' +
     'mode "full". At most 100–200 passages per item (for books usually only the first chapters); it stops at the first ' +
     'bibliography; PDFs without a parent item are missing. Whole books: chat with the PDF in the item pane, or the ' +
@@ -201,6 +210,12 @@ const EN = {
   'lib.tooltip': 'SeekChat: chat with the library (with ZotSeek)',
 
   // Coverage hint
+  'cov.searches.one': 'ZotSeek searches {n} item here.',
+  'cov.searches.other': 'ZotSeek searches {n} items here.',
+  'cov.booksNative.one': 'The book is in ZotSeek\'s own index ("Exclude books" is off there).',
+  'cov.booksNative.other': 'The {n} books are in ZotSeek\'s own index ("Exclude books" is off there).',
+  'cov.booksSeekBook.one': 'The book comes through SeekBook, which ZotSeek includes.',
+  'cov.booksSeekBook.other': 'The {n} books come through SeekBook, which ZotSeek includes.',
   'cov.notSearchable': 'Not searchable: {parts}.',
   'cov.pdfs.one': '{n} PDF without parent item',
   'cov.pdfs.other': '{n} PDFs without parent item',
@@ -448,6 +463,15 @@ const DE: Record<Key, string> = {
   'lib.sourceZotSeek': 'ZotSeek',
   'lib.sourceBooksKeywords': 'Bücher (Stichwortsuche, ohne Index)',
   'lib.sourceBooksIndex': 'Bücher (eigener Index)',
+  'lib.seekbookReady': 'SeekBook: {n} Bücher indexiert.',
+  'lib.seekbookViaZotSeek': 'Gesperrt: ZotSeek bindet SeekBook bereits ein (Einstellungen → ZotSeek → „Include book results from SeekBook“). ZotSeek abwählen, um SeekBook direkt zu fragen.',
+  'lib.seekbookNativeToo': 'ZotSeek indexiert Bücher auch selbst; dieselben Bücher können dann doppelt gefunden werden.',
+  'lib.seekbookPreview': 'Vorschau: Buchstellen aus SeekBook fließen noch nicht in die Antworten ein.',
+  'seekbook.notInstalled': 'SeekBook ist nicht installiert oder nicht aktiviert.',
+  'seekbook.serverOff': 'Zoteros lokaler HTTP-Server ist aus (Einstellungen → Erweitert), SeekBook ist nicht erreichbar.',
+  'seekbook.endpointOff': 'SeekBook erlaubt anderen Plugins keinen Zugriff (Einstellungen → SeekBook).',
+  'seekbook.noIndex': 'SeekBook hat noch keine Bücher indexiert (Einstellungen → SeekBook → Jetzt indexieren).',
+  'seekbook.error': 'SeekBook hat nicht geantwortet: {detail}',
   'lib.zotseekNote': 'ZotSeek ist für Paper gebaut: Bücher nur, wenn dort „Bücher ausschließen“ aus ist, und PDF-Inhalte nur im ' +
     'Modus „full“. Pro Eintrag höchstens 100–200 Abschnitte (bei Büchern meist nur die ersten Kapitel); Schluss ' +
     'beim ersten Literaturverzeichnis; PDFs ohne übergeordneten Eintrag fehlen. Ganze Bücher: Chat mit dem PDF ' +
@@ -479,6 +503,12 @@ const DE: Record<Key, string> = {
     'nach oder durchsucht das Dokument mit ZotSeek, bevor es antwortet. Seiten sind die PDF-Seiten wie in den Zitaten.',
   'lib.tooltip': 'SeekChat: Chat über die Bibliothek (mit ZotSeek)',
 
+  'cov.searches.one': 'ZotSeek durchsucht hier {n} Eintrag.',
+  'cov.searches.other': 'ZotSeek durchsucht hier {n} Einträge.',
+  'cov.booksNative.one': 'Das Buch ist in ZotSeeks eigenem Index (dort ist „Bücher ausschließen“ aus).',
+  'cov.booksNative.other': 'Die {n} Bücher sind in ZotSeeks eigenem Index (dort ist „Bücher ausschließen“ aus).',
+  'cov.booksSeekBook.one': 'Das Buch kommt über SeekBook, das ZotSeek einbindet.',
+  'cov.booksSeekBook.other': 'Die {n} Bücher kommen über SeekBook, das ZotSeek einbindet.',
   'cov.notSearchable': 'Nicht durchsuchbar: {parts}.',
   'cov.pdfs.one': '{n} PDF ohne übergeordneten Eintrag',
   'cov.pdfs.other': '{n} PDFs ohne übergeordneten Eintrag',

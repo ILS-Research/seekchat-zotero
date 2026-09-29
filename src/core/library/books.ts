@@ -23,9 +23,10 @@ async function pdfOf(item: any): Promise<any | null> {
 }
 
 export async function booksInScope(scope: LibraryScope): Promise<BookTarget[]> {
+  // getAll is async (the whole-library scope found no books before 0.9.2 because it was not awaited).
   const items: any[] = scope.itemIDs
     ? Zotero.Items.get(Array.from(scope.itemIDs))
-    : Zotero.Items.getAll(scope.libraryID, true, false);
+    : await Zotero.Items.getAll(scope.libraryID, true, false);
   const books: BookTarget[] = [];
   for (const item of items) {
     if (!item || item.deleted || !item.isRegularItem?.() || item.itemType !== 'book') continue;

@@ -13,7 +13,9 @@ import { openSourceCitation } from '../core/library/zotero-items';
 import { getSession, type ChatSession } from '../core/session';
 import { getZotSeekStatus, type ZotSeekStatus } from '../core/zotseek/client';
 import { formatCount } from '../core/context/fit';
-import { describeCoverage, scopeCoverage } from '../core/library/coverage';
+import { describeCoverage, scopeCoverage, ZOTSEEK_COVERAGE_PREFS, type Coverage } from '../core/library/coverage';
+import { seekBookChoice } from '../core/library/source-rules';
+import { getSeekBookStatus, type SeekBookStatus } from '../core/seekbook/client';
 import { booksInScope } from '../core/library/books';
 import { MAX_BOOKS_READ, type BookTarget } from '../core/library/books';
 import { readPrefs } from '../prefs';
@@ -132,6 +134,17 @@ class LibraryChatView {
   /** Running book search of the current scope (send() waits for it). */
   private booksReady: Promise<void> = Promise.resolve();
   private booksEl!: HTMLElement;
+  /** Source "books (own index)" = SeekBook. Only the switch for now: answers do not use it yet (M4). */
+  private seekbookBox: HTMLInputElement;
+  private seekbookEl: HTMLElement;
+  private useSeekBook = false;
+  private seekbook: SeekBookStatus | null = null;
+  private coverage: Coverage | null = null;
+  private prefObservers: any[] = [];
+  private onFocus = () => {
+    void this.checkStatus();
+    void this.refreshSources();
+  };
   private statusEl: HTMLElement;
   private modelEl: HTMLElement;
   private messages: HTMLElement;
@@ -167,17 +180,25 @@ class LibraryChatView {
       this.useZotSeek = on;
       this.render();
     });
+    // Live: ZotSeek's settings (books, SeekBook binding, indexing mode) and plugins switched on or off meanwhile.
+    for (const pref of ZOTSEEK_COVERAGE_PREFS) {
+      this.prefObservers.push(Zotero.Prefs.registerObserver(pref, () => void this.refreshSources(), true));
+    }
+    // Gecko's 4th argument (wantsUntrusted): also synthetic focus events, e.g. from tests; the handler only re-checks.
+    (this.win as any).addEventListener('focus', this.onFocus, false, true);
     const keywordBooksBox = this.checkbox('seekchat-source-books-keywords', t('lib.sourceBooksKeywords'), false, (on) => {
       this.useBooks = on;
       this.render();
     });
     this.booksEl = this.el('div', 'seekchat-library-note seekchat-library-books');
-    // Planned: own vector index for whole books (ZotSeek only indexes the beginning of long documents).
-    const booksBox = this.checkbox('seekchat-source-books', t('lib.sourceBooksIndex'), false, () => {});
-    booksBox.disabled = true;
-    const books = booksBox.parentElement!;
-    books.classList.add('disabled');
-    books.append(this.doc.createTextNode(' '), this.el('span', 'seekchat-badge', t('common.notYet')));
+    // SeekBook: own full-text index for whole books. Allowed or locked by seekBookChoice().
+    this.seekbookBox = this.checkbox('seekchat-source-books', t('lib.sourceBooksIndex'), false, (on) => {
+      this.useSeekBook = on;
+      this.render();
+    });
+    this.seekbookBox.disabled = true;
+    const books = this.seekbookBox.parentElement!;
+    this.seekbookEl = this.el('div', 'seekchat-library-note seekchat-library-seekbook');
     this.messages = this.el('div', 'seekchat-messages');
     this.input = this.el('textarea', 'seekchat-input') as HTMLTextAreaElement;
     this.input.placeholder = t('lib.placeholder');
@@ -205,6 +226,7 @@ class LibraryChatView {
       row('', this.coverageEl),
       row(t('lib.sources'), this.zotseekBox.parentElement!, keywordBooksBox.parentElement!, books),
       row('', this.booksEl),
+      row('', this.seekbookEl),
       // Plain text instead of a tooltip: title tooltips do not show in this chrome window.
       row('', this.el('div', 'seekchat-library-note seekchat-library-zotseek-note', t('lib.zotseekNote'))),
       row(t('lib.model'), this.modelEl),
@@ -258,7 +280,7 @@ class LibraryChatView {
     this.fillScopes();
     this.render();
     void this.checkStatus();
-    void this.checkCoverage(scope);
+    void this.refreshSources();
     this.booksReady = this.findBooks(scope);
   }
 
@@ -285,15 +307,22 @@ class LibraryChatView {
     this.render();
   }
 
-  /** What ZotSeek cannot see in this scope (standalone PDFs, excluded books, abstract-only mode). */
-  private async checkCoverage(scope: LibraryScope): Promise<void> {
-    this.coverageEl.textContent = '';
+  /**
+   * SeekBook's status and what ZotSeek covers in the scope (its books: own
+   * index, through SeekBook or excluded). Both decide whether "Books (own
+   * index)" may be switched on; re-run on focus and when ZotSeek's prefs change.
+   */
+  private async refreshSources(): Promise<void> {
+    const scope = this.scope;
+    if (!scope) return;
     try {
-      const text = describeCoverage(await scopeCoverage(scope));
-      if (this.scope?.key === scope.key) this.coverageEl.textContent = text;
+      this.seekbook = await getSeekBookStatus();
+      const coverage = await scopeCoverage(scope, this.seekbook.available);
+      if (this.scope?.key === scope.key) this.coverage = coverage;
     } catch (e) {
       logError(e);
     }
+    this.render();
   }
 
   /** ZotSeek can be switched off while the window is open; checked on open, scope change and before each question. */
@@ -336,6 +365,7 @@ class LibraryChatView {
 
   private render(): void {
     const s = this.session;
+    this.renderSources();
     const zotseekOk = this.status?.available === true && this.useZotSeek;
     const nBooks = this.books?.length ?? 0;
     const booksOk = this.useBooks && nBooks > 0;
@@ -377,7 +407,37 @@ class LibraryChatView {
     if (atBottom || s?.busy) this.messages.scrollTop = this.messages.scrollHeight;
   }
 
+  /** Coverage line (only with ZotSeek chosen) and the SeekBook switch with its reason. */
+  private renderSources(): void {
+    this.coverageEl.textContent = this.useZotSeek && this.coverage ? describeCoverage(this.coverage) : '';
+    const choice = seekBookChoice({
+      seekbook: this.seekbook,
+      useZotSeek: this.useZotSeek,
+      zotseekAvailable: this.status?.available === true,
+      zotseekBooks: this.coverage?.bookMode ?? 'excluded',
+    });
+    this.seekbookBox.disabled = !choice.enabled;
+    this.seekbookBox.parentElement!.classList.toggle('disabled', !choice.enabled);
+    if (!choice.enabled && this.useSeekBook) {
+      this.useSeekBook = false;
+      this.seekbookBox.checked = false;
+    }
+    const notes: string[] = [];
+    if (!this.seekbook) notes.push(t('lib.checking'));
+    else if (!this.seekbook.available) notes.push(this.seekbook.message);
+    else if (choice.reason === 'viaZotSeek') notes.push(t('lib.seekbookViaZotSeek'));
+    else {
+      notes.push(t('lib.seekbookReady', { n: formatCount(this.seekbook.indexedBooks) }));
+      if (choice.reason === 'nativeToo' && this.useSeekBook) notes.push(t('lib.seekbookNativeToo'));
+      if (this.useSeekBook) notes.push(t('lib.seekbookPreview'));
+    }
+    this.seekbookEl.textContent = notes.join(' ');
+  }
+
   dispose(): void {
+    for (const o of this.prefObservers) Zotero.Prefs.unregisterObserver(o);
+    this.prefObservers = [];
+    this.win.removeEventListener('focus', this.onFocus);
     this.unsubscribe?.();
     if (this.renderTimer) this.win.clearTimeout(this.renderTimer);
   }

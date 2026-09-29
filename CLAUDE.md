@@ -42,6 +42,7 @@ they use `docker` or fall back to `sudo docker`, and run containers with the cal
 | `src/core/llm/` | `OllamaClient` (`/api/chat`, sets `num_ctx`), `OpenAiClient` (`/chat/completions`), stream parsers, HTTP with host check and `redirect: 'error'` |
 | `src/core/context/` | `ContextProvider` interface; `pdf-context.ts` (PDF worker text, split on `\f`), `page-selection.ts` (full text or page 1 + BM25 pages) |
 | `src/core/prompt.ts`, `citations.ts` | Messages (system prompt + document), `[S. N]` citation parsing |
+| `src/core/seekbook/client.ts`, `src/core/library/source-rules.ts` | SeekBook status over REST (`/seekbook/stats`); which sources may be combined (SeekBook locked while ZotSeek includes it) |
 | `src/core/zotseek/client.ts` | ZotSeek REST (`/zotseek/search`, `/zotseek/stats`) on Zotero's local server: status/diagnosis, passage search. No fallback: without the endpoint there is no library chat |
 | `src/core/library/` | Library chat without UI: `sources.ts` (`Evidence` from all sources → numbered sources, stable numbers, carry-over; **the PDF is kept per excerpt** — `attachmentFor()` picks the PDF a citation opens, `pageGroups()` groups pages per PDF for list, export and note), `plan.ts` (planning call: standalone question, queries, keywords as JSON), `books.ts` + `book-excerpts.ts` (keyword scan per book, pre-reading prompt `[Page N]` passages), `library-context.ts` (`LibraryContextProvider`, scopes, multi-query ZotSeek search), `zotero-items.ts` (library keys, `openSourceCitation`) |
 | `src/ui/library-window.ts`, `content/libraryChat.xhtml` | Library chat window (one instance; the xhtml calls `Zotero.SeekChat.onLibraryWindowLoad`, the plugin builds the DOM) |
@@ -78,6 +79,10 @@ Extending: new sources are new `ContextProvider`s; session, prompt and turn rend
   profile. E2E scenarios open it (`ZoteroContextPane.collapsed = false`) and scroll to the pane.
 - Find the section by the namespaced id from `getRegisteredPaneID()` on any `[data-pane]` element,
   not by a fixed element name.
+- Chrome windows ignore synthetic events unless the listener opts in (Gecko's 4th `addEventListener` argument,
+  `wantsUntrusted`); tests dispatch `focus` on the library window.
+- Stand-in endpoints on `Zotero.Server.Endpoints` need `init(requestData)` with a parameter: Zotero picks the call
+  style by `init.length`, and `init()` without one waits for a callback that never comes.
 - The section header needs Fluent ids (`locale/*/seekchat-main.ftl`, inserted per window);
   everything else in the UI goes through `t()` (`src/i18n.ts`).
 - **PDF outline:** Zotero 10's reader loads the outline only while its sidebar shows the outline view,

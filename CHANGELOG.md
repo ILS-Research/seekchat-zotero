@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.9.2 – 2026-09-29
+
+- Library window, source "ZotSeek": a live line says what ZotSeek searches in the scope and where its books come from
+  (its own index, SeekBook through ZotSeek, or excluded), plus what it cannot see. Updated on scope change, when
+  ZotSeek is ticked, when ZotSeek's prefs change (pref observers) and when the window gets the focus.
+- Source "Books (own index)" (SeekBook) is now a real switch with rules (`source-rules.ts`): it needs SeekBook installed,
+  enabled, reachable and with indexed books; it is locked while ZotSeek is chosen and already includes SeekBook, and
+  allowed when ZotSeek indexes books itself (note: books may be found twice), excludes them, or is not chosen. A
+  locked switch loses its tick. **Answers do not use SeekBook yet** (preview note); the chat part follows (M4).
+- `src/core/seekbook/client.ts`: SeekBook status over `/seekbook/stats` (no search yet).
+- Fix: the keyword book search found no books in the whole-library scope (`Zotero.Items.getAll` was not awaited).
+
 ## 0.9.1 – 2026-09-29
 
 - Library sources keep the PDF **per excerpt** (`SourceExcerpt.attachmentID`, `attachmentTitle`, optional

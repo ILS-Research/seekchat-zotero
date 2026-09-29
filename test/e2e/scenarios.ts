@@ -979,6 +979,83 @@ export const scenarios: Scenario[] = [
     await book.eraseTx();
   }],
 
+  ['sources: coverage line and the SeekBook switch follow ZotSeek and SeekBook live', async () => {
+    const zs = installZotSeek({ indexed: 5 });
+    const server = (Zotero as any).Server;
+    const installSeekBook = (books: number) => {
+      (Zotero as any).SeekBook = { apiVersion: 1, standIn: true };
+      const E: any = function () {};
+      E.prototype = { supportedMethods: ['GET'], supportedDataTypes: ['application/json'], permitBookmarklet: false,
+        init: async (_req: any) => [200, 'application/json', JSON.stringify({ ready: books > 0, indexedBooks: books, queuedDocuments: 0, apiVersion: 1 })] };
+      server.Endpoints['/seekbook/stats'] = E;
+    };
+    const removeSeekBook = () => {
+      delete (Zotero as any).SeekBook;
+      delete server.Endpoints['/seekbook/stats'];
+    };
+    const prefs = { excludeBooks: Zotero.Prefs.get('zotseek.excludeBooks', true), includeSeekBook: Zotero.Prefs.get('zotseek.includeSeekBook', true) };
+    try {
+      openLibraryChat(libraryScope(Zotero.Libraries.userLibraryID));
+      const cw: any = await waitFor('chat window', () => getLibraryChatWindow()?.document?.getElementById('seekchat-source-books') ? getLibraryChatWindow() : null, 15000);
+      const doc = cw.document;
+      const box = doc.getElementById('seekchat-source-books') as HTMLInputElement;
+      const zsBox = doc.getElementById('seekchat-source-zotseek') as HTMLInputElement;
+      const note = () => doc.querySelector('.seekchat-library-seekbook')?.textContent || '';
+      const coverage = () => doc.querySelector('.seekchat-library-coverage')?.textContent || '';
+      const refocus = () => cw.dispatchEvent(new cw.Event('focus'));
+      if (!zsBox.checked) zsBox.click();
+      // Whole library: the keyword book search finds the books (getAll was not awaited before 0.9.2).
+      const booksBoxKw = doc.getElementById('seekchat-source-books-keywords') as HTMLInputElement;
+      booksBoxKw.click();
+      await waitFor('books found in the whole library', () => /\d+ B(ü|u)ch/.test(doc.querySelector('.seekchat-library-books')?.textContent || ''), 10000);
+      booksBoxKw.click();
+
+      // 1. No SeekBook: locked, with the reason.
+      await waitFor('locked without SeekBook', () => box.disabled && note().includes('nicht installiert'), 10000);
+      await waitFor('coverage line', () => coverage().includes('ZotSeek durchsucht hier'), 10000);
+
+      // 2. SeekBook ready, ZotSeek excludes books: allowed.
+      installSeekBook(3);
+      refocus();
+      try {
+        await waitFor('allowed with SeekBook', () => !box.disabled && note().includes('SeekBook: 3 Bücher indexiert'), 10000);
+      } catch (e: any) {
+        throw new Error(`${e.message}; disabled=${box.disabled}, note="${note()}", coverage="${coverage()}"`);
+      }
+      box.click();
+      await waitFor('preview note', () => box.checked && note().includes('Vorschau'), 5000);
+
+      // 3. ZotSeek binds SeekBook: locked, and the tick is taken back (pref observer, no refocus).
+      Zotero.Prefs.set('zotseek.includeSeekBook', true, true);
+      await waitFor('locked via ZotSeek', () => box.disabled && !box.checked && note().includes('bindet SeekBook bereits ein')
+        && coverage().includes('über SeekBook'), 10000);
+
+      // 4. ZotSeek unticked: SeekBook can be asked directly; no coverage line for ZotSeek.
+      zsBox.click();
+      await waitFor('allowed without ZotSeek', () => !box.disabled && coverage() === '', 5000);
+      zsBox.click();
+      await waitFor('locked again with ZotSeek', () => box.disabled, 5000);
+
+      // 5. ZotSeek with its own books (not bound): allowed, with the note on doubles once ticked.
+      Zotero.Prefs.set('zotseek.includeSeekBook', false, true);
+      Zotero.Prefs.set('zotseek.excludeBooks', false, true);
+      await waitFor('allowed with native books', () => !box.disabled, 10000);
+      box.click();
+      await waitFor('note on doubles', () => note().includes('doppelt'), 5000);
+
+      // 6. SeekBook switched off meanwhile: locked on the next focus, tick removed.
+      removeSeekBook();
+      refocus();
+      await waitFor('locked after SeekBook left', () => box.disabled && !box.checked && note().includes('nicht installiert'), 10000);
+      cw.close();
+    } finally {
+      removeSeekBook();
+      Zotero.Prefs.set('zotseek.excludeBooks', prefs.excludeBooks ?? true, true);
+      Zotero.Prefs.set('zotseek.includeSeekBook', prefs.includeSeekBook ?? false, true);
+      zs.uninstall();
+    }
+  }],
+
   ['live: model server lists the configured model', async (ctx) => {
     useLiveServer(ctx);
     const prefs = readPrefs();
