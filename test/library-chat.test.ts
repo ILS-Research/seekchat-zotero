@@ -1,6 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { buildSources, formatSources, interleave, type Evidence } from '../src/core/library/sources';
+import {
+  attachmentFor, buildSources, formatPageGroups, formatSources, interleave, pageGroups, type Evidence, type LibrarySource,
+} from '../src/core/library/sources';
 import { buildPlanMessages, parsePageSpec, parsePlan } from '../src/core/library/plan';
 import { buildExcerptMessages, parseExcerpts } from '../src/core/library/book-excerpts';
 import { citedSourceNumbers, splitSourceCitations } from '../src/core/citations';
@@ -21,8 +23,51 @@ test('interleave takes rank 1 of each list, then rank 2, …', () => {
 test('merged sources: ZotSeek and book evidence in one numbered list, books marked', () => {
   const set = buildSources(interleave<Evidence>([ev('A', 3, 'Aus ZotSeek')], [ev('B', 12, 'Aus dem Buch', 'book')]), 10_000);
   assert.deepEqual(set.sources.map((s) => [s.n, s.itemKey, s.origin]), [[1, 'A', 'zotseek'], [2, 'B', 'book']]);
-  assert.equal(set.sources[1].attachmentID, 99);
+  assert.equal(set.sources[1].excerpts[0].attachmentID, 99);
+  assert.equal(attachmentFor(set.sources[1], 12), 99);
   assert.match(formatSources(set.sources), /\[2\] Label B \(book\)\n\(S\. 12\)\nAus dem Buch/);
+});
+
+const pdf = (attachmentID: number, attachmentTitle: string, page: number, text: string): Evidence => ({
+  itemKey: 'BOOK', libraryKey: 'user', label: 'Handbuch', origin: 'book', text, page, attachmentID, attachmentTitle,
+});
+
+test('a book with several PDFs: excerpts keep their PDF, pages grouped per PDF, citations open the right one', () => {
+  const set = buildSources([
+    pdf(11, 'Teil 3 – Administration', 204, 'Fehler melden'),
+    pdf(10, 'Teil 1 – Einstieg', 15, 'Projekt anlegen'),
+    pdf(10, 'Teil 1 – Einstieg', 12, 'Anmelden'),
+    pdf(11, 'Teil 3 – Administration', 12, 'Benutzer verwalten'),
+  ], 10_000);
+  const [book] = set.sources;
+  assert.equal(set.sources.length, 1);
+  // Document order: PDFs in order of appearance, pages ascending within each.
+  assert.deepEqual(book.excerpts.map((e) => [e.attachmentID, e.page]), [[11, 12], [11, 204], [10, 12], [10, 15]]);
+  assert.deepEqual(pageGroups(book), [
+    { attachmentID: 11, title: 'Teil 3 – Administration', pages: [12, 204] },
+    { attachmentID: 10, title: 'Teil 1 – Einstieg', pages: [12, 15] },
+  ]);
+  assert.equal(formatPageGroups(pageGroups(book), 'S.'), 'Teil 3 – Administration: S. 12, 204 · Teil 1 – Einstieg: S. 12, 15');
+  // [1, S. 204] exists only in Teil 3; [1, S. 15] only in Teil 1; page 12 is in both: the first excerpt on it decides.
+  assert.equal(attachmentFor(book, 204), 11);
+  assert.equal(attachmentFor(book, 15), 10);
+  assert.equal(attachmentFor(book, 12), 11);
+  // Prompt names the PDF only when a source has several.
+  const prompt = formatSources(set.sources);
+  assert.match(prompt, /\(Teil 1 – Einstieg, S\. 15\)\nProjekt anlegen/);
+});
+
+test('a source with one PDF: no PDF names in list and prompt; chapter and printed page are added', () => {
+  const set = buildSources([{ ...pdf(10, 'Teil 1', 7, 'Text'), chapter: 'Kapitel 2 › Messungen', pageLabel: '5' }], 10_000);
+  assert.deepEqual(pageGroups(set.sources[0]), [{ attachmentID: 10, title: '', pages: [7] }]);
+  assert.match(formatSources(set.sources), /\(chapter: Kapitel 2 › Messungen, S\. 7 \(printed 5\)\)\nText/);
+});
+
+test('chats saved by 0.9: the PDF on the source is still used', () => {
+  const old: LibrarySource = { n: 1, itemKey: 'B', libraryKey: 'user', label: 'Alt', origin: 'book', attachmentID: 42,
+    excerpts: [{ page: 3, text: 'x' }] };
+  assert.equal(attachmentFor(old, 3), 42);
+  assert.deepEqual(pageGroups(old), [{ attachmentID: 42, title: '', pages: [3] }]);
 });
 
 test('follow-ups: numbers stay stable, cited sources are carried first', () => {

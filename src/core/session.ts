@@ -24,14 +24,14 @@ import { chapterScope, type Outline } from './context/outline';
 import type { ChapterScope, ContextProvider, LongDocStrategy } from './context/types';
 import type { LlmClient } from './llm/types';
 import {
-  buildSources, formatSources, interleave, sourceId,
+  attachmentFor, buildSources, formatSources, interleave, sourceId,
   type Evidence, type LibrarySource, type SourceNumbers,
 } from './library/sources';
 import { LibraryContextProvider } from './library/library-context';
 import { MAX_BOOKS_READ, type BookTarget } from './library/books';
 import { buildExcerptMessages, parseExcerpts } from './library/book-excerpts';
 import { buildPlanMessages, fallbackPlan, parsePlan, type SearchPlan } from './library/plan';
-import { itemOfSource, libraryKeyOf } from './library/zotero-items';
+import { itemOfSource, libraryKeyOf, pdfTitle } from './library/zotero-items';
 import { buildTerms, countMatchingPages, selectPagesByTerms } from './context/page-selection';
 import { getPdfPages } from './context/pdf-context';
 import { citedSourceNumbers } from './citations';
@@ -390,14 +390,16 @@ export class ChatSession {
       status(t('meta.loadingPages', { n: source.n, pages: compressRanges(req.pages) }));
       try {
         const item = itemOfSource(source);
-        const att = (source.attachmentID && Zotero.Items.get(source.attachmentID))
+        // The PDF most of the source's excerpts come from (a book can have several).
+        const id = attachmentFor(source);
+        const att = (id && Zotero.Items.get(id))
           || (item?.isAttachment?.() ? item : await item?.getBestAttachment?.());
         if (!att?.isPDFAttachment?.()) throw new UserFacingError(t('error.noPdf'));
         const pages = (await getPdfPages(att)).filter((p) => req.pages.includes(p.pageNumber) && p.text);
         if (!pages.length) throw new UserFacingError(t('error.noSuchPages'));
         for (const p of pages) {
           out.push({ itemKey: source.itemKey, libraryKey: source.libraryKey, label: source.label, origin: source.origin ?? 'zotseek',
-            attachmentID: att.id, text: p.text, page: p.pageNumber, loaded: true });
+            attachmentID: att.id, attachmentTitle: pdfTitle(att), text: p.text, page: p.pageNumber, loaded: true });
         }
         notes.push(t('meta.loadedPages', { n: source.n, pageLabel: t('cite.page'), pages: compressRanges(pages.map((p) => p.pageNumber)) }));
       } catch (e: any) {
@@ -676,7 +678,7 @@ export class ChatSession {
       const item = book.attachment.parentItem || book.attachment;
       return excerpts.map((e) => ({
         itemKey: item.key, libraryKey: libraryKeyOf(item.libraryID), label: book.label, origin: 'book' as const,
-        attachmentID: book.attachment.id, text: e.text, page: e.page,
+        attachmentID: book.attachment.id, attachmentTitle: pdfTitle(book.attachment), text: e.text, page: e.page,
       }));
     } catch (e: any) {
       if (bookCtrl.signal.aborted || progress.state === 'skipped') {

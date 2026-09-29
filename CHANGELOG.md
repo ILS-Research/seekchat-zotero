@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.9.1 – 2026-09-29
+
+- Library sources keep the PDF **per excerpt** (`SourceExcerpt.attachmentID`, `attachmentTitle`, optional
+  `pageLabel` and `chapter`) instead of one PDF per source: a book can have several PDFs (whole book, chapter PDFs),
+  and page numbers only hold within one of them. Groundwork for SeekBook (M4) and useful for the keyword book mode.
+- Citations `[n, S. x]` open the PDF of the excerpt on that page; the source list, the Markdown export and the note
+  group pages per PDF ("Teil 1: S. 12, 15 · Teil 3: S. 204"), and each page link opens its own PDF.
+- The prompt names the PDF of each excerpt only when a source has excerpts from several PDFs (unchanged otherwise),
+  plus chapter and printed page where known.
+- Chats saved by 0.9 and older still open their PDF (the old per-source `attachmentID` is the fallback).
+
 ## 0.7.0 – 2026-09-28
 
 - English is the plugin's language; German is a translation (`src/i18n.ts`, keys shared, a unit test checks

@@ -19,6 +19,8 @@ import { getToolbarButton } from '../../src/ui/toolbar-button';
 import { setSaveChatTestPath } from '../../src/ui/save-chat';
 import { addLegacyMenu, chatWithFile, chatWithSelection, menuState, registerMenus, removeLegacyMenu, unregisterMenus } from '../../src/ui/context-menu';
 import { splitSourceCitations } from '../../src/core/citations';
+import { buildSources } from '../../src/core/library/sources';
+import { renderTurn } from '../../src/ui/turn-view';
 import { assert, screenshot, SkipError, waitFor, type E2EContext } from './harness';
 
 type Scenario = [string, (ctx: E2EContext) => Promise<void>];
@@ -839,7 +841,7 @@ export const scenarios: Scenario[] = [
     assert(!t.error, `answer is an error: ${t.content}`);
     assert(t.bookProgress?.[0].state === 'found', `book state: ${JSON.stringify(t.bookProgress)}`);
     const source = t.sources?.find((s) => s.origin === 'book');
-    assert(source?.n === 1 && source.label.includes('Langes Buch') && source.attachmentID === ctx.longAttachment.id,
+    assert(source?.n === 1 && source.label.includes('Langes Buch') && source.excerpts.every((e) => e.attachmentID === ctx.longAttachment.id),
       `book source: ${JSON.stringify(t.sources)}`);
     assert(t.content.includes('[1, S. 2]'), `answer: ${t.content}`);
     assert(t.meta?.includes('(Bücher 1)') && t.meta.includes('Bücher: 1 mit Fundstellen') && !t.meta.includes('Suchbegriffe:'), `meta: ${t.meta}`);
@@ -938,6 +940,45 @@ export const scenarios: Scenario[] = [
   }],
 
   // Optional: real model server. Skipped unless e2e/run.sh gets E2E_LIVE_URL.
+  ['book with two PDFs: source list groups pages per PDF, each page opens its own PDF', async (ctx) => {
+    const win = Zotero.getMainWindow();
+    const book = new Zotero.Item('book');
+    book.libraryID = Zotero.Libraries.userLibraryID;
+    book.setField('title', 'Buch aus zwei PDFs');
+    await book.saveTx();
+    const part1 = await Zotero.Attachments.importFromFile({ file: Zotero.File.pathToFile(`${ctx.fixturesDir}/seekchat-test.pdf`), parentItemID: book.id, title: 'Teil 1' });
+    const part2 = await Zotero.Attachments.importFromFile({ file: Zotero.File.pathToFile(`${ctx.fixturesDir}/seekchat-long.pdf`), parentItemID: book.id, title: 'Teil 2' });
+    const ev = (att: any, title: string, page: number, text: string) => ({
+      itemKey: book.key, libraryKey: 'user', label: 'Buch aus zwei PDFs', origin: 'book' as const, text, page, attachmentID: att.id, attachmentTitle: title,
+    });
+    const set = buildSources([ev(part1, 'Teil 1', 2, 'Starkregen'), ev(part2, 'Teil 2', 27, 'Waermeinseln'), ev(part2, 'Teil 2', 2, 'Grundlagen')], 10_000);
+    const turn: any = { role: 'assistant', content: 'Starkregen [1, S. 2]; Waermeinseln [1, S. 27].', sources: set.sources };
+    const opened: [number, number | undefined][] = [];
+    const { openSourceCitation } = await import('../../src/core/library/zotero-items');
+    const node = renderTurn(win.document, turn, {
+      onSource: (source, page, attachmentID) => {
+        opened.push([page!, attachmentID]);
+        void openSourceCitation(source, page, attachmentID);
+      },
+    }) as any;
+    const text = node.textContent;
+    assert(text.includes('Teil 1: S. 2') && text.includes('Teil 2: S. 2, 27'), `source list: ${text}`);
+    // Page 2 exists in both PDFs: the link in the "Teil 2" group must open Teil 2.
+    const links = Array.from(node.querySelectorAll('.seekchat-sources a, .seekchat-sources [role="link"], .seekchat-sources .seekchat-cite')) as any[];
+    const teil2page2 = links.filter((a) => a.textContent === '2')[1];
+    assert(teil2page2, `page links: ${links.map((a) => a.textContent).join(',')}`);
+    teil2page2.click();
+    await waitFor('reader with Teil 2', () => win.Zotero_Tabs.selectedType === 'reader'
+      && Zotero.Reader.getByTabID(win.Zotero_Tabs.selectedID)?.itemID === part2.id, 10000);
+    assert(opened[0][0] === 2 && opened[0][1] === part2.id, `opened ${JSON.stringify(opened)}`);
+    // The inline citation [1, S. 27] resolves to Teil 2 by itself (only Teil 2 has page 27).
+    win.Zotero_Tabs.select('zotero-pane');
+    await openSourceCitation(set.sources[0], 27);
+    await waitFor('reader with Teil 2 at page 27', () => Zotero.Reader.getByTabID(win.Zotero_Tabs.selectedID)?.itemID === part2.id, 10000);
+    win.Zotero_Tabs.select('zotero-pane');
+    await book.eraseTx();
+  }],
+
   ['live: model server lists the configured model', async (ctx) => {
     useLiveServer(ctx);
     const prefs = readPrefs();

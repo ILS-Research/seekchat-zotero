@@ -369,8 +369,8 @@ class LibraryChatView {
         : this.status ? t('lib.unavailable') : ''));
       return;
     }
-    const onSource = (source: any, page?: number) => {
-      openSourceCitation(source, page).then(() => Zotero.getMainWindow().focus()).catch(logError);
+    const onSource = (source: any, page?: number, attachmentID?: number) => {
+      openSourceCitation(source, page, attachmentID).then(() => Zotero.getMainWindow().focus()).catch(logError);
     };
     const onSkipBook = (turn: any, index: number) => s?.skipBook(turn, index);
     this.messages.replaceChildren(...turns.map((turn) => renderTurn(this.doc, turn, { onSource, onSkipBook }, t('lib.searching'))));

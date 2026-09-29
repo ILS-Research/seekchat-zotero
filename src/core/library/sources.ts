@@ -21,8 +21,14 @@ export interface Evidence {
   /** "Muster, Beispiel 2021 – Titel" */
   label: string;
   origin: EvidenceOrigin;
-  /** Books: the PDF the excerpt was read from (citations open it). */
+  /** The PDF the excerpt comes from (citations open it); books can have several PDFs. */
   attachmentID?: number;
+  /** Title of that PDF ("Teil 3 – Administration"), shown when a source has excerpts from several PDFs. */
+  attachmentTitle?: string;
+  /** Printed page number of `page`, if the PDF has page labels. */
+  pageLabel?: string;
+  /** Chapter path of the excerpt, if known ("Kapitel 2 › Messungen"). */
+  chapter?: string;
   /** Missing for pure keyword hits (not sent). */
   text?: string;
   /** 1-based PDF page, if known. */
@@ -34,12 +40,17 @@ export interface Evidence {
 }
 
 export interface SourceExcerpt {
-  /** 1-based PDF page, if known. */
+  /** 1-based page in the PDF `attachmentID`, if known. */
   page?: number;
   text: string;
   textSource?: string;
   noteKey?: string;
   loaded?: boolean;
+  /** The PDF this excerpt comes from: a page number only means something within it. */
+  attachmentID?: number;
+  attachmentTitle?: string;
+  pageLabel?: string;
+  chapter?: string;
 }
 
 export interface LibrarySource {
@@ -51,8 +62,9 @@ export interface LibrarySource {
   label: string;
   /** Where the excerpts come from (missing in chats of 0.7 and older: ZotSeek). */
   origin?: EvidenceOrigin;
+  /** Chats saved by 0.9 and older: the one PDF of the source. Newer chats keep the PDF per excerpt. */
   attachmentID?: number;
-  /** Excerpts in document order (by page, notes last). */
+  /** Excerpts in document order (by PDF, then page; notes last). */
   excerpts: SourceExcerpt[];
 }
 
@@ -178,12 +190,14 @@ export function buildSources(
     used += header + cost(text);
     passagesUsed++;
     seenText.set(id, [...known.filter((k) => !norm.includes(k)), norm]);
-    const excerpt: SourceExcerpt = { page: e.page, text, textSource: e.textSource, noteKey: e.noteKey, loaded: e.loaded };
+    const excerpt: SourceExcerpt = {
+      page: e.page, text, textSource: e.textSource, noteKey: e.noteKey, loaded: e.loaded,
+      attachmentID: e.attachmentID, attachmentTitle: e.attachmentTitle, pageLabel: e.pageLabel, chapter: e.chapter,
+    };
     if (source) {
       // Replace excerpts the new one contains, keep the rest.
       source.excerpts = source.excerpts.filter((x) => !norm.includes(normalized(x.text)));
       source.excerpts.push(excerpt);
-      source.attachmentID ??= e.attachmentID;
       // A book that ZotSeek also found counts as book: its pre-read passages are in it.
       if (e.origin === 'book') source.origin = 'book';
     } else {
@@ -193,21 +207,87 @@ export function buildSources(
         libraryKey: e.libraryKey,
         label: e.label,
         origin: e.origin,
-        attachmentID: e.attachmentID,
         excerpts: [excerpt],
       });
     }
   }
   const sources = Array.from(byItem.values()).sort((a, b) => a.n - b.n);
-  for (const s of sources) s.excerpts.sort((a, b) => (a.page ?? Infinity) - (b.page ?? Infinity));
+  for (const s of sources) sortExcerpts(s);
   return { sources, passagesUsed, withoutText, overBudget, carried, chars: used };
 }
 
-/** Prompt text: one block per source, excerpts marked with their page; book excerpts are marked as such. */
+/** Document order: PDFs in order of first appearance, pages ascending within each, excerpts without page last. */
+function sortExcerpts(s: LibrarySource): void {
+  const order = new Map<number | undefined, number>();
+  for (const e of s.excerpts) if (!order.has(e.attachmentID)) order.set(e.attachmentID, order.size);
+  s.excerpts.sort((a, b) => (order.get(a.attachmentID)! - order.get(b.attachmentID)!)
+    || (a.page ?? Infinity) - (b.page ?? Infinity));
+}
+
+/** Distinct PDFs of a source's excerpts (legacy chats: the source's single PDF). */
+export function sourceAttachments(s: LibrarySource): number[] {
+  const ids = Array.from(new Set(s.excerpts.map((e) => e.attachmentID).filter((id): id is number => !!id)));
+  return ids.length ? ids : s.attachmentID ? [s.attachmentID] : [];
+}
+
+/**
+ * The PDF a citation of `page` refers to: the first excerpt on that page names
+ * it; without page (or no excerpt on it) the PDF with the most excerpts; for
+ * chats saved by 0.9 and older the source's single PDF. Undefined = the item's best PDF.
+ */
+export function attachmentFor(s: LibrarySource, page?: number): number | undefined {
+  if (page) {
+    const hit = s.excerpts.find((e) => e.page === page && e.attachmentID);
+    if (hit) return hit.attachmentID;
+  }
+  const counts = new Map<number, number>();
+  for (const e of s.excerpts) if (e.attachmentID) counts.set(e.attachmentID, (counts.get(e.attachmentID) || 0) + 1);
+  const best = [...counts].sort((a, b) => b[1] - a[1])[0];
+  return best ? best[0] : s.attachmentID;
+}
+
+export interface PageGroup {
+  attachmentID?: number;
+  /** PDF title; '' when the source has only one PDF (nothing to tell apart). */
+  title: string;
+  pages: number[];
+}
+
+/** Pages of a source grouped by PDF, in document order; one group without title for single-PDF sources. */
+export function pageGroups(s: LibrarySource): PageGroup[] {
+  const groups = new Map<number | undefined, PageGroup>();
+  for (const e of s.excerpts) {
+    if (!e.page) continue;
+    const key = e.attachmentID ?? s.attachmentID;
+    const g = groups.get(key) || { attachmentID: key, title: e.attachmentTitle || '', pages: [] };
+    if (!g.pages.includes(e.page)) g.pages.push(e.page);
+    groups.set(key, g);
+  }
+  const list = [...groups.values()];
+  for (const g of list) g.pages.sort((a, b) => a - b);
+  if (list.length === 1) list[0].title = '';
+  return list;
+}
+
+/** "Teil 1: S. 12, 15 · Teil 3: S. 204", or "S. 12, 15" for one PDF (Markdown export). */
+export function formatPageGroups(groups: PageGroup[], pageWord: string): string {
+  return groups.map((g) => `${g.title ? `${g.title}: ` : ''}${pageWord} ${g.pages.join(', ')}`).join(' · ');
+}
+
+/**
+ * Prompt text: one block per source, excerpts marked with their page; book
+ * excerpts are marked as such. With several PDFs in one source each excerpt
+ * also names its PDF; chapter and printed page are added where known.
+ */
 export function formatSources(sources: LibrarySource[]): string {
   return sources.map((s) => {
+    const several = sourceAttachments(s).length > 1;
     const parts = s.excerpts.map((e) => {
-      const where = e.page ? `(${t('cite.page')} ${e.page}${e.loaded ? ', whole page' : ''})` : e.textSource === 'note' ? '(note)' : '(no page)';
+      const bits: string[] = [];
+      if (several && e.attachmentTitle) bits.push(e.attachmentTitle);
+      if (e.chapter) bits.push(`chapter: ${e.chapter}`);
+      if (e.page) bits.push(`${t('cite.page')} ${e.page}${e.pageLabel && e.pageLabel !== String(e.page) ? ` (printed ${e.pageLabel})` : ''}${e.loaded ? ', whole page' : ''}`);
+      const where = e.page || bits.length ? `(${bits.join(', ') || 'no page'})` : e.textSource === 'note' ? '(note)' : '(no page)';
       return `${where}\n${e.text}`;
     });
     return `[${s.n}] ${s.label}${s.origin === 'book' ? ' (book)' : ''}\n${parts.join('\n\n')}`;

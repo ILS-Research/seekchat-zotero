@@ -5,7 +5,7 @@
  */
 import type { LlmRequestLog, Turn } from './session';
 import { currentLocale, t } from '../i18n';
-import { sourcePages } from './library/sources';
+import { formatPageGroups, pageGroups } from './library/sources';
 import { bookDetails, bookStateText } from './book-report';
 
 export interface ExportInfo {
@@ -57,9 +57,9 @@ export function chatToMarkdown(turns: Turn[], info: ExportInfo): string {
     if (turn.sources?.length) {
       out.push('', t('export.sources'), '');
       for (const s of turn.sources) {
-        const pages = sourcePages(s);
+        const groups = pageGroups(s);
         const origin = s.origin === 'book' ? ` (${t('lib.originBook')})` : '';
-        out.push(`${s.n}. ${s.label}${origin}${pages.length ? ` – ${t('cite.page')} ${pages.join(', ')}` : ''}`);
+        out.push(`${s.n}. ${s.label}${origin}${groups.length ? ` – ${formatPageGroups(groups, t('cite.page'))}` : ''}`);
       }
     }
     if (turn.requests?.length) out.push('', ...requestsToMarkdown(turn.requests));

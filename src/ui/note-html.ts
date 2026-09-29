@@ -5,7 +5,7 @@
  */
 import { splitCitations, splitSourceCitations } from '../core/citations';
 import { formatDateTime, type ExportInfo } from '../core/export';
-import { sourcePages, type LibrarySource } from '../core/library/sources';
+import { pageGroups, type LibrarySource } from '../core/library/sources';
 import type { Turn } from '../core/session';
 import { escapeHtml, markdownToHtml, type HtmlPiece } from './markdown';
 import { t } from '../i18n';
@@ -15,7 +15,7 @@ export interface NoteLinks {
   /** PDF chat: link for a page citation. */
   page?: (page: number, turn: Turn) => string | null;
   /** Library chat: link for a source citation (page if given). */
-  source?: (source: LibrarySource, page?: number) => string | null;
+  source?: (source: LibrarySource, page?: number, attachmentID?: number) => string | null;
 }
 
 function link(text: string, href: string | null): string {
@@ -55,10 +55,10 @@ export function chatToNoteHtml(turns: Turn[], info: ExportInfo, links: NoteLinks
     }
     if (sources?.length) {
       const items = sources.map((s) => {
-        const pages = sourcePages(s);
-        const pageLinks = pages.map((p) => link(String(p), links.source?.(s, p) ?? null)).join(', ');
+        const groups = pageGroups(s).map((g) => `${g.title ? `${escapeHtml(g.title)}: ` : ''}${escapeHtml(t('cite.page'))} ` +
+          g.pages.map((p) => link(String(p), links.source?.(s, p, g.attachmentID) ?? null)).join(', '));
         const origin = s.origin === 'book' ? ` (${escapeHtml(t('lib.originBook'))})` : '';
-        return `<li value="${s.n}">${link(s.label, links.source?.(s) ?? null)}${origin}${pages.length ? ` – ${escapeHtml(t('cite.page'))} ${pageLinks}` : ''}</li>`;
+        return `<li value="${s.n}">${link(s.label, links.source?.(s) ?? null)}${origin}${groups.length ? ` – ${groups.join(' · ')}` : ''}</li>`;
       });
       out.push(`<p>${escapeHtml(t('export.sources'))}</p>`, `<ol>${items.join('')}</ol>`);
     }

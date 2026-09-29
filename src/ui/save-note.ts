@@ -5,6 +5,7 @@
  * selected items for an item scope, else in the library root.
  */
 import type { LibraryScope } from '../core/library/library-context';
+import { attachmentFor } from '../core/library/sources';
 import { itemOfSource, libraryKeyOf } from '../core/library/zotero-items';
 import type { ChatSession } from '../core/session';
 import { readPrefs } from '../prefs';
@@ -48,11 +49,12 @@ export async function savePdfChatAsNote(session: ChatSession, subject: string, a
 
 export async function saveLibraryChatAsNote(session: ChatSession, scope: LibraryScope): Promise<any> {
   const links: NoteLinks = {
-    source: (s, p) => {
+    source: (s, p, attachmentID) => {
       const item = itemOfSource(s);
       if (!item) return null;
       if (p) {
-        const att = (s.attachmentID && Zotero.Items.get(s.attachmentID))
+        const id = attachmentID ?? attachmentFor(s, p);
+        const att = (id && Zotero.Items.get(id))
           || (item.isAttachment?.() ? item : Zotero.Items.get(item.getAttachments()).find((a: any) => a.isPDFAttachment?.()));
         if (att) return openPdfLink(att, p);
       }

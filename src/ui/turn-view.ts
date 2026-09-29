@@ -6,7 +6,7 @@
  */
 import { t, tn, type Key } from '../i18n';
 import { citedSourceNumbers, splitCitations, splitSourceCitations } from '../core/citations';
-import { sourcePages, type LibrarySource } from '../core/library/sources';
+import { pageGroups, type LibrarySource } from '../core/library/sources';
 import { SKIPPABLE, type BookProgress, type Turn } from '../core/session';
 import { renderMarkdown, type CitationSplitter } from './markdown';
 import { compressRanges } from '../core/prompt';
@@ -17,7 +17,7 @@ export interface CitationHandlers {
   /** PDF chat: open the document on this page. */
   onPage?: (page: number, turn: Turn) => void;
   /** Library chat: follow a source citation (page if given). */
-  onSource?: (source: LibrarySource, page?: number) => void;
+  onSource?: (source: LibrarySource, page?: number, attachmentID?: number) => void;
   /** Library chat: skip one book of the running question. */
   onSkipBook?: (turn: Turn, index: number) => void;
 }
@@ -80,12 +80,17 @@ function sourceList(doc: Document, sources: LibrarySource[], cited: Set<number>,
     li.value = s.n;
     if (s.origin === 'book') li.append(doc.createTextNode('📖 '));
     li.append(cite(doc, s.label, t('lib.showInLibrary'), () => handlers.onSource?.(s)));
-    const pages = sourcePages(s);
-    if (pages.length) {
-      li.append(doc.createTextNode(` – ${t('cite.page')} `));
-      pages.forEach((p, i) => {
-        if (i) li.append(doc.createTextNode(', '));
-        li.append(cite(doc, String(p), t('pdf.openPage', { page: p }), () => handlers.onSource?.(s, p)));
+    // Pages per PDF: a book can have several ("Teil 1: S. 12, 15 · Teil 3: S. 204").
+    const groups = pageGroups(s);
+    if (groups.length) {
+      li.append(doc.createTextNode(' – '));
+      groups.forEach((g, gi) => {
+        if (gi) li.append(doc.createTextNode(' · '));
+        li.append(doc.createTextNode(`${g.title ? `${g.title}: ` : ''}${t('cite.page')} `));
+        g.pages.forEach((p, i) => {
+          if (i) li.append(doc.createTextNode(', '));
+          li.append(cite(doc, String(p), t('pdf.openPage', { page: p }), () => handlers.onSource?.(s, p, g.attachmentID)));
+        });
       });
     } else if (s.excerpts.some((e) => e.textSource === 'note')) {
       li.append(doc.createTextNode(` – ${t('lib.note')}`));
