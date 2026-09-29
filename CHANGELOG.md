@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.9.5 – 2026-09-29
+
+- Fix: "Books (own index)" no longer shows as allowed right after opening the window; it stays locked until
+  ZotSeek's status and coverage are known.
+- Books that ZotSeek already brings through SeekBook are no longer read by keywords as well (that took one model
+  call per book and repeated the same passages); the book list only shows the books actually read.
+- **Logging** like ZotSeek: `[SeekChat:<module>] [INFO] …` in the Browser Console and Zotero's debug output – each
+  pipeline step with its time, each model call (prompt size, time to first token, total), REST calls to ZotSeek and
+  SeekBook, each book's progress.
+- README rewritten for users (technical details at the end).
+
 ## 0.9.4 – 2026-09-29
 
 - **"Books (own index)" answers now** (SeekBook, M4): the library chat searches SeekBook with the planned queries

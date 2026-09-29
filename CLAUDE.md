@@ -49,9 +49,10 @@ they use `docker` or fall back to `sudo docker`, and run containers with the cal
 | `src/ui/toolbar-button.ts` | Button right after `#zotseek-toolbar-button`, kept in sync by a MutationObserver (plugin start order is not fixed) |
 | `src/ui/turn-view.ts`, `src/ui/markdown.ts` | Rendering of one chat turn (safe Markdown subset, page or source citations, source list), shared by section and window |
 | `src/core/library/coverage.ts` | What ZotSeek cannot see in a scope (standalone PDFs, excluded books, abstract mode), from Zotero and ZotSeek's global prefs |
-| `src/core/session.ts` | One `ChatSession` per provider key, streaming, abort; in memory only. Library chat pipeline: plan → ZotSeek + books (two at a time, each skippable via `skipBook`) → merged sources → one answer |
+| `src/core/session.ts` | One `ChatSession` per provider key, streaming, abort; in memory only. Library chat pipeline: plan → ZotSeek + SeekBook + keyword books (two at a time, each skippable via `skipBook`; books SeekBook has indexed skip the keyword reading, also when ZotSeek brings SeekBook) → merged sources → one answer |
 | `src/ui/chat-section.ts` | Item pane section via `Zotero.ItemPaneManager.registerSection` (library + reader context pane) |
 | `src/ui/preferences.ts`, `content/preferences.xhtml` | Settings pane (fields wired manually, not via `preference=` binding) |
+| `src/util/log.ts` | `logger(module)`: `[SeekChat:<module>] [LEVEL] …` to Browser Console + `Zotero.debug`, `time()` for durations. Log every step that can take long (model calls are logged in `src/core/llm/index.ts`) |
 | `test/*.test.ts` | Unit tests (Node test runner, bundled by esbuild), no Zotero |
 | `test/e2e/` | E2E harness + scenarios, compiled **into** the E2E build only (`test/e2e/entry.ts`) |
 | `e2e/` | E2E image (Zotero tarball, Xvfb, mock LLM, fixture PDF generator), `run.sh`, `run-in-container.sh` |
@@ -95,6 +96,8 @@ Extending: new sources are new `ContextProvider`s; session, prompt and turn rend
   "assets" writes `e2e/out/assets-report.json` (pages, timings, fit, outline, keyword selection).
 - Ollama's `/v1` endpoint ignores `num_ctx`; with its small default context the PDF is silently
   truncated. Keep Ollama on the native API.
+- Library window: the SeekBook switch stays locked until ZotSeek's status **and** the scope coverage are known
+  (SeekBook's status arrives first; unlocking on it alone let the box flash up as allowed).
 
 ## E2E
 

@@ -1106,6 +1106,16 @@ export const scenarios: Scenario[] = [
       const last = systems[systems.length - 1];
       assert(last.includes('chapter: Kapitel 2 Waermeinseln') && last.includes('(printed 25)') && last.includes('(book)'), `prompt: ${last.slice(0, 800)}`);
       assert(seen.search.length >= 1 && seen.search[0].libraryKey === 'user' && !seen.search[0].itemKeys, `seekbook query: ${JSON.stringify(seen.search)}`);
+      // ZotSeek already bringing SeekBook (switch locked) + keyword books: the indexed book is not read by keywords.
+      session.clear();
+      const beforeVia = (await mockRequests()).length;
+      await session.ask('Was steht zu Hitze?', {
+        zotseek: true, seekbook: false, skipIndexedBooks: true, books: [{ attachment: ctx.longAttachment, label: 'SeekChat E2E Langes Buch', itemKey: b }],
+      });
+      const tv = session.turns[session.turns.length - 1];
+      const viaSystems = (await mockRequests()).slice(beforeVia).map((r: any) => r.messages[0].content as string);
+      assert(!tv.error && !tv.bookProgress && !viaSystems.some((x) => x.includes('answer a question from one book'))
+        && tv.meta?.includes('1 Buch über seinen Index'), `via ZotSeek: ${tv.meta} / ${JSON.stringify(tv.bookProgress)}`);
       // Collection scope: SeekBook only gets the scope's books.
       const col = new Zotero.Collection();
       col.name = 'SeekChat E2E SeekBook';

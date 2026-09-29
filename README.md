@@ -1,77 +1,122 @@
-# SeekChat
+# SeekChat – talk to your papers and books in Zotero
 
-Zotero plugin (Zotero 7–10): chat with a PDF, and with the whole library, a collection or selected
-items via ZotSeek, using a self-hosted model (Ollama or any OpenAI-compatible server). Plan and
-status: `../ideas-zotseek.md` (German).
+Ask a question about the PDF you are reading, or about a whole collection, and get an answer that cites its
+sources: every **[S. 12]** or **[2, S. 45]** in the answer is a link that opens the PDF on exactly that page.
 
-## Use
+SeekChat uses a language model **you** run (Ollama or any OpenAI-compatible server, e.g. on your institute's server).
+Your documents are never sent to a cloud service unless you explicitly allow that server.
 
-- Install `dist/seekchat-<version>.xpi` (Tools → Plugins → gear → Install Plugin From File).
-- Settings → SeekChat: choose interface (Ollama/OpenAI-compatible), server URL, "Verbindung testen",
-  pick a chat model. A server that is not on this computer must be listed under
-  "Erlaubte entfernte Hosts" (it then receives PDF text and questions).
-- Select an item with a PDF, or open a PDF in the reader: the item pane / reader side pane shows the
-  section "Chat mit PDF". Citations like [S. 12] in answers open the PDF at that page.
-- Library chat (needs ZotSeek with "AI Agent Access" and Zotero's local HTTP server): the speech-bubble
-  button right next to ZotSeek's toolbar button opens the chat window. Its scope is the current
-  selection (several items, else the collection, else the library). Citations like [2, S. 12] open
-  the source's PDF at that page; a source list follows each answer. The scope can be changed in the
-  window; a note says what ZotSeek cannot see there (PDFs without parent item, excluded books,
-  abstract-only mode). Without ZotSeek the button is not shown; the PDF chat works as before.
+Works with Zotero 7, 8, 9 and 10 (recommended: 10).
 
-## How it works
+---
 
-- PDF text comes from Zotero's PDF worker, split into pages (form feed = page break), cached per attachment.
-- If the whole PDF fits into "PDF-Text pro Frage", it is sent in full. Otherwise page 1 plus the pages
-  that best match the question (BM25 keyword score; evenly spread pages for questions without terms).
-- The model is told to cite pages as [S. N]; N is the physical page number, not the printed page label.
-- Ollama is called through its native `/api/chat` so `num_ctx` can be set; its `/v1` endpoint cannot,
-  and Ollama's default context would silently cut the document.
-- Chats live in memory per PDF until Zotero restarts.
-- Library chat: ZotSeek's `/zotseek/search` returns ranked passages; they are grouped into numbered
-  sources within the text budget. Hits without text never reach the prompt. There is no fallback:
-  without the endpoint there is no library chat.
+## What you can do
 
-## Layout
+### Chat with a PDF
+Select an item with a PDF, or open it in the reader: the side pane shows **“Chat mit PDF”**.
+
+- Ask anything – summaries, definitions, “what does chapter 3 say about …?”.
+- Follow-up questions work like in a conversation (“and in chapter 4?”).
+- Long books are no problem: SeekChat picks the pages that matter for your question and tells you which ones it read.
+- Answers cite pages; one click opens the PDF there.
+
+### Chat with your library
+The speech-bubble button next to ZotSeek’s toolbar button opens a chat over **the current selection, a collection
+or a whole library**. You choose where the answers come from:
+
+| Source | What it does | Needs |
+|---|---|---|
+| **ZotSeek** | finds the best-matching passages in your papers | [ZotSeek](https://github.com/introfini/ZotSeek) with “AI Agent Access” |
+| **Books (keyword search)** | reads the books in the scope like the PDF chat does – no index needed | nothing |
+| **Books (own index)** | searches whole books with chapter and printed page numbers | [SeekBook](https://github.com/ILS-Research/seekbook-zotero) |
+
+- One answer from all sources, with numbered sources and a source list with page links.
+- Books with several PDFs (one per chapter) open at the right PDF.
+- A line tells you what is covered – and what is not (e.g. PDFs without a parent item).
+- Follow-ups can load whole pages: *“What exactly is on page 45 of [2]?”*
+- Save a chat as Markdown or as a Zotero note.
+
+---
+
+## Install
+
+1. Download the latest `seekchat-<version>.xpi` (ILS: from the internal download portal).
+2. Zotero → **Tools → Plugins** → gear icon → **Install Plugin From File…**
+3. Updates come automatically afterwards.
+
+## Set up
+
+**Settings → SeekChat**
+
+1. Choose the interface: **Ollama** or **OpenAI-compatible**.
+2. Enter the server address and click **Verbindung testen** (test connection).
+3. Pick a chat model from the list.
+4. A server that is not on your own computer must be added under **Erlaubte entfernte Hosts** (allowed remote hosts)
+   – it then receives the PDF text and your questions.
+
+For the library chat also switch on Zotero’s local HTTP server (Settings → Advanced) and, in ZotSeek,
+“AI Agent Access”.
+
+## When something goes wrong
+
+- **The answer takes long:** the status line under the question shows what SeekChat is doing (planning the search,
+  reading book 2 of 5, answering). Reading many books by keywords costs one model call per book – use
+  “Books (own index)” for large book collections.
+- **Look at the log:** Zotero → **Tools → Developer → Browser Console** (or Help → Debug Output Logging), filter
+  by `[SeekChat`. Every step is logged with its duration: searches, each model call (size, time to first token,
+  total time), which books were read and why.
+
+---
+
+## For developers
+
+<details>
+<summary>How it works</summary>
+
+- PDF text comes from Zotero’s PDF worker, split into pages, cached per attachment.
+- If the whole PDF fits into the budget (“PDF-Text pro Frage”) it is sent in full; otherwise page 1 plus the pages
+  that best match the question (BM25; evenly spread pages for questions without terms).
+- `[S. N]` is the physical page number, not the printed label.
+- Ollama is called through `/api/chat` so `num_ctx` can be set (its `/v1` endpoint cannot).
+- Library chat: a planning call writes search queries (and page/document requests for follow-ups); ZotSeek
+  (`/zotseek/search`) and SeekBook (`/seekbook/search`) are searched with them; books SeekBook has indexed are not
+  read by keywords again; ZotSeek book passages that SeekBook covers are dropped. Everything is merged into
+  numbered sources within the text budget; one streamed answer cites them.
+- No fallback: without the ZotSeek/SeekBook endpoints those sources are simply unavailable.
+
+</details>
+
+<details>
+<summary>Layout</summary>
 
 | Path | Purpose |
 |---|---|
-| `src/core/llm/` | Model clients (Ollama, OpenAI-compatible), stream parsers, HTTP with host check |
+| `src/core/llm/` | Model clients (Ollama, OpenAI-compatible), stream parsers, HTTP with host check, call logging |
 | `src/core/host-guard.ts` | Loopback + explicit allow-list, same rules as the ILS ZotSeek fork |
 | `src/core/context/` | `ContextProvider` interface; `pdf-context.ts` (PDF pages), `page-selection.ts` |
 | `src/core/prompt.ts`, `citations.ts` | Prompt building, citation parsing |
-| `src/core/session.ts` | Chat state per context, streaming, abort |
-| `src/core/zotseek/client.ts` | ZotSeek REST client: status check, passage search |
-| `src/core/library/` | Library chat: numbered sources, `LibraryContextProvider`, citation targets |
-| `src/ui/chat-section.ts` | Item pane section (library and reader) |
-| `src/ui/library-window.ts`, `content/libraryChat.xhtml` | Library chat window |
-| `src/ui/toolbar-button.ts` | Button next to ZotSeek's |
-| `src/ui/preferences.ts`, `content/preferences.xhtml` | Settings pane |
+| `src/core/session.ts` | Chat state, library pipeline, streaming, abort |
+| `src/core/zotseek/client.ts` | ZotSeek REST client |
+| `src/core/seekbook/client.ts` | SeekBook REST client (status, search, books, pages) |
+| `src/core/library/` | Sources, scopes, coverage, source rules, keyword book reading |
+| `src/ui/` | Item pane section, library window, toolbar button, settings |
+| `src/util/log.ts` | Logger (`[SeekChat:<module>] [LEVEL] …`) |
 
-New sources are new `ContextProvider`s; the session, prompt and turn rendering stay as they are.
+</details>
 
-## Build
+<details>
+<summary>Build, tests, release</summary>
 
-Everything runs in Docker (`docker/Dockerfile`, Node 22); the host needs only Docker (or sudo docker).
+Everything runs in Docker; the host needs only Docker.
 
 ```
 ./build.sh          # npm install, tests, typecheck, build, dist/seekchat-<version>.xpi
-./build.sh test     # tests only
-./build.sh build    # build + xpi only
-./build.sh shell    # shell in the build container
+./build.sh test     # unit tests only
+./e2e/run.sh        # real Zotero under Xvfb with mock LLM, ZotSeek and SeekBook stand-ins
 ```
 
-The version comes from `package.json`.
+Live scenarios: `E2E_LIVE_URL=https://ollama.ils.local E2E_LIVE_MODEL=<model> ./e2e/run.sh`.
+Version only in `package.json`. Release: `scripts/publish.py ../zotero_selfhost_src/data/downloads`.
+Logs: `logs/build.log`, `logs/e2e.log`, `e2e/out/`. Details: `CLAUDE.md`, `CHANGELOG.md`.
 
-Release: `scripts/publish.py ../zotero_selfhost_src/data/downloads` copies `dist/seekchat-<version>.xpi` to
-`downloads/seekchat/` and regenerates `updates.json`; installed copies update themselves. Full output of each run: `logs/build.log`.
-
-## E2E tests
-
-`./e2e/run.sh` runs a real Zotero (version pinned in `e2e/Dockerfile`) headless under Xvfb in
-Docker, with the E2E build of the plugin and a mock Ollama server. Scenarios (`test/e2e/scenarios.ts`):
-PDF chat (import, page text, streaming, section in library and reader, citation links, long documents,
-keywords, chapters) and library chat (ZotSeek stand-in endpoints on Zotero's HTTP server, sources and
-citations, scopes, toolbar button, window). Optional live scenarios against a real model server run
-with `E2E_LIVE_URL=https://ollama.ils.local E2E_LIVE_MODEL=<model> ./e2e/run.sh`. Results, Zotero log and screenshots land in
-`e2e/out/`, the run log in `logs/e2e.log`.
+</details>

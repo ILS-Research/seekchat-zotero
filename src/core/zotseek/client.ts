@@ -5,6 +5,9 @@
  * paths: without the endpoint there is no library chat, only the PDF chat.
  */
 import { getFetch } from '../../util/env';
+import { logger } from '../../util/log';
+
+const L = logger('ZotSeekClient');
 import { UserFacingError } from '../errors';
 import { t, type Key } from '../../i18n';
 
@@ -162,6 +165,7 @@ export function buildSearchUrl(port: number, query: string, opts: SearchOptions 
  */
 async function getJson(url: string, signal?: AbortSignal): Promise<any> {
   let resp: Response;
+  const t0 = Date.now();
   try {
     resp = await getFetch()(url, { headers: { 'Zotero-Allowed-Request': '1' }, redirect: 'error', signal });
   } catch (e: any) {
@@ -169,6 +173,7 @@ async function getJson(url: string, signal?: AbortSignal): Promise<any> {
     throw new ZotSeekUnavailableError('error', String(e?.message || e));
   }
   // 404: endpoint unregistered since the last check (AI Agent Access switched off).
+  L.info(`GET ${url.replace(/^http:\/\/[^/]+/, '')} → ${resp.status} in ${Date.now() - t0} ms`);
   if (resp.status === 404) throw new ZotSeekUnavailableError('endpoint-off');
   let json: any;
   try {

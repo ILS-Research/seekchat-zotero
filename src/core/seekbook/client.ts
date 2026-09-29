@@ -6,6 +6,9 @@
  */
 import { t, type Key } from '../../i18n';
 import { getFetch } from '../../util/env';
+import { logger } from '../../util/log';
+
+const L = logger('SeekBookClient');
 import { UserFacingError } from '../errors';
 import { parseSearchResponse, type ZotSeekPassage } from '../zotseek/client';
 
@@ -127,6 +130,7 @@ async function getJson(path: string, params: Record<string, string | undefined>,
   const sp = new URLSearchParams();
   for (const [k, v] of Object.entries(params)) if (v) sp.set(k, v);
   let resp: Response;
+  const t0 = Date.now();
   try {
     resp = await getFetch()(`http://127.0.0.1:${env.serverPort}${path}?${sp}`, {
       headers: { 'Zotero-Allowed-Request': '1' }, redirect: 'error', signal,
@@ -135,6 +139,7 @@ async function getJson(path: string, params: Record<string, string | undefined>,
     if (signal?.aborted) throw e;
     throw new SeekBookUnavailableError('error', String(e?.message || e));
   }
+  L.info(`GET ${path}?${sp} → ${resp.status} in ${Date.now() - t0} ms`);
   let json: any = null;
   try {
     json = await resp.json();

@@ -274,6 +274,7 @@ class LibraryChatView {
     }
     this.unsubscribe?.();
     this.scope = scope;
+    this.coverage = null;
     this.session = getSession(new LibraryContextProvider(scope));
     this.unsubscribe = this.session.subscribe(() => this.scheduleRender());
     this.win.document.title = t('lib.windowTitle', { scope: scope.label });
@@ -347,7 +348,9 @@ class LibraryChatView {
     const books = this.useBooks ? this.books || [] : [];
     if (!zotseek && !seekbook && !books.length) return;
     this.input.value = '';
-    void this.session.ask(q, { zotseek, seekbook, books });
+    // ZotSeek bringing SeekBook's passages: indexed books need no keyword reading either.
+    const viaZotSeek = zotseek && this.coverage?.bookMode === 'seekbook';
+    void this.session.ask(q, { zotseek, seekbook, books, skipIndexedBooks: seekbook || viaZotSeek });
   }
 
   private openSettings(): void {
@@ -418,7 +421,10 @@ class LibraryChatView {
   /** Coverage line (only with ZotSeek chosen) and the SeekBook switch with its reason. */
   private renderSources(): void {
     this.coverageEl.textContent = this.useZotSeek && this.coverage ? describeCoverage(this.coverage) : '';
-    const choice = seekBookChoice({
+    // Until ZotSeek's status and coverage are known, SeekBook stays locked: otherwise it would
+    // flash up as allowed on opening, before we know whether ZotSeek already brings SeekBook.
+    const pending = this.useZotSeek && (!this.status || !this.coverage);
+    const choice = pending ? { enabled: false, reason: 'seekbook' as const } : seekBookChoice({
       seekbook: this.seekbook,
       useZotSeek: this.useZotSeek,
       zotseekAvailable: this.status?.available === true,
@@ -431,7 +437,7 @@ class LibraryChatView {
       this.seekbookBox.checked = false;
     }
     const notes: string[] = [];
-    if (!this.seekbook) notes.push(t('lib.checking'));
+    if (!this.seekbook || pending) notes.push(t('lib.checking'));
     else if (!this.seekbook.available) notes.push(this.seekbook.message);
     else if (choice.reason === 'viaZotSeek') notes.push(t('lib.seekbookViaZotSeek'));
     else {

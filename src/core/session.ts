@@ -28,6 +28,7 @@ import {
   type Evidence, type LibrarySource, type SourceNumbers,
 } from './library/sources';
 import { LibraryContextProvider } from './library/library-context';
+import { logger } from '../util/log';
 import { bookKeysInScope, MAX_BOOKS_READ, splitBooks, type BookTarget } from './library/books';
 import { searchableBooks, SeekBookUnavailableError } from './seekbook/client';
 import { buildExcerptMessages, parseExcerpts } from './library/book-excerpts';
@@ -70,6 +71,8 @@ export interface LlmRequestLog {
 }
 
 export type { BookTarget };
+
+const L = logger('Chat');
 
 export type BookState = 'waiting' | 'language' | 'keywords' | 'reading' | 'found' | 'none' | 'nohits' | 'skipped' | 'error' | 'limit';
 
@@ -271,8 +274,10 @@ export class ChatSession {
       listModels: (signal) => client.listModels(signal),
       modelInfo: (model, signal) => client.modelInfo(model, signal),
       streamChat: (req, onDelta) => {
+        const why = purpose();
+        L.info(`model call: ${why}`);
         (answer.requests ??= []).push({
-          purpose: purpose(),
+          purpose: why,
           model: req.model,
           temperature: req.temperature,
           maxTokens: req.maxTokens,
@@ -289,7 +294,7 @@ export class ChatSession {
    * session's provider), `seekbook` searches SeekBook's book index, `books` pre-reads
    * these books (those SeekBook can search are left to it); all go into one answer.
    */
-  async ask(question: string, opts: { zotseek?: boolean; seekbook?: boolean; books?: BookTarget[] } = {}): Promise<void> {
+  async ask(question: string, opts: { zotseek?: boolean; seekbook?: boolean; books?: BookTarget[]; skipIndexedBooks?: boolean } = {}): Promise<void> {
     if (this.busy || !question.trim()) return;
     const q = question.trim();
     const prefs = readPrefs();
@@ -297,7 +302,9 @@ export class ChatSession {
     const answer: Turn = { role: 'assistant', content: '', pending: true };
     const library = this.provider instanceof LibraryContextProvider ? this.provider : null;
     const books = library ? opts.books || [] : [];
-    if (books.length) answer.bookProgress = books.map((b) => ({ label: b.label, attachmentID: b.attachment.id, state: 'waiting' }));
+    // With a split pending the list is made after it (otherwise it would first show books that then vanish).
+    const split = !!(opts.seekbook || opts.skipIndexedBooks);
+    if (books.length && !split) answer.bookProgress = books.map((b) => ({ label: b.label, attachmentID: b.attachment.id, state: 'waiting' }));
     this.turns.push({ role: 'user', content: q }, answer);
     const ctrl = newAbortController();
     this.abortCtrl = ctrl;
@@ -305,7 +312,7 @@ export class ChatSession {
     this.notify();
     try {
       if (library) {
-        await this.run(answer, ctrl, () => this.answerLibrary(answer, library, q, history, ctrl, { zotseek: opts.zotseek !== false, seekbook: !!opts.seekbook, books }));
+        await this.run(answer, ctrl, () => this.answerLibrary(answer, library, q, history, ctrl, { zotseek: opts.zotseek !== false, seekbook: !!opts.seekbook, books, skipIndexedBooks: split }));
         // After the first answer: say once that follow-ups can load pages and search in named documents (7e-2).
         const answers = this.turns.filter((x) => x.role === 'assistant' && !x.error);
         if (!answer.error && answers.length === 1 && !this.turns.some((x) => x.notice)) answer.notice = t('lib.followupHint');
@@ -457,11 +464,14 @@ export class ChatSession {
     question: string,
     history: HistoryTurn[],
     ctrl: AbortController,
-    opts: { zotseek: boolean; seekbook: boolean; books: BookTarget[] },
+    opts: { zotseek: boolean; seekbook: boolean; books: BookTarget[]; skipIndexedBooks: boolean },
   ): Promise<void> {
     const prefs = await this.answerPrefs();
     const base = createClient(prefs);
+    const t0 = Date.now();
+    L.info(`library question in ${library.describe()}: "${question.slice(0, 120)}" — sources: ${[opts.zotseek && 'ZotSeek', opts.seekbook && 'SeekBook', opts.books.length && `${opts.books.length} keyword books`].filter(Boolean).join(', ') || 'none'}${history.length ? `, ${history.length} history turns` : ''}`);
     const status = (text: string) => {
+      L.info(`[${Date.now() - t0} ms] ${text}`);
       answer.meta = text;
       this.notify();
     };
@@ -478,7 +488,7 @@ export class ChatSession {
     let bookKeys: string[] | undefined;
     let indexedBooks: Set<string> | null = null;
     let keywordBooks = opts.books;
-    if (opts.seekbook) {
+    if (opts.seekbook || (opts.skipIndexedBooks && opts.books.length)) {
       bookKeys = bookKeysInScope(library.scope);
       try {
         indexedBooks = await searchableBooks(library.scope.libraryKey || 'user', bookKeys, ctrl.signal);
@@ -488,14 +498,13 @@ export class ChatSession {
       if (opts.books.length) {
         const split = splitBooks(opts.books, indexedBooks);
         keywordBooks = split.keyword;
-        if (split.indexed.length) {
-          notes.push(tn('meta.booksViaSeekBook', split.indexed.length));
-          answer.bookProgress = keywordBooks.length
-            ? keywordBooks.map((b) => ({ label: b.label, attachmentID: b.attachment.id, state: 'waiting' as BookState }))
-            : undefined;
-          this.notify();
-        }
+        if (split.indexed.length) notes.push(tn('meta.booksViaSeekBook', split.indexed.length));
+        L.info(`books split: ${split.indexed.length} via index, ${split.keyword.length} by keywords${indexedBooks ? '' : ' (SeekBook coverage unknown)'}`);
       }
+    }
+    if (keywordBooks.length && !answer.bookProgress) {
+      answer.bookProgress = keywordBooks.map((b) => ({ label: b.label, attachmentID: b.attachment.id, state: 'waiting' as BookState }));
+      this.notify();
     }
     const searches = opts.zotseek || opts.seekbook;
 
@@ -505,6 +514,7 @@ export class ChatSession {
       status(t('meta.planning'));
       const client = this.recordingClient(base, answer, () => t('purpose.plan'));
       plan = await this.planSearch(client, prefs, question, history, scope, ctrl.signal, known);
+      L.info(`plan${plan.fromModel ? '' : ' (fallback)'}: question "${plan.question.slice(0, 120)}", queries ${JSON.stringify(plan.queries)}`, plan);
       if (!plan.fromModel) {
         notes.push(t('meta.planFailed'));
       } else {
@@ -520,7 +530,7 @@ export class ChatSession {
     if (opts.zotseek) {
       status(t('meta.searchingZotSeek'));
       try {
-        zotseek = await library.searchEvidence(plan.queries, ctrl.signal);
+        zotseek = await L.time('ZotSeek search', () => library.searchEvidence(plan.queries, ctrl.signal), (r) => `${r.length} passages`);
       } catch (e: any) {
         // With other sources or loaded pages there is still something to answer from.
         if ((!others && !opts.seekbook) || !(e instanceof ZotSeekUnavailableError)) throw e;
@@ -531,7 +541,7 @@ export class ChatSession {
     if (opts.seekbook) {
       status(t('meta.searchingSeekBook'));
       try {
-        seekbook = await library.searchBookIndex(plan.queries, bookKeys, ctrl.signal);
+        seekbook = await L.time('SeekBook search', () => library.searchBookIndex(plan.queries, bookKeys, ctrl.signal), (r) => `${r.length} passages`);
         // ZotSeek indexing books itself would bring the same books again.
         const covered = new Set(seekbook.map(sourceId));
         if (indexedBooks) for (const key of indexedBooks) covered.add(sourceId({ libraryKey: library.scope.libraryKey ?? null, itemKey: key }));
@@ -571,6 +581,7 @@ export class ChatSession {
       },
     };
     if (set.carried) notes.push(tn('meta.carried', set.carried));
+    L.info(`[${Date.now() - t0} ms] sources: ${set.sources.length} (${books} books), ${set.passagesUsed} excerpts, ${set.chars} chars, ${set.overBudget} over budget, ${set.withoutText} without text, ${set.carried} carried; answering`);
     answer.sources = set.sources;
     answer.meta = [`${prefs.model} · ${describeContext(context)}`, ...notes].join('\n');
     this.notify();
@@ -593,6 +604,7 @@ export class ChatSession {
         this.notify();
       },
     );
+    L.info(`[${Date.now() - t0} ms] answer done: ${answer.content.length} chars`);
   }
 
   /** "Bücher: 2 mit Fundstellen, 1 ohne Stichworttreffer, 1 übersprungen" */
@@ -656,6 +668,7 @@ export class ChatSession {
     ctrl.signal.addEventListener('abort', onAbort);
     const step = (state: BookState) => {
       if (progress.state === 'skipped') throw new Error('skipped');
+      L.info(`book "${book.label}": ${state}`);
       progress.state = state;
       this.notify();
     };
@@ -751,7 +764,10 @@ export class ChatSession {
     ctrl: AbortController,
   ): Promise<void> {
     const prefs = await this.answerPrefs();
+    const t0 = Date.now();
+    L.info(`PDF question in ${provider.describe()}: "${question.slice(0, 120)}"`);
     const status = (text: string) => {
+      L.info(`[${Date.now() - t0} ms] ${text}`);
       answer.meta = text;
       this.notify();
     };
