@@ -51,6 +51,13 @@ Each of these would be enough on its own:
 3. **Optional: change notification.** An event when the visible page changes, so plugins do not have to poll, for
    example `Zotero.Reader.registerEventListener('pageChange', …)` next to the existing reader event listeners.
 
+## Related
+
+- #5942 (open PR, "Add GET /api/reader/openItems endpoint to local API") accesses `Zotero.Reader._readers` directly
+  and offers to add a public accessor to `reader.js`. Such an accessor would cover point 1 of "Possible API" for that PR too.
+- #3373 ("Better reader integration with plugins") led to the reader event listeners (`registerEventListener`) for
+  UI injection. Reading reader state (open readers, current page) was not part of it.
+
 ## Implementation hints
 
 - `ReaderInstance` already receives view state changes from the internal reader; those updates are the source for
