@@ -5,7 +5,7 @@ import { buildOutline, type Outline } from './outline';
 import { readPdfOutline } from './pdf-outline';
 import { logError } from '../../util/log';
 import { UserFacingError } from '../errors';
-import { buildTerms, selectPagesByTerms } from './page-selection';
+import { buildTerms, selectPagesByTerms, selectRankedPages } from './page-selection';
 import type { BuildOptions, ContextBlock, ContextProvider, Page } from './types';
 
 /** Extracted pages per attachment, invalidated when the attachment item changes. */
@@ -52,7 +52,7 @@ export function describeItem(attachment: any): string {
 export class PdfContextProvider implements ContextProvider {
   readonly key: string;
 
-  constructor(private attachment: any) {
+  constructor(readonly attachment: any) {
     this.key = `pdf:${attachment.id}`;
   }
 
@@ -96,7 +96,9 @@ export class PdfContextProvider implements ContextProvider {
     const pages = await getPdfPages(this.attachment);
     const allowed = opts.chapters && new Set(opts.chapters.pages);
     const pool = allowed ? pages.filter((p) => allowed.has(p.pageNumber)) : pages;
-    const selection = selectPagesByTerms(pool, buildTerms(query, opts.keywords), budgetChars);
+    const selection = opts.rankedPages
+      ? selectRankedPages(pool, opts.rankedPages, budgetChars)
+      : selectPagesByTerms(pool, buildTerms(query, opts.keywords), budgetChars);
     return {
       title: this.describe(),
       body: formatPages(selection.pages),

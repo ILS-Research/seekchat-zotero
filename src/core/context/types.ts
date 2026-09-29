@@ -46,6 +46,8 @@ export interface BuildOptions {
   keywords?: string[];
   /** Strategy "chapters": search only these pages (1-based); titles are for prompt and UI. */
   chapters?: ChapterScope;
+  /** Strategy "semantic": pages ranked by SeekBook/ZotSeek, best first (replaces the keyword selection). */
+  rankedPages?: { page: number; pageEnd?: number }[];
 }
 
 export interface ChapterScope {
@@ -55,6 +57,7 @@ export interface ChapterScope {
 
 /** How to deal with documents that do not fit into the context. */
 export type LongDocStrategy = 'vector' | 'keywords' | 'chapters';
+/** Strategy 'vector' = semantic search in an external index (SeekBook for books, ZotSeek otherwise). */
 
 export interface ContextProvider {
   /** Stable key for sessions, e.g. "pdf:1234". */

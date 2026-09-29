@@ -158,6 +158,8 @@ export interface BookSearchOptions {
   libraryKey?: string;
   /** Only these books (item keys). */
   itemKeys?: string[];
+  /** Only these PDFs (attachment keys). */
+  attachmentKeys?: string[];
   signal?: AbortSignal;
 }
 
@@ -165,7 +167,7 @@ export interface BookSearchOptions {
 export async function searchBooks(query: string, opts: BookSearchOptions = {}): Promise<SeekBookPassage[]> {
   const { status, json } = await getJson(SEARCH_PATH, {
     q: query, topK: opts.topK ? String(opts.topK) : undefined, libraryKey: opts.libraryKey,
-    itemKeys: opts.itemKeys?.join(','), granularity: 'passages',
+    itemKeys: opts.itemKeys?.join(','), attachmentKeys: opts.attachmentKeys?.join(','), granularity: 'passages',
   }, opts.signal);
   if (status === 404) throw new SeekBookUnavailableError('endpoint-off');
   if (status !== 200) throw failed(status, json);

@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.10.0 – 2026-09-29
+
+- **PDF chat: the strategy "Semantic search" works** – without an index of SeekChat's own: a book PDF is searched in
+  SeekBook (only this PDF), any other PDF in ZotSeek (filtered to the item). The hits pick the pages (plus page 1 and
+  neighbours); no keyword call, citations stay `[S. N]`. Live (JIRA documentation, 304 pages): 29 matching pages,
+  one model call.
+- While the document is not in its index the strategy is greyed out with the reason and a button "Add the book to
+  SeekBook" / "Add the item to ZotSeek" (ZotSeek: through its plugin object, a hint when that is not possible).
+  Nothing found or index not reachable: keyword search, the meta line says so.
+
 ## 0.9.8 – 2026-09-29
 
 - **Pages of indexed books come from SeekBook** ("What is on p. 27 of [2]?"): cleaned text without running headers,

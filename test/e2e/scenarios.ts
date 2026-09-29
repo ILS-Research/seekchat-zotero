@@ -301,12 +301,11 @@ export const scenarios: Scenario[] = [
     assert(strategies.map((e) => e.dataset.strategy).join() === 'vector,keywords,chapters', 'strategies missing or out of order');
     const checked = panel.querySelector('input[type="radio"]:checked') as HTMLInputElement | null;
     assert(checked?.value === 'keywords', 'keywords is not the default strategy');
-    assert(strategies[0].querySelector('.seekchat-badge') && !strategies[1].querySelector('.seekchat-badge') && !strategies[2].querySelector('.seekchat-badge'),
-      'placeholder badges wrong');
+    assert(!panel.querySelector('.seekchat-badge'), 'placeholder badge still shown');
     ctx.longSection = section;
   }],
 
-  ['long PDF: unimplemented strategy is greyed out and cannot be picked', async (ctx) => {
+  ['long PDF: semantic search is greyed out without SeekBook and cannot be picked', async (ctx) => {
     const section: Element = ctx.longSection;
     for (const id of ['vector']) {
       const row = section.querySelector(`.seekchat-strategy[data-strategy="${id}"]`) as HTMLElement;
@@ -315,7 +314,7 @@ export const scenarios: Scenario[] = [
       row.click();
       radio.click();
       assert(!radio.checked, `${id} could be selected`);
-      assert(row.textContent!.includes(' noch ohne Funktion'), `badge text not separated: ${row.textContent}`);
+      await waitFor('index hint', () => section.querySelector('.seekchat-index-panel')?.textContent?.includes('braucht SeekBook'), 5000);
     }
     const checked = section.querySelector('.seekchat-strategy input:checked') as HTMLInputElement;
     assert(checked?.value === 'keywords', `selection changed to ${checked?.value}`);
@@ -489,6 +488,59 @@ export const scenarios: Scenario[] = [
       ctx.librarySources = sources;
     } finally {
       zs.uninstall();
+    }
+  }],
+
+  ['long PDF: semantic search via SeekBook – hand the book over, then pages from the index, no keyword call', async (ctx) => {
+    const server = (Zotero as any).Server;
+    const restore = stashSeekBook();
+    const state = { indexed: false, handed: 0, searches: [] as any[] };
+    const E = (payload: (sp: URLSearchParams) => any) => {
+      const F: any = function () {};
+      F.prototype = { supportedMethods: ['GET'], supportedDataTypes: ['application/json'], permitBookmarklet: false,
+        init: async (req: any) => [200, 'application/json', JSON.stringify(payload(req.searchParams))] };
+      return F;
+    };
+    (Zotero as any).SeekBook = {
+      apiVersion: 1, standIn: true,
+      isIndexed: async () => state.indexed,
+      indexer: { progress: {}, indexBooks: async () => { state.handed++; state.indexed = true; return 1; } },
+    };
+    server.Endpoints['/seekbook/stats'] = E(() => ({ apiVersion: 1, indexedBooks: 1, ready: true }));
+    server.Endpoints['/seekbook/search'] = E((sp) => {
+      state.searches.push(Object.fromEntries(sp));
+      return { apiVersion: 1, results: [{ itemKey: Zotero.Items.get(ctx.longParentID).key, libraryKey: 'user', title: 'Buch', score: 1, semanticScore: 0.9, keywordScore: null,
+        matchedChunk: { snippet: 'x', page: 27, pageEnd: 28, attachmentKey: ctx.longAttachment.key } }] };
+    });
+    try {
+      // Reopen: the panel reads the index state per document.
+      await openSectionInLibrary(ctx.parentID);
+      const section = await openSectionInLibrary(ctx.longParentID);
+      const btn = await waitFor('hand-over button', () => section.querySelector('.seekchat-add-index') as HTMLButtonElement | null, 10000);
+      assert(btn.textContent?.includes('an SeekBook'), `button: ${btn.textContent}`);
+      btn.click();
+      const radio = await waitFor('semantic radio enabled', () => {
+        const r = section.querySelector('.seekchat-strategy[data-strategy="vector"] input') as HTMLInputElement | null;
+        return r && !r.disabled ? r : null;
+      }, 10000);
+      assert(state.handed === 1, `handed over ${state.handed}×`);
+      radio.click();
+      await waitFor('ready note', () => section.querySelector('.seekchat-index-panel')?.textContent?.includes('Semantische Suche über SeekBook'), 5000);
+      const session = getSession(new PdfContextProvider(ctx.longAttachment));
+      session.clear();
+      const before = (await mockRequests()).length;
+      await session.ask('Was steht zu Waermeinseln?');
+      const answer = session.turns[session.turns.length - 1];
+      assert(!answer.error && answer.meta?.includes('Semantische Suche (SeekBook)'), `meta: ${answer.meta} / ${answer.content}`);
+      const reqs = (await mockRequests()).slice(before);
+      assert(reqs.length === 1, `expected only the answer request, got ${reqs.length}`);
+      const sent = sentPages(reqs[0].messages[0].content);
+      assert(sent.includes(27) && sent.includes(28) && sent[0] === 1, `pages sent: ${sent}`);
+      assert(state.searches[0]?.attachmentKeys === ctx.longAttachment.key, `search: ${JSON.stringify(state.searches)}`);
+      session.setStrategy('keywords');
+      session.clear();
+    } finally {
+      restore();
     }
   }],
 
@@ -1376,5 +1428,18 @@ export const scenarios: Scenario[] = [
     assert(p2.length < p1.length, `follow-up prompt ${p2.length} not smaller than first ${p1.length}`);
     assert(repeated(p1) < p1.length * 0.05 && repeated(p2) < p2.length * 0.1, `repeated text: ${repeated(p1)} / ${repeated(p2)}`);
     session.clear();
+
+    // PDF chat on the same book with the semantic strategy (SeekBook pages, no keyword call).
+    const att = Zotero.Items.get(book.getAttachments())[0];
+    const pdf = getSession(new PdfContextProvider(att));
+    pdf.clear();
+    pdf.setStrategy('vector');
+    t0 = Date.now();
+    await pdf.ask('Wie lege ich einen Sprint an und starte ihn?');
+    const pa = pdf.turns[pdf.turns.length - 1];
+    await reportLive(ctx, { step: 'jira-pdf-semantic', ms: Date.now() - t0, meta: pa.meta, answer: pa.content, requests: pa.requests?.length });
+    assert(!pa.error && pa.meta?.includes('Semantische Suche (SeekBook)') && pa.requests?.length === 1 && /\[S\. \d+/.test(pa.content), `pdf semantic: ${pa.meta} / ${pa.content.slice(0, 300)}`);
+    pdf.setStrategy('keywords');
+    pdf.clear();
   }],
 ];

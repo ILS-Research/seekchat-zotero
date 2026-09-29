@@ -29,6 +29,7 @@ import {
 } from './library/sources';
 import { LibraryContextProvider } from './library/library-context';
 import { logger } from '../util/log';
+import { indexState, semanticPages } from './context/index-access';
 import { bookKeysInScope, booksInScope, MAX_BOOKS_READ, splitBooks, unindexedBooks, type BookTarget } from './library/books';
 import { diagnose as diagnoseSeekBook, readEnvironment as readSeekBookEnvironment, loadBookPages, MAX_PAGES, searchableBooks, SeekBookUnavailableError } from './seekbook/client';
 import { buildExcerptMessages, parseExcerpts } from './library/book-excerpts';
@@ -106,7 +107,7 @@ export interface BookProgress {
 export const SKIPPABLE: BookState[] = ['waiting', 'language', 'keywords', 'reading'];
 
 /** Strategies the user can pick for long documents; "vector" is not implemented yet. */
-export const IMPLEMENTED_STRATEGIES: LongDocStrategy[] = ['keywords', 'chapters'];
+export const IMPLEMENTED_STRATEGIES: LongDocStrategy[] = ['vector', 'keywords', 'chapters'];
 
 export class ChatSession {
   turns: Turn[] = [];
@@ -882,6 +883,30 @@ export class ChatSession {
       needKeywords = scope.tokens > fit.budgetTokens;
       if (needKeywords) notes.push(t('meta.chaptersOver'));
     }
+    let rankedPages: { page: number; pageEnd?: number }[] | undefined;
+    if (!fit.fits && this.strategy === 'vector' && provider instanceof PdfContextProvider) {
+      // Semantic search in SeekBook (books) or ZotSeek (other PDFs); keywords when that is not possible.
+      const state = await indexState(provider.attachment);
+      const where = state.kind === 'seekbook' ? 'SeekBook' : 'ZotSeek';
+      if (state.ready) {
+        status(t('meta.semanticSearching', { index: where }));
+        try {
+          const hits = await L.time(`${where} pages`, () => semanticPages(provider.attachment, [question, lastQuestion], ctrl.signal), (h) => `${h.length} pages`);
+          if (hits.length) {
+            rankedPages = hits;
+            needKeywords = false;
+            notes.push(t('meta.semanticPages', { index: where, n: hits.length }));
+          } else {
+            notes.push(t('meta.semanticNoHits', { index: where }));
+          }
+        } catch (e: any) {
+          if (ctrl.signal.aborted) throw e;
+          notes.push(t('meta.semanticFailed', { index: where, message: String(e?.message || e) }));
+        }
+      } else {
+        notes.push(t('meta.semanticNotReady', { index: where }));
+      }
+    }
     if (needKeywords) {
       if (!IMPLEMENTED_STRATEGIES.includes(this.strategy)) notes.push(t('meta.strategyFallback'));
       status(t('meta.detectLanguage'));
@@ -895,7 +920,7 @@ export class ChatSession {
       notes.push(keywords.length ? t('meta.keywords', { keywords: keywords.join(', ') }) : t('meta.noKeywords'));
     }
     purpose = t('purpose.answer');
-    const context = await provider.build(`${question}\n${lastQuestion}`, prefs.contextChars, { keywords, chapters });
+    const context = await provider.build(`${question}\n${lastQuestion}`, prefs.contextChars, { keywords, chapters, rankedPages });
     answer.meta = [`${prefs.model} · ${describeContext(context)}`, ...notes].join('\n');
     this.notify();
     let raw = '';

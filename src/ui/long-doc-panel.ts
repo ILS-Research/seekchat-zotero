@@ -3,7 +3,8 @@
  *
  * Shows whether the whole document fits into the context. If not, the user
  * picks a strategy:
- *   1. vector   - embed the document into a local vector database (placeholder, no function yet)
+ *   1. vector   - semantic search in an external index: SeekBook for books, ZotSeek for other PDFs;
+ *                 greyed out with a button "hand it to SeekBook/ZotSeek" while the document is not in it
  *   2. keywords - the model expands the question into search terms; best pages fill the budget (implemented)
  *   3. chapters - only selected chapters: sent whole if they fit, else searched with keywords (implemented)
  */
@@ -13,6 +14,8 @@ import { descendants, topSelected, type Outline, type OutlineNode } from '../cor
 import type { LongDocStrategy } from '../core/context/types';
 import { IMPLEMENTED_STRATEGIES, type ChatSession } from '../core/session';
 import { logError } from '../util/log';
+import { PdfContextProvider } from '../core/context/pdf-context';
+import { addToIndex, indexState, type IndexState } from '../core/context/index-access';
 
 const HTML_NS = 'http://www.w3.org/1999/xhtml';
 
@@ -40,6 +43,10 @@ export class LongDocPanel {
   private renderedKey = '';
   private outline: Outline | null = null;
   private outlineFor: ChatSession | null = null;
+  /** Semantic search: whether this PDF is in its index (SeekBook/ZotSeek); null while unknown. */
+  private index: IndexState | null = null;
+  private indexFor: ChatSession | null = null;
+  private indexNote = '';
 
   constructor(private doc: Document) {
     this.root = this.el('div', 'seekchat-longdoc');
@@ -57,7 +64,28 @@ export class LongDocPanel {
     this.session = session;
     this.outline = null;
     this.outlineFor = null;
+    this.index = null;
+    this.indexFor = null;
+    this.indexNote = '';
     this.renderedKey = '';
+  }
+
+  /** Index state of the session's PDF; re-read on each call (focus, button), repaints when it changed. */
+  async refreshIndex(): Promise<void> {
+    const s = this.session;
+    if (!s || !(s.provider instanceof PdfContextProvider)) return;
+    try {
+      const state = await indexState(s.provider.attachment);
+      if (this.session !== s) return;
+      this.index = state;
+      this.indexFor = s;
+      // Not searchable (any more): questions must not wait on a strategy that cannot run.
+      if (!state.ready && s.strategy === 'vector') s.setStrategy('keywords');
+    } catch (e) {
+      logError(e);
+    }
+    this.renderedKey = '';
+    this.render();
   }
 
   /** Called on every chat repaint; rebuilds the DOM only when its own state changed. */
@@ -66,7 +94,7 @@ export class LongDocPanel {
     const key = !s ? 'none'
       : s.fitError ? `err:${s.fitError}`
       : !s.fit ? 'checking'
-      : `${s.fit.fits}:${s.fit.budgetChars}:${s.strategy}:${this.outline ? 'o' : ''}`;
+      : `${s.fit.fits}:${s.fit.budgetChars}:${s.strategy}:${this.outline ? 'o' : ''}:${this.indexKey()}:${this.indexNote}`;
     if (key === this.renderedKey) return;
     this.renderedKey = key;
     this.root.replaceChildren();
@@ -92,15 +120,17 @@ export class LongDocPanel {
       this.el('div', 'seekchat-longdoc-title', t('long.tooLarge')),
       this.el('div', '', t('long.tooLargeDetail', { tokens: formatCount(fit.totalTokens), pages: fit.pageCount, budget: formatCount(fit.budgetTokens) })),
     );
+    if (this.indexFor !== s) void this.refreshIndex();
     const list = this.el('div', 'seekchat-strategies');
     for (const st of STRATEGIES) list.append(this.renderStrategy(s, st));
     this.root.append(list);
-    if (s.strategy === 'vector') this.root.append(this.renderVectorPanel());
+    this.root.append(this.renderVectorPanel(s));
     if (s.strategy === 'chapters') this.root.append(this.renderChapterPanel(s));
   }
 
   private renderStrategy(s: ChatSession, st: (typeof STRATEGIES)[number]): HTMLElement {
-    const implemented = IMPLEMENTED_STRATEGIES.includes(st.id);
+    // The semantic search needs the PDF in SeekBook (books) or ZotSeek (other PDFs).
+    const implemented = IMPLEMENTED_STRATEGIES.includes(st.id) && (st.id !== 'vector' || this.index?.ready === true);
     const row = this.el('label', implemented ? 'seekchat-strategy' : 'seekchat-strategy disabled');
     const radio = this.el('input') as HTMLInputElement;
     radio.type = 'radio';
@@ -112,19 +142,54 @@ export class LongDocPanel {
     if (implemented) radio.addEventListener('change', () => s.setStrategy(st.id));
     const text = this.el('span');
     text.append(this.el('b', '', t(st.label)));
-    if (!implemented) text.append(this.doc.createTextNode(' '), this.el('span', 'seekchat-badge', t('common.notYet')));
-    text.append(this.el('div', 'seekchat-hint', t(st.description)));
+    const desc = st.id === 'vector' && this.index ? t(this.index.kind === 'seekbook' ? 'long.vectorDescSeekBook' : 'long.vectorDescZotSeek') : t(st.description);
+    text.append(this.el('div', 'seekchat-hint', desc));
     row.append(radio, text);
     row.dataset.strategy = st.id;
     return row;
   }
 
-  private renderVectorPanel(): HTMLElement {
-    const box = this.el('div', 'seekchat-strategy-panel');
-    const btn = this.el('button', '', t('long.buildIndex')) as HTMLButtonElement;
-    btn.disabled = true;
-    box.append(btn, this.el('div', 'seekchat-hint',
-      t('long.vectorPending')));
+  private indexKey(): string {
+    const i = this.index;
+    return !i ? 'i?' : i.ready ? `i+${i.kind}` : `i-${i.kind}-${i.reason}`;
+  }
+
+  /** Under the strategies: where the semantic search runs, or why not and a button to hand the PDF over. */
+  private renderVectorPanel(s: ChatSession): HTMLElement {
+    const box = this.el('div', 'seekchat-strategy-panel seekchat-index-panel');
+    const i = this.index;
+    if (!i) {
+      box.append(this.el('div', 'seekchat-hint', t('long.indexChecking')));
+      return box;
+    }
+    const name = i.kind === 'seekbook' ? 'SeekBook' : 'ZotSeek';
+    if (i.ready) {
+      if (s.strategy === 'vector') box.append(this.el('div', 'seekchat-hint', t('long.indexReady', { index: name })));
+      else return this.el('span');
+      return box;
+    }
+    if (i.reason === 'unavailable') {
+      box.append(this.el('div', 'seekchat-hint', t(i.kind === 'seekbook' ? 'long.noSeekBook' : 'long.noZotSeek')));
+      return box;
+    }
+    box.append(this.el('div', 'seekchat-hint', t(i.reason === 'indexing' ? 'long.indexRunning' : 'long.notInIndex', { index: name })));
+    if (i.reason === 'notIndexed') {
+      if (i.canAdd) {
+        const btn = this.el('button', 'seekchat-add-index', t(i.kind === 'seekbook' ? 'long.addSeekBook' : 'long.addZotSeek')) as HTMLButtonElement;
+        btn.addEventListener('click', () => {
+          btn.disabled = true;
+          void (async () => {
+            const ok = s.provider instanceof PdfContextProvider && await addToIndex(s.provider.attachment);
+            this.indexNote = ok ? t('long.addStarted', { index: name }) : t('long.addFailed', { index: name });
+            await this.refreshIndex();
+          })();
+        });
+        box.append(btn);
+      } else {
+        box.append(this.el('div', 'seekchat-hint', t('long.addManually', { index: name })));
+      }
+    }
+    if (this.indexNote) box.append(this.el('div', 'seekchat-hint', this.indexNote));
     return box;
   }
 

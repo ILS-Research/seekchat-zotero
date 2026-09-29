@@ -160,6 +160,29 @@ export function selectPagesByTerms(pages: Page[], terms: WeightedTerm[], budgetC
   return { pages: chosen, mode: 'excerpt', matchedPages: relevant.length, noMatches: false };
 }
 
+/**
+ * Strategy "semantic": pages ranked by an external index (SeekBook/ZotSeek), best first.
+ * Page 1 (title, table of contents) first, then the hits (a hit spanning two pages brings both),
+ * then neighbours of the five best while the budget lasts; shown in document order.
+ */
+export function selectRankedPages(pages: Page[], ranked: { page: number; pageEnd?: number }[], budgetChars: number): Selection {
+  const nonEmpty = pages.filter((p) => p.text.trim());
+  const total = nonEmpty.reduce((s, p) => s + p.text.length, 0);
+  if (total <= budgetChars) return { pages: nonEmpty, mode: 'full', matchedPages: 0, noMatches: false };
+  const index = new Map(nonEmpty.map((p, i) => [p.pageNumber, i]));
+  const hits: number[] = [];
+  for (const r of ranked) {
+    for (let p = r.page; p <= (r.pageEnd ?? r.page) && p < r.page + 3; p++) {
+      const i = index.get(p);
+      if (i !== undefined && !hits.includes(i)) hits.push(i);
+    }
+  }
+  if (!hits.length) return { pages: fill(nonEmpty, [0, ...evenlySpread(nonEmpty.length, 1)], budgetChars), mode: 'excerpt', matchedPages: 0, noMatches: true };
+  const neighbours: number[] = [];
+  for (const i of hits.slice(0, NEIGHBOUR_ANCHORS)) for (const j of [i - 1, i + 1]) if (j >= 0 && j < nonEmpty.length) neighbours.push(j);
+  return { pages: fill(nonEmpty, [0, ...hits, ...neighbours], budgetChars), mode: 'excerpt', matchedPages: hits.length, noMatches: false };
+}
+
 /** Pages with at least one term hit (to rank documents before reading them). */
 export function countMatchingPages(pages: Page[], terms: WeightedTerm[]): number {
   return scorePages(pages, terms).filter((s) => s > 0).length;
