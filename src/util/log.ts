@@ -82,6 +82,23 @@ export function logger(module: string): Logger {
   return l;
 }
 
+/**
+ * Text the user or the document wrote (questions, search terms, page text), for a log line. Debug output gets
+ * attached to bug reports, so by default only its length is logged; the hidden pref
+ * `extensions.zotero.seekchat.logContent` = true logs the text itself (cut to `max`).
+ */
+export function content(value: unknown, max = 120): string {
+  const s = typeof value === 'string' ? value : JSON.stringify(value) ?? '';
+  let on = false;
+  try {
+    on = Zotero.Prefs.get('seekchat.logContent') === true;
+  } catch {
+    // unit tests: no Zotero
+  }
+  if (!on) return `‹${s.length} chars›`;
+  return s.length > max ? `${s.slice(0, max)}…` : s;
+}
+
 const root = logger('');
 
 export function log(msg: string): void {

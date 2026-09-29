@@ -5,7 +5,7 @@
  * paths: without the endpoint there is no library chat, only the PDF chat.
  */
 import { getFetch } from '../../util/env';
-import { logger } from '../../util/log';
+import { content, logger } from '../../util/log';
 import { UserFacingError } from '../errors';
 import { t, type Key } from '../../i18n';
 
@@ -173,7 +173,8 @@ async function getJson(url: string, signal?: AbortSignal): Promise<any> {
     throw new ZotSeekUnavailableError('error', String(e?.message || e));
   }
   // 404: endpoint unregistered since the last check (AI Agent Access switched off).
-  L.info(`GET ${url.replace(/^http:\/\/[^/]+/, '')} → ${resp.status} in ${Date.now() - t0} ms`);
+  const u = new URL(url);
+  L.info(`GET ${u.pathname}${u.searchParams.has('q') ? ` q=${content(u.searchParams.get('q'))}` : ''} → ${resp.status} in ${Date.now() - t0} ms`);
   if (resp.status === 404) throw new ZotSeekUnavailableError('endpoint-off');
   let json: any;
   try {

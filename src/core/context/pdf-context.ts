@@ -3,7 +3,7 @@ import { formatPages } from '../prompt';
 import { analyzeFit, type FitInfo } from './fit';
 import { buildOutline, type Outline } from './outline';
 import { readPageLabels, readPdfOutline } from './pdf-outline';
-import { logError, logger } from '../../util/log';
+import { content, logError, logger } from '../../util/log';
 import { UserFacingError } from '../errors';
 import { stripRunningLines } from './clean';
 import { buildTerms, selectPagesByTerms, selectRankedPages } from './page-selection';
@@ -36,7 +36,7 @@ export async function getPdfPages(attachment: any): Promise<Page[]> {
   }
   // Running headers/footers out (they cost budget on every page and hide headings).
   const { pages, removed } = stripRunningLines(raw);
-  if (removed.length) L.info(`${attachment.key}: removed ${removed.join(' | ')}`);
+  if (removed.length) L.info(`${attachment.key}: removed ${removed.length} running lines: ${content(removed.join(' | '), 300)}`);
   pageCache.set(attachment.id, { version, pages });
   return pages;
 }

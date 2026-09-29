@@ -43,7 +43,7 @@ import { diagnose, readEnvironment, ZotSeekUnavailableError } from './zotseek/cl
 import { readPrefs, type SeekChatPrefs } from '../prefs';
 import { resolveLimits } from './limits';
 import { newAbortController } from '../util/env';
-import { logError } from '../util/log';
+import { content, logError } from '../util/log';
 
 export interface Turn {
   /** This answer was saved as a note on its own (button shows ✓). */
@@ -549,7 +549,7 @@ export class ChatSession {
     const prefs = await this.answerPrefs();
     const base = createClient(prefs);
     const t0 = Date.now();
-    L.info(`library question in ${library.describe()}: "${question.slice(0, 120)}" — sources: ${[opts.zotseek && 'ZotSeek', opts.seekbook && 'SeekBook', opts.books.length && `${opts.books.length} keyword books`].filter(Boolean).join(', ') || 'none'}${history.length ? `, ${history.length} history turns` : ''}`);
+    L.info(`library question in ${library.describe()}: ${content(question)} — sources: ${[opts.zotseek && 'ZotSeek', opts.seekbook && 'SeekBook', opts.books.length && `${opts.books.length} keyword books`].filter(Boolean).join(', ') || 'none'}${history.length ? `, ${history.length} history turns` : ''}`);
     const status = (text: string) => {
       L.info(`[${Date.now() - t0} ms] ${text}`);
       answer.meta = text;
@@ -572,7 +572,7 @@ export class ChatSession {
       status(t('meta.planning'));
       const client = this.recordingClient(base, answer, () => t('purpose.plan'));
       plan = await this.planSearch(client, prefs, question, history, scope, ctrl.signal, known);
-      L.info(`plan${plan.fromModel ? '' : ' (fallback)'}: question "${plan.question.slice(0, 120)}", queries ${JSON.stringify(plan.queries)}`, plan);
+      L.info(`plan${plan.fromModel ? '' : ' (fallback)'}: question ${content(plan.question)}, queries ${content(plan.queries, 400)}, search ${plan.search ?? '-'}`);
       if (!plan.fromModel) {
         notes.push(t('meta.planFailed'));
       } else {
@@ -868,7 +868,7 @@ export class ChatSession {
   ): Promise<void> {
     const prefs = await this.answerPrefs();
     const t0 = Date.now();
-    L.info(`PDF question in ${provider.describe()}: "${question.slice(0, 120)}"`);
+    L.info(`PDF question in ${provider.describe()}: ${content(question)}`);
     const status = (text: string) => {
       L.info(`[${Date.now() - t0} ms] ${text}`);
       answer.meta = text;
@@ -1001,14 +1001,34 @@ export function contextNotesText(noteIDs: number[], budgetChars: number): NoteCo
   return out;
 }
 
+const NAMED_ENTITIES: Record<string, string> = {
+  amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ', shy: '', ndash: '–', mdash: '—', hellip: '…',
+  laquo: '«', raquo: '»', lsquo: '‘', rsquo: '’', sbquo: '‚', ldquo: '“', rdquo: '”', bdquo: '„', bull: '•', middot: '·',
+  auml: 'ä', ouml: 'ö', uuml: 'ü', Auml: 'Ä', Ouml: 'Ö', Uuml: 'Ü', szlig: 'ß', eacute: 'é', egrave: 'è', euro: '€',
+  copy: '©', reg: '®', deg: '°', sect: '§', para: '¶', times: '×', minus: '−',
+};
+
+/** Decodes numeric (&#8211; &#x2013;) and the common named entities in one pass; unknown ones stay as they are. */
+export function decodeEntities(text: string): string {
+  return text.replace(/&(#\d{1,7}|#x[0-9a-f]{1,6}|[a-z][a-z0-9]{1,15});/gi, (m, e: string) => {
+    if (e[0] !== '#') return NAMED_ENTITIES[e] ?? m;
+    const code = e[1] === 'x' || e[1] === 'X' ? parseInt(e.slice(2), 16) : parseInt(e.slice(1), 10);
+    if (code === 160) return ' ';
+    try {
+      return String.fromCodePoint(code);
+    } catch {
+      return m;
+    }
+  });
+}
+
 /** Note HTML to plain text (paragraphs and list items on their own lines). */
 export function noteText(html: string): string {
   const withBreaks = String(html || '')
     .replace(/<\/(p|div|h\d|li|tr|blockquote)>/gi, '\n')
     .replace(/<br\s*\/?>/gi, '\n')
     .replace(/<li[^>]*>/gi, '• ');
-  const plain = withBreaks.replace(/<[^>]+>/g, '')
-    .replace(/&nbsp;/g, ' ').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&amp;/g, '&');
+  const plain = decodeEntities(withBreaks.replace(/<[^>]+>/g, ''));
   return plain.split('\n').map((l) => l.trim()).filter(Boolean).join('\n');
 }
 

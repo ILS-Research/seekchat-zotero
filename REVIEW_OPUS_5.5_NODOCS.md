@@ -83,7 +83,7 @@ gewachsen sind.
     - Das ist sauber mit try/catch abgesichert. Es kann aber mit jedem Zotero-Update brechen, und das Manifest erlaubt
       bis `10.0.*`.
 
-11. **Datenschutz beim Logging**
+11. ~~**Datenschutz beim Logging**~~ – *behoben in 0.13.1*
     - Fragen (die ersten 120 Zeichen), der Plan und die Queries gehen auf Info-Ebene in die Debug-Ausgabe und die
       Browser-Konsole.
     - Nutzer hängen die Debug-Ausgabe gern an Bug-Reports an. Besser nur auf Debug-Ebene loggen oder abschaltbar
@@ -93,7 +93,7 @@ gewachsen sind.
     - Der Bearer-Key wird auch an erlaubte Remote-Hosts über `http:` gesendet.
     - Sinnvoll wäre eine Warnung in den Einstellungen oder, bei gesetztem Key, nur `https` für Nicht-Loopback-Hosts.
 
-13. **`noteText`** (`src/core/session.ts:976`)
+13. ~~**`noteText`**~~ – *behoben in 0.13.1* (`src/core/session.ts:976`)
     - Numerische Entities wie `&#8211;` oder `&#x…;` werden außer `&#39;` nicht dekodiert.
     - Ein `DOMParser` aus dem Hauptfenster wäre robuster als die Regex-Kette.
 
@@ -126,9 +126,9 @@ gewachsen sind.
 | Schritt | Inhalt | Status |
 |---|---|---|
 | 1 | Fehler 1–5 beheben, je mit Unit-Test, wo möglich (Historie aus Paaren, gemeinsames Suchbegriff-Signal, `reader.cancel()`) | erledigt: 1, 4, 5 in 0.12.1; 2, 3 in 0.13.0 |
-| 2 | Punkte 6, 7, 12, 13 (kleine Robustheitskorrekturen) | teilweise: 7 in 0.12.1; 6, 12 in 0.13.0; offen: 13 |
+| 2 | Punkte 6, 7, 12, 13 (kleine Robustheitskorrekturen) | erledigt: 7 in 0.12.1; 6, 12 in 0.13.0; 13 in 0.13.1 |
 | 3 | Nur die laufende Nachricht neu zeichnen (8), LRU für Caches und Sessions (9) | teilweise: 8 in 0.12.1; offen: 9 |
 | 4 | Library-Pipeline aus `session.ts` herauslösen, Aufräumarbeiten, Client-Tests mit gemocktem `fetch` | teilweise: Aufräumarbeiten in 0.13.0, Client-Tests danach; offen: Pipeline herauslösen |
-| 5 | Logging-Datenschutz (11), Interna-Nutzung (10) beobachten und dokumentieren | offen |
+| 5 | Logging-Datenschutz (11), Interna-Nutzung (10) beobachten und dokumentieren | teilweise: 11 in 0.13.1; offen: 10 |
 
 Beim Abarbeiten die Status-Spalte pflegen.

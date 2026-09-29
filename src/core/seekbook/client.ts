@@ -6,7 +6,7 @@
  */
 import { t, type Key } from '../../i18n';
 import { getFetch } from '../../util/env';
-import { logger } from '../../util/log';
+import { content, logger } from '../../util/log';
 import { UserFacingError } from '../errors';
 import { parseSearchResponse, type ZotSeekPassage } from '../zotseek/client';
 
@@ -139,7 +139,7 @@ async function getJson(path: string, params: Record<string, string | undefined>,
     if (signal?.aborted) throw e;
     throw new SeekBookUnavailableError('error', String(e?.message || e));
   }
-  L.info(`GET ${path}?${sp} → ${resp.status} in ${Date.now() - t0} ms`);
+  L.info(`GET ${path}${sp.has('q') ? ` q=${content(sp.get('q'))}` : ''} → ${resp.status} in ${Date.now() - t0} ms`);
   let json: any = null;
   try {
     json = await resp.json();

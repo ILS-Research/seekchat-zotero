@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.13.1 – 2026-09-29
+
+Fixes from the code review (`REVIEW_OPUS_5.5_NODOCS.md`, items 11 and 13):
+
+- **No questions in the log by default:** questions, search plans, search terms and removed page lines are logged
+  only as their length (debug output is often attached to bug reports). The hidden pref
+  `extensions.zotero.seekchat.logContent` = true logs the text again.
+- **Notes as context read all entities:** numeric (`&#8211;`, `&#x2014;`) and common named ones (`&ndash;`,
+  `&auml;` …) are decoded.
+
 ## 0.13.0 – 2026-09-29
 
 More fixes from the code review (`REVIEW_OPUS_5.5_NODOCS.md`, items 2, 3, 6, 12 and the small clean-ups):

@@ -38,3 +38,6 @@ pref("extensions.zotero.seekchat.libraryTopK", 30);
 pref("extensions.zotero.seekchat.limitsMode", "auto");
 // UI language: "" = follow Zotero, or "en" / "de".
 pref("extensions.zotero.seekchat.locale", "");
+// Log questions, search terms and removed page lines as text (debugging). Off: only their length is logged,
+// since debug output is often attached to bug reports.
+pref("extensions.zotero.seekchat.logContent", false);

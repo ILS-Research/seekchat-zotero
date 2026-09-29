@@ -92,3 +92,22 @@ test('Ollama drops `think` only on HTTP 400 "does not support thinking"', async 
   assert.match(String(b.out), /^ERR HTTP 404/);
   assert.equal(b.bodies.length, 1, 'no retry');
 });
+
+test('noteText decodes numeric and named entities once', async () => {
+  const { noteText, decodeEntities } = await import('../src/core/session');
+  assert.equal(noteText('<p>A&#8211;B &#x2014; &ndash; &auml;&nbsp;x</p><p>&amp;lt; &#39;q&#39; &foo;</p>'), 'A–B — – ä x\n&lt; \'q\' &foo;');
+  assert.equal(decodeEntities('&#xZZ; &#99999999;'), '&#xZZ; &#99999999;');
+});
+
+test('log content is redacted unless switched on', async () => {
+  const { content } = await import('../src/util/log');
+  assert.equal(content('geheime Frage'), '‹13 chars›');
+  const z = (globalThis as any).Zotero;
+  (globalThis as any).Zotero = { Prefs: { get: (k: string) => k === 'seekchat.logContent' } };
+  try {
+    assert.equal(content('geheime Frage'), 'geheime Frage');
+    assert.equal(content('x'.repeat(10), 4), 'xxxx…');
+  } finally {
+    (globalThis as any).Zotero = z;
+  }
+});

@@ -59,7 +59,7 @@ they use `docker` or fall back to `sudo docker`, and run containers with the cal
 | `src/ui/preferences.ts`, `content/preferences.xhtml` | Settings pane (fields wired manually, not via `preference=` binding) |
 | `src/core/context/clean.ts` | Running headers/footers removed in `getPdfPages` (copy of SeekBook's rules) |
 | `src/core/context/index-access.ts` | PDF chat strategy "semantic": SeekBook (books) / ZotSeek (other PDFs), index state, hand-over |
-| `src/util/log.ts` | `logger(module)`: `[SeekChat:<module>] [LEVEL] …` to Browser Console + `Zotero.debug`, `time()` for durations. Log every step that can take long (model calls are logged in `src/core/llm/index.ts`) |
+| `src/util/log.ts` | `logger(module)`: `[SeekChat:<module>] [LEVEL] …` to Browser Console + `Zotero.debug`, `time()` for durations. Log every step that can take long (model calls are logged in `src/core/llm/index.ts`). Text from the user or the document goes through `content()` (only its length unless the hidden pref `seekchat.logContent` is on) |
 | `test/*.test.ts` | Unit tests (Node test runner, bundled by esbuild), no Zotero |
 | `test/e2e/` | E2E harness + scenarios, compiled **into** the E2E build only (`test/e2e/entry.ts`) |
 | `e2e/` | E2E image (Zotero tarball, Xvfb, mock LLM, fixture PDF generator), `run.sh`, `run-in-container.sh` |
