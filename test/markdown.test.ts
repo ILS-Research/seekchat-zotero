@@ -45,12 +45,18 @@ test('coverage: what ZotSeek searches, where its books come from, what it cannot
     'Nicht durchsuchbar: 1 PDF ohne übergeordneten Eintrag, 1 Buch (in ZotSeek „Bücher ausschließen“ an). ' +
     'ZotSeek indexiert nur Titel und Abstracts (Indexierungsmodus „abstract“), keine PDF-Inhalte.');
   assert.equal(describeCoverage(countCoverage(items.slice(1), { excludeBooks: false, fullText: true })),
-    'ZotSeek durchsucht hier 2 Einträge. Das Buch ist in ZotSeeks eigenem Index (dort ist „Bücher ausschließen“ aus).');
+    'ZotSeek durchsucht hier 2 Einträge (1 Buch, 1 anderer Eintrag). Bücher sind in ZotSeeks eigenem Index (dort ist „Bücher ausschließen“ aus).');
   // Bound to SeekBook: only while SeekBook is ready; then it wins over ZotSeek's own books.
   const bound = { excludeBooks: true, fullText: true, includeSeekBook: true };
   assert.equal(countCoverage(items.slice(1), bound, true).bookMode, 'seekbook');
   assert.equal(countCoverage(items.slice(1), bound, false).bookMode, 'excluded');
   assert.equal(countCoverage(items.slice(1), { ...bound, excludeBooks: false }, true).bookMode, 'seekbook');
   assert.equal(describeCoverage(countCoverage(items.slice(1), bound, true)),
-    'ZotSeek durchsucht hier 2 Einträge. Das Buch kommt über SeekBook, das ZotSeek einbindet.');
+    'ZotSeek durchsucht hier 2 Einträge (1 Buch, 1 anderer Eintrag). Bücher kommen über SeekBook, das ZotSeek einbindet.');
+  // Your example: 3 items, 1 book among them; only books; plural forms.
+  const three = [...items.slice(1), { isPdfAttachment: false, isRegular: true, itemType: 'report' }];
+  assert.match(describeCoverage(countCoverage(three, bound, true)), /^ZotSeek durchsucht hier 3 Einträge \(1 Buch, 2 andere Einträge\)\. /);
+  assert.match(describeCoverage(countCoverage([items[1]], bound, true)), /^ZotSeek durchsucht hier 1 Eintrag \(1 Buch\)\. /);
+  const books = [items[1], items[1], items[2]];
+  assert.match(describeCoverage(countCoverage(books, bound, true)), /\(2 Bücher, 1 anderer Eintrag\)/);
 });

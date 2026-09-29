@@ -70,9 +70,13 @@ export function countCoverage(
 export function describeCoverage(c: Coverage): string {
   const hints: string[] = [];
   const searched = c.papers + (c.bookMode === 'excluded' ? 0 : c.books);
-  hints.push(tn('cov.searches', searched));
-  if (c.books && c.bookMode === 'native') hints.push(tn('cov.booksNative', c.books));
-  if (c.books && c.bookMode === 'seekbook') hints.push(tn('cov.booksSeekBook', c.books));
+  // With books among them, the total is split: "3 items (1 book, 2 other items)".
+  const withBooks = c.books > 0 && c.bookMode !== 'excluded';
+  const split = withBooks
+    ? ` (${[tn('cov.nBooks', c.books), c.papers ? tn('cov.nOthers', c.papers) : ''].filter(Boolean).join(', ')})`
+    : '';
+  hints.push(tn('cov.searches', searched, { split }));
+  if (withBooks) hints.push(t(c.bookMode === 'native' ? 'cov.booksNative' : 'cov.booksSeekBook'));
   const parts: string[] = [];
   if (c.standalonePdfs) parts.push(tn('cov.pdfs', c.standalonePdfs));
   if (c.excludedBooks) parts.push(tn('cov.books', c.excludedBooks));

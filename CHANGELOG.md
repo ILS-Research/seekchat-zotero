@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.9.3 – 2026-09-29
+
+- Coverage line: the total is split when books are among the searched items ("ZotSeek durchsucht hier 3 Einträge
+  (1 Buch, 2 andere Einträge)."), and the book sentence only says where books come from ("Bücher kommen über SeekBook,
+  das ZotSeek einbindet.") instead of "Das Buch …".
+
 ## 0.9.2 – 2026-09-29
 
 - Library window, source "ZotSeek": a live line says what ZotSeek searches in the scope and where its books come from
