@@ -7,10 +7,14 @@ import { content, logError, logger } from '../../util/log';
 import { UserFacingError } from '../errors';
 import { stripRunningLines } from './clean';
 import { buildTerms, selectPagesByTerms, selectRankedPages } from './page-selection';
+import { LruMap } from '../../util/lru';
 import type { BuildOptions, ContextBlock, ContextProvider, Page } from './types';
 
-/** Extracted pages per attachment, invalidated when the attachment item changes. */
-const pageCache = new Map<number, { version: string; pages: Page[] }>();
+/**
+ * Extracted pages per attachment, invalidated when the attachment item changes. The 100 most recently used PDFs
+ * (a 1000-page book is a few MB of text).
+ */
+const pageCache = new LruMap<number, { version: string; pages: Page[] }>(100);
 
 export { UserFacingError };
 
@@ -139,7 +143,7 @@ export class PdfContextProvider implements ContextProvider {
   }
 }
 
-const labelCache = new Map<number, { version: string; labels: (string | null)[] | null }>();
+const labelCache = new LruMap<number, { version: string; labels: (string | null)[] | null }>(500);
 
 /** Printed page labels of a PDF (null if it defines none or they cannot be read), cached per version. */
 export async function pageLabelsOf(attachment: any): Promise<(string | null)[] | null> {

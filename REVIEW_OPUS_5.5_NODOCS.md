@@ -71,7 +71,7 @@ gewachsen sind.
      wieder zu, und bei langen Chats wird es teuer.
    - Besser: Nur die laufende (letzte) Nachricht neu zeichnen.
 
-9. **Speicher wächst ohne Grenze**
+9. ~~**Speicher wächst ohne Grenze**~~ – *behoben in 0.13.2 (großzügig: 100 PDF-Texte, 500 Chats)*
    - `sessions` (`src/core/session.ts:986`), `pageCache` und `labelCache` (`src/core/context/pdf-context.ts`) werden
      nur beim Shutdown geleert.
    - Bei vielen großen PDFs pro Zotero-Sitzung bleibt so viel Volltext im Speicher. Eine einfache LRU-Begrenzung
@@ -82,6 +82,10 @@ gewachsen sind.
       `Zotero.ZotSeek.vectorStore` und `Zotero.SeekBook.indexer`.
     - Das ist sauber mit try/catch abgesichert. Es kann aber mit jedem Zotero-Update brechen, und das Manifest erlaubt
       bis `10.0.*`.
+    - *Einschätzung (nach 0.13.1):* nötig, es gibt keine öffentlichen Alternativen. Für die Reader-Seite gibt es nur die
+      gespeicherte Seite (`getAttachmentLastPageIndex`, verzögert), sie ist schon der Rückfall. Kein Code-Fix; die
+      E2E-Szenarien (Zotero-Version fest in `e2e/Dockerfile`) melden einen Bruch vor jedem Zotero-Update. Bei ZotSeek
+      und SeekBook (eigene Plugins) ließe sich stattdessen eine kleine, dokumentierte API festlegen.
 
 11. ~~**Datenschutz beim Logging**~~ – *behoben in 0.13.1*
     - Fragen (die ersten 120 Zeichen), der Plan und die Queries gehen auf Info-Ebene in die Debug-Ausgabe und die
@@ -127,7 +131,7 @@ gewachsen sind.
 |---|---|---|
 | 1 | Fehler 1–5 beheben, je mit Unit-Test, wo möglich (Historie aus Paaren, gemeinsames Suchbegriff-Signal, `reader.cancel()`) | erledigt: 1, 4, 5 in 0.12.1; 2, 3 in 0.13.0 |
 | 2 | Punkte 6, 7, 12, 13 (kleine Robustheitskorrekturen) | erledigt: 7 in 0.12.1; 6, 12 in 0.13.0; 13 in 0.13.1 |
-| 3 | Nur die laufende Nachricht neu zeichnen (8), LRU für Caches und Sessions (9) | teilweise: 8 in 0.12.1; offen: 9 |
+| 3 | Nur die laufende Nachricht neu zeichnen (8), LRU für Caches und Sessions (9) | erledigt: 8 in 0.12.1; 9 in 0.13.2 |
 | 4 | Library-Pipeline aus `session.ts` herauslösen, Aufräumarbeiten, Client-Tests mit gemocktem `fetch` | teilweise: Aufräumarbeiten in 0.13.0, Client-Tests danach; offen: Pipeline herauslösen |
 | 5 | Logging-Datenschutz (11), Interna-Nutzung (10) beobachten und dokumentieren | teilweise: 11 in 0.13.1; offen: 10 |
 

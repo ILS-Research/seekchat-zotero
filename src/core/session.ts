@@ -43,6 +43,7 @@ import { diagnose, readEnvironment, ZotSeekUnavailableError } from './zotseek/cl
 import { readPrefs, type SeekChatPrefs } from '../prefs';
 import { resolveLimits } from './limits';
 import { newAbortController } from '../util/env';
+import { LruMap } from '../util/lru';
 import { content, logError } from '../util/log';
 
 export interface Turn {
@@ -1032,7 +1033,8 @@ export function noteText(html: string): string {
   return plain.split('\n').map((l) => l.trim()).filter(Boolean).join('\n');
 }
 
-const sessions = new Map<string, ChatSession>();
+/** Chats of the 500 most recently opened PDFs and scopes; a running chat is never dropped. */
+const sessions = new LruMap<string, ChatSession>(500, (s) => s.busy);
 
 export function getSession(provider: ContextProvider): ChatSession {
   let s = sessions.get(provider.key);

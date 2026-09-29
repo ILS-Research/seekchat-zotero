@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.13.2 – 2026-09-29
+
+- **Memory bounded, generously** (review item 9): page texts of the 100 most recently used PDFs, page labels of 500,
+  chats of the 500 most recently opened PDFs and scopes stay in memory; a running chat is never dropped.
+
 ## 0.13.1 – 2026-09-29
 
 Fixes from the code review (`REVIEW_OPUS_5.5_NODOCS.md`, items 11 and 13):
