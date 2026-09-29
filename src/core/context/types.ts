@@ -26,6 +26,8 @@ export interface ContextBlock {
   noMatches?: boolean;
   /** Strategy "chapters": titles of the chosen chapters, and whether they were sent completely. */
   chapters?: { titles: string[]; complete: boolean };
+  /** PDF chat: notes the user added as context (plain text). */
+  notes?: NoteContext[];
   /** Library chat: numbered sources (body holds them formatted); citations are [n, S. x]. */
   library?: {
     sources: LibrarySource[];
@@ -48,6 +50,13 @@ export interface BuildOptions {
   chapters?: ChapterScope;
   /** Strategy "semantic": pages ranked by SeekBook/ZotSeek, best first (replaces the keyword selection). */
   rankedPages?: { page: number; pageEnd?: number }[];
+  /** PDF chat: notes the user added as context; they take their share of the budget first. */
+  notes?: NoteContext[];
+}
+
+export interface NoteContext {
+  title: string;
+  text: string;
 }
 
 export interface ChapterScope {

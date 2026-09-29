@@ -41,8 +41,13 @@ export interface HistoryTurn {
   content: string;
 }
 
-export function formatPages(pages: { pageNumber: number; text: string }[]): string {
-  return pages.map((p) => `[Page ${p.pageNumber}]\n${p.text.trim()}`).join('\n\n');
+/** "[Page 27] (printed 25)" when the PDF's printed label differs from the physical page. */
+export function formatPages(pages: { pageNumber: number; text: string }[], labels?: (string | null)[] | null): string {
+  return pages.map((p) => {
+    const label = labels?.[p.pageNumber - 1];
+    const printed = label && label !== String(p.pageNumber) ? ` (printed ${label})` : '';
+    return `[Page ${p.pageNumber}]${printed}\n${p.text.trim()}`;
+  }).join('\n\n');
 }
 
 export function describeContext(ctx: ContextBlock): string {
@@ -123,9 +128,17 @@ export function buildMessages(opts: {
       'If the answer could be in other parts of the document, point that out.'
     : `The document is too long for the context. The pages that best match the question follow (${pages}). ` +
       'If the answer could be on other pages, point that out.';
+  const printed = context.body.includes('(printed ')
+    ? '\nPages are marked [Page N]: N is the page in the PDF file, use it in citations. "(printed X)" is the page number printed on that page; mention it only when the user asks for printed page numbers.'
+    : '';
+  const notes = context.notes?.length
+    ? '\n\nThe user added their own notes on this document as context. Use them as background; when a statement comes ' +
+      'from a note, say so (e.g. "(note „Title“)") instead of a page citation.\n<notes>\n' +
+      context.notes.map((n) => `[Note „${n.title}“]\n${n.text}`).join('\n\n') + '\n</notes>'
+    : '';
   const system =
     `${opts.systemPrompt || defaultSystemPrompt()}\n\n` +
-    `Document: ${context.title}\n${note}\n\n<document>\n${context.body}\n</document>`;
+    `Document: ${context.title}\n${note}${printed}\n\n<document>\n${context.body}\n</document>${notes}`;
   return [
     { role: 'system', content: system },
     ...opts.history.map((h) => ({ role: h.role, content: h.content })),

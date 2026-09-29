@@ -13,6 +13,7 @@ import { getRegisteredPaneID } from '../../src/ui/chat-section';
 import { createClient } from '../../src/core/llm';
 import { getZotSeekStatus, searchPassages, ZotSeekUnavailableError } from '../../src/core/zotseek/client';
 import { booksInScope } from '../../src/core/library/books';
+import { buildMessages } from '../../src/core/prompt';
 import { logger } from '../../src/util/log';
 import { collectionScope, itemsScope, libraryScope, LibraryContextProvider } from '../../src/core/library/library-context';
 import { openSourceCitation } from '../../src/core/library/zotero-items';
@@ -542,6 +543,48 @@ export const scenarios: Scenario[] = [
     } finally {
       restore();
     }
+  }],
+
+  ['PDF chat: running headers removed, printed page numbers in the prompt', async (ctx) => {
+    const { attachment } = await importFixture('SeekChat E2E Kopfzeilen', `${ctx.fixturesDir}/seekchat-headers.pdf`);
+    const pages = await getPdfPages(attachment);
+    assert(pages.every((p) => !p.text.includes('Handbuch Stadtklima') && !p.text.includes('Lizenz CC')), `header left: ${pages[1].text.slice(0, 120)}`);
+    assert(pages[2].text.startsWith('Kapitel 1 Starkregen'), `page 3: ${pages[2].text.slice(0, 80)}`);
+    const block = await new PdfContextProvider(attachment).build('Starkregen', 100000);
+    assert(block.body.includes('[Page 1] (printed i)') && block.body.includes('[Page 3] (printed 1)'), block.body.slice(0, 300));
+    const msgs = buildMessages({ context: block, history: [], question: 'x' });
+    assert(msgs[0].content.includes('page number printed on that page'), 'no note on printed page numbers');
+  }],
+
+  ['PDF chat: notes as context, and one answer saved as a note', async (ctx) => {
+    const parent = Zotero.Items.get(ctx.parentID);
+    const note = new Zotero.Item('note');
+    note.libraryID = parent.libraryID;
+    note.parentID = parent.id;
+    note.setNote('<h1>Meine Lesenotiz</h1><p>NOTIZ-KONTEXT: Gruendaecher halbieren den Abfluss.</p>');
+    await note.saveTx();
+    const section = await openSectionInLibrary(ctx.parentID);
+    const box = await waitFor('note checkbox', () => section.querySelector(`.seekchat-notes input[data-note-id="${note.id}"]`) as HTMLInputElement | null, 10000);
+    (section.querySelector('.seekchat-notes') as any).open = true;
+    box.click();
+    const session = getSession(new PdfContextProvider(ctx.attachment));
+    assert(session.contextNotes.has(note.id), 'note not ticked');
+    session.clear();
+    await session.ask('Was steht zu Starkregen?');
+    const answer = session.turns[session.turns.length - 1];
+    const system: string = (await mockLastRequest()).messages[0].content;
+    assert(!answer.error && system.includes('<notes>') && system.includes('NOTIZ-KONTEXT') && answer.meta?.includes('Notiz als Kontext'), `notes: ${answer.meta} / ${system.slice(-400)}`);
+    const before = parent.getNotes().length;
+    const btn = await waitFor('answer note button', () => section.querySelector('.seekchat-msg.assistant .seekchat-answer-note') as HTMLButtonElement | null, 10000);
+    btn.click();
+    await waitFor('note saved', () => Zotero.Items.get(ctx.parentID).getNotes().length === before + 1, 10000);
+    const saved = Zotero.Items.get(Zotero.Items.get(ctx.parentID).getNotes()).find((n: any) => n.getNote().includes('Was steht zu Starkregen?'));
+    assert(saved && !saved.getNote().includes('Frage 2'), 'answer note missing or with the whole chat');
+    await waitFor('button shows saved', () => section.querySelector('.seekchat-answer-note')?.textContent?.includes('✓'), 5000);
+    session.contextNotes.clear();
+    session.clear();
+    await note.eraseTx();
+    await saved.eraseTx();
   }],
 
   ['library chat: a citation opens the PDF page, without page it selects the item', async (ctx) => {

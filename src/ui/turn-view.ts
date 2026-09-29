@@ -20,6 +20,8 @@ export interface CitationHandlers {
   onSource?: (source: LibrarySource, page?: number, attachmentID?: number) => void;
   /** Library chat: skip one book of the running question. */
   onSkipBook?: (turn: Turn, index: number) => void;
+  /** Save one finished answer (with its question) as a Zotero note. */
+  onSaveAnswer?: (turn: Turn, button: HTMLButtonElement) => void;
 }
 
 function el(doc: Document, tag: string, cls?: string, text?: string): HTMLElement {
@@ -144,5 +146,12 @@ function renderMessage(doc: Document, turn: Turn, handlers: CitationHandlers, pe
   body.append(renderMarkdown(doc, turn.content, split));
   box.append(body);
   if (sources?.length && !turn.pending) box.append(sourceList(doc, sources, citedSources(turn.content, sources), handlers));
+  if (!turn.pending && turn.content && handlers.onSaveAnswer) {
+    const btn = el(doc, 'button', 'seekchat-answer-note', t(turn.noteSaved ? 'pdf.answerNoted' : 'pdf.answerNote')) as HTMLButtonElement;
+    btn.disabled = !!turn.noteSaved;
+    btn.title = t('pdf.answerNoteTitle');
+    btn.addEventListener('click', () => handlers.onSaveAnswer!(turn, btn));
+    box.append(btn);
+  }
   return box;
 }

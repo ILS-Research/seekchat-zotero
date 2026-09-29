@@ -14,6 +14,7 @@ import { buildMessages, compressRanges, describeContext, type HistoryTurn } from
 import { languageName, t, tn } from '../i18n';
 import { UserFacingError } from './errors';
 import { PdfContextProvider } from './context/pdf-context';
+import type { NoteContext } from './context/types';
 import { buildKeywordMessages, parseKeywords } from './context/keywords';
 import {
   buildLanguageMessages, guessLanguage, normalizeLanguage, parseLanguageReply,
@@ -45,6 +46,8 @@ import { newAbortController } from '../util/env';
 import { logError } from '../util/log';
 
 export interface Turn {
+  /** This answer was saved as a note on its own (button shows ✓). */
+  noteSaved?: boolean;
   role: 'user' | 'assistant';
   content: string;
   /** Fixed hint from SeekChat shown after this answer as its own message (never sent to the model). */
@@ -115,6 +118,8 @@ export class ChatSession {
   fit: FitInfo | null = null;
   fitError: string | null = null;
   strategy: LongDocStrategy = 'keywords';
+  /** PDF chat: IDs of the notes the user added as context (kept while Zotero runs). */
+  contextNotes = new Set<number>();
   /** Strategy "chapters": ids of checked outline nodes (see outline.ts). */
   readonly selectedChapters = new Set<string>();
   private outlinePromise: Promise<Outline> | null = null;
@@ -920,7 +925,9 @@ export class ChatSession {
       notes.push(keywords.length ? t('meta.keywords', { keywords: keywords.join(', ') }) : t('meta.noKeywords'));
     }
     purpose = t('purpose.answer');
-    const context = await provider.build(`${question}\n${lastQuestion}`, prefs.contextChars, { keywords, chapters, rankedPages });
+    const notesCtx = contextNotesText(Array.from(this.contextNotes), prefs.contextChars);
+    if (notesCtx.length) notes.push(tn('meta.notesContext', notesCtx.length, { titles: notesCtx.map((n) => `„${n.title}“`).join(', ') }));
+    const context = await provider.build(`${question}\n${lastQuestion}`, prefs.contextChars, { keywords, chapters, rankedPages, notes: notesCtx });
     answer.meta = [`${prefs.model} · ${describeContext(context)}`, ...notes].join('\n');
     this.notify();
     let raw = '';
@@ -941,6 +948,35 @@ export class ChatSession {
       },
     );
   }
+}
+
+/** Share of the text budget notes may take; longer notes are cut. */
+const NOTES_SHARE = 0.3;
+
+/** Plain text of the chosen notes (deleted ones skipped), cut to their share of the budget. */
+export function contextNotesText(noteIDs: number[], budgetChars: number): NoteContext[] {
+  const out: NoteContext[] = [];
+  let left = Math.floor(budgetChars * NOTES_SHARE);
+  for (const note of Zotero.Items.get(noteIDs)) {
+    if (!note || note.deleted || !note.isNote?.() || left <= 200) continue;
+    const text = noteText(note.getNote());
+    if (!text) continue;
+    const cut = text.length > left ? text.slice(0, left) + ' […]' : text;
+    left -= cut.length;
+    out.push({ title: note.getNoteTitle() || t('pdf.untitledNote'), text: cut });
+  }
+  return out;
+}
+
+/** Note HTML to plain text (paragraphs and list items on their own lines). */
+export function noteText(html: string): string {
+  const withBreaks = String(html || '')
+    .replace(/<\/(p|div|h\d|li|tr|blockquote)>/gi, '\n')
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<li[^>]*>/gi, '• ');
+  const plain = withBreaks.replace(/<[^>]+>/g, '')
+    .replace(/&nbsp;/g, ' ').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&amp;/g, '&');
+  return plain.split('\n').map((l) => l.trim()).filter(Boolean).join('\n');
 }
 
 const sessions = new Map<string, ChatSession>();

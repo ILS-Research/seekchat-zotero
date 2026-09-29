@@ -5,6 +5,9 @@ import { buildOutline, type Outline } from './outline';
 import { readPdfOutline } from './pdf-outline';
 import { logError } from '../../util/log';
 import { UserFacingError } from '../errors';
+import { stripRunningLines } from './clean';
+import { readPageLabels } from './pdf-outline';
+import { logger } from '../../util/log';
 import { buildTerms, selectPagesByTerms, selectRankedPages } from './page-selection';
 import type { BuildOptions, ContextBlock, ContextProvider, Page } from './types';
 
@@ -14,6 +17,8 @@ const pageCache = new Map<number, { version: string; pages: Page[] }>();
 export { UserFacingError };
 
 /** Page texts of a PDF attachment via Zotero's PDF worker (form feed = page break). */
+const L = logger('PDF');
+
 export async function getPdfPages(attachment: any): Promise<Page[]> {
   const version = `${attachment.version}:${attachment.dateModified}`;
   const cached = pageCache.get(attachment.id);
@@ -25,10 +30,13 @@ export async function getPdfPages(attachment: any): Promise<Page[]> {
   }
   const result = await Zotero.PDFWorker.getFullText(attachment.id, null, true);
   const text: string = result?.text || '';
-  const pages = text.split('\f').map((t, i) => ({ pageNumber: i + 1, text: t.trim() }));
-  if (!pages.some((p) => p.text)) {
+  const raw = text.split('\f').map((t, i) => ({ pageNumber: i + 1, text: t.trim() }));
+  if (!raw.some((p) => p.text)) {
     throw new UserFacingError(t('pdf.noText'));
   }
+  // Running headers/footers out (they cost budget on every page and hide headings).
+  const { pages, removed } = stripRunningLines(raw);
+  if (removed.length) L.info(`${attachment.key}: removed ${removed.join(' | ')}`);
   pageCache.set(attachment.id, { version, pages });
   return pages;
 }
@@ -96,12 +104,16 @@ export class PdfContextProvider implements ContextProvider {
     const pages = await getPdfPages(this.attachment);
     const allowed = opts.chapters && new Set(opts.chapters.pages);
     const pool = allowed ? pages.filter((p) => allowed.has(p.pageNumber)) : pages;
+    // Budget left for the pages after the notes the user added as context.
+    const notes = opts.notes || [];
+    budgetChars = Math.max(2000, budgetChars - notes.reduce((n, x) => n + x.text.length + x.title.length + 20, 0));
     const selection = opts.rankedPages
       ? selectRankedPages(pool, opts.rankedPages, budgetChars)
       : selectPagesByTerms(pool, buildTerms(query, opts.keywords), budgetChars);
     return {
       title: this.describe(),
-      body: formatPages(selection.pages),
+      body: formatPages(selection.pages, await pageLabelsOf(this.attachment)),
+      notes: notes.length ? notes : undefined,
       // Whole chapters are still only part of the document.
       mode: allowed ? 'excerpt' : selection.mode,
       includedPages: selection.pages.map((p) => p.pageNumber),
@@ -111,4 +123,21 @@ export class PdfContextProvider implements ContextProvider {
       chapters: opts.chapters && { titles: opts.chapters.titles, complete: selection.mode === 'full' },
     };
   }
+}
+
+const labelCache = new Map<number, { version: string; labels: (string | null)[] | null }>();
+
+/** Printed page labels of a PDF (null if it defines none or they cannot be read), cached per version. */
+export async function pageLabelsOf(attachment: any): Promise<(string | null)[] | null> {
+  const version = `${attachment.version}:${attachment.dateModified}`;
+  const hit = labelCache.get(attachment.id);
+  if (hit && hit.version === version) return hit.labels;
+  let labels: (string | null)[] | null = null;
+  try {
+    labels = await readPageLabels(attachment);
+  } catch (e: any) {
+    L.info(`page labels of ${attachment.key}: ${e?.message || e}`);
+  }
+  labelCache.set(attachment.id, { version, labels });
+  return labels;
 }

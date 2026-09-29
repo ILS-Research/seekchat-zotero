@@ -23,7 +23,7 @@ import { logError } from '../util/log';
 import { renderTurn } from './turn-view';
 import { t, tn } from '../i18n';
 import { saveChat, withFeedback } from './save-chat';
-import { saveLibraryChatAsNote } from './save-note';
+import { saveAnswerAsNote, saveLibraryChatAsNote } from './save-note';
 
 const HTML_NS = 'http://www.w3.org/1999/xhtml';
 const WINDOW_URL = 'chrome://seekchat/content/libraryChat.xhtml';
@@ -415,7 +415,15 @@ class LibraryChatView {
       openSourceCitation(source, page, attachmentID).then(() => Zotero.getMainWindow().focus()).catch(logError);
     };
     const onSkipBook = (turn: any, index: number) => s?.skipBook(turn, index);
-    this.messages.replaceChildren(...turns.map((turn) => renderTurn(this.doc, turn, { onSource, onSkipBook }, t('lib.searching'))));
+    const scope = this.scope;
+    const onSaveAnswer = (turn: any, btn: HTMLButtonElement) => {
+      if (!s || !scope) return;
+      btn.disabled = true;
+      saveAnswerAsNote(s, turn, { scope, subject: scope.label })
+        .then(() => { turn.noteSaved = true; this.render(); })
+        .catch((e) => { btn.disabled = false; logError(e); });
+    };
+    this.messages.replaceChildren(...turns.map((turn) => renderTurn(this.doc, turn, { onSource, onSkipBook, onSaveAnswer }, t('lib.searching'))));
     if (atBottom || s?.busy) this.messages.scrollTop = this.messages.scrollHeight;
   }
 

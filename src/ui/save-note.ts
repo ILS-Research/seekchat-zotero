@@ -7,7 +7,7 @@
 import type { LibraryScope } from '../core/library/library-context';
 import { attachmentFor } from '../core/library/sources';
 import { itemOfSource, libraryKeyOf } from '../core/library/zotero-items';
-import type { ChatSession } from '../core/session';
+import type { ChatSession, Turn } from '../core/session';
 import { readPrefs } from '../prefs';
 import { chatToNoteHtml, type NoteLinks } from './note-html';
 
@@ -78,4 +78,18 @@ export async function saveLibraryChatAsNote(session: ChatSession, scope: Library
     });
   }
   return note;
+}
+
+/** The question before `answer` and the answer itself, for a note of one exchange. */
+function exchange(session: ChatSession, answer: Turn): Turn[] {
+  const i = session.turns.indexOf(answer);
+  const q = i > 0 && session.turns[i - 1].role === 'user' ? [session.turns[i - 1]] : [];
+  return [...q, answer];
+}
+
+/** "Als Notiz": one question and its answer as a note – PDF chat: child note of the item; library chat: like the chat note. */
+export async function saveAnswerAsNote(session: ChatSession, answer: Turn, target: { attachment?: any; scope?: LibraryScope; subject: string }): Promise<any> {
+  const one = { turns: exchange(session, answer) } as unknown as ChatSession;
+  if (target.attachment) return savePdfChatAsNote(one, target.subject, target.attachment);
+  return saveLibraryChatAsNote(one, target.scope!);
 }

@@ -54,6 +54,8 @@ they use `docker` or fall back to `sudo docker`, and run containers with the cal
 | `src/core/session.ts` | One `ChatSession` per provider key, streaming, abort; in memory only. Library chat pipeline: plan → ZotSeek + SeekBook + keyword books (two at a time, each skippable via `skipBook`; books SeekBook has indexed skip the keyword reading, also when ZotSeek brings SeekBook) → merged sources → one answer |
 | `src/ui/chat-section.ts` | Item pane section via `Zotero.ItemPaneManager.registerSection` (library + reader context pane) |
 | `src/ui/preferences.ts`, `content/preferences.xhtml` | Settings pane (fields wired manually, not via `preference=` binding) |
+| `src/core/context/clean.ts` | Running headers/footers removed in `getPdfPages` (copy of SeekBook's rules) |
+| `src/core/context/index-access.ts` | PDF chat strategy "semantic": SeekBook (books) / ZotSeek (other PDFs), index state, hand-over |
 | `src/util/log.ts` | `logger(module)`: `[SeekChat:<module>] [LEVEL] …` to Browser Console + `Zotero.debug`, `time()` for durations. Log every step that can take long (model calls are logged in `src/core/llm/index.ts`) |
 | `test/*.test.ts` | Unit tests (Node test runner, bundled by esbuild), no Zotero |
 | `test/e2e/` | E2E harness + scenarios, compiled **into** the E2E build only (`test/e2e/entry.ts`) |
@@ -107,6 +109,8 @@ Extending: new sources are new `ContextProvider`s; session, prompt and turn rend
   E2E_LIVE_URL=… ./e2e/run.sh` (indexes `test/assets/JIRASOFTWARESERVER071-290216.pdf` with qwen3-embedding:8b).
 - Follow-ups must stay small (a new search is only a top-up: `FOLLOWUP_TOP_K`, `FOLLOWUP_SHARE` in session.ts); carried sources hold only cited excerpts, and a new search only runs when the planner
   sets `"search": true` (mock: `e2e/mock-*.mjs` decides by the question's words).
+- Test PDFs must not start every page with the same sentence (it counts as a running header and is removed):
+  `e2e/make-pdf.mjs` rotates its filler sentences; `seekchat-headers.pdf` has a real header, footer and page labels.
 - Library window: the SeekBook switch stays locked until ZotSeek's status **and** the scope coverage are known
   (SeekBook's status arrives first; unlocking on it alone let the box flash up as allowed).
 

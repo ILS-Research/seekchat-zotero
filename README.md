@@ -18,7 +18,12 @@ Select an item with a PDF, or open it in the reader: the side pane shows **“Ch
 - Ask anything – summaries, definitions, “what does chapter 3 say about …?”.
 - Follow-up questions work like in a conversation (“and in chapter 4?”).
 - Long books are no problem: SeekChat picks the pages that matter for your question and tells you which ones it read.
-- Answers cite pages; one click opens the PDF there.
+- Answers cite pages; one click opens the PDF there. Printed page numbers are known too; running headers and footers
+  are removed before anything is sent.
+- **Your notes as context:** tick notes of the item and they go along with every question.
+- **Save what matters:** every answer has a "📝 As note" button; the whole chat goes to Markdown or a note.
+- **Long books:** keyword search, chapter selection, or semantic search through SeekBook (books) / ZotSeek (papers) –
+  a button hands a document not yet indexed to the right index.
 
 ### Chat with your library
 The speech-bubble button next to ZotSeek’s toolbar button opens a chat over **the current selection, a collection

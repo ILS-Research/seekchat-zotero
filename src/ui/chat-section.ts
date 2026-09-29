@@ -9,6 +9,7 @@ import { getSession, type ChatSession } from '../core/session';
 import { LongDocPanel } from './long-doc-panel';
 import { renderTurn } from './turn-view';
 import { saveChat, withFeedback } from './save-chat';
+import { saveAnswerAsNote } from './save-note';
 import { savePdfChatAsNote } from './save-note';
 import { readPrefs } from '../prefs';
 import { logError } from '../util/log';
@@ -57,6 +58,7 @@ class ChatView {
     this.root = this.el('div', 'seekchat');
     this.target = this.el('div', 'seekchat-target');
     this.longDoc = new LongDocPanel(doc);
+    this.notesBox = this.el('details', 'seekchat-notes');
     this.messages = this.el('div', 'seekchat-messages');
     this.input = this.el('textarea', 'seekchat-input') as HTMLTextAreaElement;
     this.input.placeholder = t('pdf.placeholder');
@@ -82,7 +84,7 @@ class ChatView {
     });
     const saveRow = this.el('div', 'seekchat-save-row');
     saveRow.append(this.noteBtn, this.saveBtn);
-    this.root.append(this.target, this.longDoc.root, this.messages, this.input, actions, saveRow);
+    this.root.append(this.target, this.longDoc.root, this.notesBox, this.messages, this.input, actions, saveRow);
     body.replaceChildren(this.root);
 
     this.input.addEventListener('keydown', (e) => {
@@ -97,6 +99,46 @@ class ChatView {
   }
 
   private hintEl: HTMLElement;
+  private notesBox: HTMLElement;
+  private notesKey = '';
+
+  /** Child notes of the PDF's item, with a checkbox each: ticked ones go along as context. */
+  private renderNotes(): void {
+    const s = this.session;
+    const parent = this.attachment?.parentItem;
+    const notes: any[] = parent ? Zotero.Items.get(parent.getNotes()).filter((n: any) => n && !n.deleted) : [];
+    const key = `${this.attachment?.id}:${notes.map((n) => `${n.id}/${n.version}`).join(',')}:${s ? Array.from(s.contextNotes).join(',') : ''}`;
+    if (key === this.notesKey) return;
+    this.notesKey = key;
+    const open = (this.notesBox as any).open;
+    const summary = this.el('summary');
+    const n = s ? notes.filter((x) => s.contextNotes.has(x.id)).length : 0;
+    summary.textContent = `${t('pdf.notesTitle')}${n ? ` (${n})` : ''}`;
+    const children: HTMLElement[] = [summary];
+    if (!notes.length) {
+      children.push(Object.assign(this.el('div', 'seekchat-hint'), { textContent: t('pdf.notesNone') }));
+    } else {
+      for (const note of notes) {
+        const label = this.el('label', 'seekchat-note-choice');
+        const box = this.el('input') as HTMLInputElement;
+        box.type = 'checkbox';
+        box.checked = !!s?.contextNotes.has(note.id);
+        box.dataset.noteId = String(note.id);
+        box.addEventListener('change', () => {
+          if (!s) return;
+          if (box.checked) s.contextNotes.add(note.id);
+          else s.contextNotes.delete(note.id);
+          this.render();
+        });
+        label.append(box, this.doc.createTextNode(` ${note.getNoteTitle() || t('pdf.untitledNote')}`));
+        children.push(label);
+      }
+      children.push(Object.assign(this.el('div', 'seekchat-hint'), { textContent: t('pdf.notesHint') }));
+    }
+    this.notesBox.replaceChildren(...children);
+    (this.notesBox as any).open = open;
+    this.notesBox.hidden = !this.attachment;
+  }
 
   private el(tag: string, cls?: string): HTMLElement {
     const e = this.doc.createElementNS(HTML_NS, tag) as HTMLElement;
@@ -149,12 +191,21 @@ class ChatView {
     this.saveBtn.disabled = !s || s.busy || s.turns.length === 0;
     if (!this.noteBtn.textContent?.includes('✓')) this.noteBtn.disabled = this.saveBtn.disabled;
     this.longDoc.render();
+    this.renderNotes();
     this.hintEl.textContent = prefs.model ? t('common.model', { model: prefs.model }) : t('common.noModel');
 
     const atBottom = this.messages.scrollHeight - this.messages.scrollTop - this.messages.clientHeight < 40;
     const attachmentID = this.attachment?.id;
     const onPage = (page: number) => Zotero.Reader.open(attachmentID, { pageIndex: page - 1 }).catch(logError);
-    this.messages.replaceChildren(...(s?.turns || []).map((turn) => renderTurn(this.doc, turn, { onPage })));
+    const att = this.attachment;
+    const onSaveAnswer = (turn: any, btn: HTMLButtonElement) => {
+      if (!s || !att) return;
+      btn.disabled = true;
+      saveAnswerAsNote(s, turn, { attachment: att, subject: `PDF ${describeItem(att)}` })
+        .then(() => { turn.noteSaved = true; this.notesKey = ''; this.render(); })
+        .catch((e) => { btn.disabled = false; logError(e); });
+    };
+    this.messages.replaceChildren(...(s?.turns || []).map((turn) => renderTurn(this.doc, turn, { onPage, onSaveAnswer })));
     if (atBottom || s?.busy) this.messages.scrollTop = this.messages.scrollHeight;
   }
 

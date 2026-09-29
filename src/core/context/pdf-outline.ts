@@ -66,3 +66,20 @@ export async function readPdfOutline(attachment: any): Promise<ReaderOutlineItem
     await task.destroy();
   }
 }
+
+/** Printed page label per physical page (index 0 = page 1), null if the PDF defines none. */
+export async function readPageLabels(attachment: any): Promise<(string | null)[] | null> {
+  const path = await attachment.getFilePathAsync();
+  if (!path) return null;
+  const win = Zotero.getMainWindow();
+  const bytes: Uint8Array = await win.IOUtils.read(path);
+  const pdfjs = await loadPdfjs();
+  const task = pdfjs.getDocument({ data: bytes, isEvalSupported: false });
+  const doc = await task.promise;
+  try {
+    const raw = await doc.getPageLabels();
+    return Array.isArray(raw) ? raw.map((l: unknown) => (typeof l === 'string' && l ? l : null)) : null;
+  } finally {
+    await task.destroy();
+  }
+}

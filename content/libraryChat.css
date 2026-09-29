@@ -24,3 +24,5 @@
 .seekchat-library-scope { font-weight: 600; max-width: 60%; }
 .seekchat-library-coverage:empty { display: none; }
 .seekchat-library-coverage { color: var(--accent-orange, #b36b00); }
+
+.seekchat-answer-note { display: block; margin-top: 4px; margin-left: auto; font-size: 11px; padding: 1px 6px; min-height: 0; }

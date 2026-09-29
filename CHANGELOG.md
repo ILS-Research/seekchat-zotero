@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.11.0 – 2026-09-29
+
+- **Running headers and footers removed** from PDF pages (title, chapter, page number, licence lines that recur on
+  many pages; same rules as SeekBook). They no longer cost budget on every page or hide headings. JIRA documentation:
+  the Creative Commons header on all 304 pages is gone.
+- **Printed page numbers** in the PDF chat: pages go to the model as `[Page 27] (printed 25)`; citations stay the
+  PDF page, the printed number is there when the user asks for it.
+- **Notes as context** (PDF chat): a small "Notes as context" area lists the item's notes; ticked ones go along with
+  every question (up to 30 % of the text budget), the meta line names them.
+- **Single answers as notes**: every finished answer has a "📝 As note" button – PDF chat: child note of the item;
+  library chat: placed like the chat note (collection / related items).
+
 ## 0.10.0 – 2026-09-29
 
 - **PDF chat: the strategy "Semantic search" works** – without an index of SeekChat's own: a book PDF is searched in

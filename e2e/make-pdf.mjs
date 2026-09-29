@@ -7,7 +7,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 /** outline: optional [{ title, page (0-based), children: [{ title, page }] }] written as /Outlines (bookmarks). */
-function writePdf(file, pages, outline = null) {
+function writePdf(file, pages, outline = null, labels = null) {
   const esc = (s) => s.replace(/[\\()]/g, (c) => '\\' + c);
   const objects = [];
   const add = (body) => { objects.push(body); return objects.length; };
@@ -39,7 +39,8 @@ function writePdf(file, pages, outline = null) {
     objects[root - 1] = `<< /Type /Outlines /First ${top[0]} 0 R /Last ${top[top.length - 1]} 0 R /Count ${top.length} >>`;
     outlinesRef = ` /Outlines ${root} 0 R /PageMode /UseOutlines`;
   }
-  objects[catalog - 1] = `<< /Type /Catalog /Pages ${pagesObj} 0 R${outlinesRef} >>`;
+  const labelsRef = labels ? ` /PageLabels << /Nums [${labels}] >>` : '';
+  objects[catalog - 1] = `<< /Type /Catalog /Pages ${pagesObj} 0 R${outlinesRef}${labelsRef} >>`;
   objects[pagesObj - 1] = `<< /Type /Pages /Kids [${kids.map((k) => `${k} 0 R`).join(' ')}] /Count ${kids.length} >>`;
   let out = '%PDF-1.4\n';
   const offsets = [];
@@ -63,16 +64,34 @@ writePdf(path.join(dir, 'seekchat-test.pdf'), [
   ['Kapitel 3: Fazit', 'Gruene Infrastruktur mindert Hitze und Abfluss.', 'Weitere Messungen sind notwendig.'],
 ]);
 
-const filler = 'Die Untersuchung betrachtet Verwaltung Planung Beteiligung und Finanzierung im kommunalen Kontext.';
-const body = (n) => Array.from({ length: n }, () => filler);
-const long = Array.from({ length: 40 }, (_, i) => body(40));
-long[0] = ['SeekChat E2E Langes Buch', 'Ein Testbuch mit vielen Seiten.', ...body(38)];
-long[4] = ['Kapitel 1 Grundlagen', ...body(39)];
-long[19] = ['Kapitel 2 Ergebnisse', ...body(39)];
-long[26] = ['Waermeinseln in dicht bebauten Quartieren erhoehen die naechtlichen Temperaturen.', ...body(39)];
+// Sentences rotate from page to page: a sentence starting every page would (rightly) count as a running header.
+const fillers = [
+  'Die Untersuchung betrachtet Verwaltung Planung Beteiligung und Finanzierung im kommunalen Kontext.',
+  'Befragte Akteure nennen Zustaendigkeiten Fristen und Budgets als wichtigste Rahmenbedingungen.',
+  'Vergleichbare Gemeinden setzen auf abgestimmte Verfahren zwischen Fachaemtern und Politik.',
+  'Oeffentliche Anhoerungen verbessern die Akzeptanz spaeterer Bauvorhaben deutlich.',
+  'Messreihen aus mehreren Jahren erlauben belastbare Aussagen ueber Trends.',
+  'Kartierungen zeigen raeumliche Unterschiede zwischen Innenstadt und Randlagen.',
+  'Empfehlungen richten sich an Verwaltung Wirtschaft und Zivilgesellschaft gleichermassen.',
+];
+const body = (n, off = 0) => Array.from({ length: n }, (_, k) => fillers[(off + k) % fillers.length]);
+const long = Array.from({ length: 40 }, (_, i) => body(40, i));
+long[0] = ['SeekChat E2E Langes Buch', 'Ein Testbuch mit vielen Seiten.', ...body(38, 0)];
+long[4] = ['Kapitel 1 Grundlagen', ...body(39, 4)];
+long[19] = ['Kapitel 2 Ergebnisse', ...body(39, 19)];
+long[26] = ['Waermeinseln in dicht bebauten Quartieren erhoehen die naechtlichen Temperaturen.', ...body(39, 26)];
 writePdf(path.join(dir, 'seekchat-long.pdf'), long, [
   { title: 'Einleitung', page: 0 },
   { title: 'Grundlagen', page: 4, children: [{ title: 'Begriffe', page: 4 }, { title: 'Stand der Forschung', page: 10 }] },
   { title: 'Ergebnisse', page: 19, children: [{ title: 'Waermeinseln', page: 26 }] },
   { title: 'Fazit', page: 35 },
 ]);
+
+// Running header ("Handbuch Stadtklima – Seite N") and footer on every page; printed labels i, ii, then 1, 2, …
+const headed = Array.from({ length: 12 }, (_, i) => [
+  `Handbuch Stadtklima Seite ${i + 1}`,
+  i === 2 ? 'Kapitel 1 Starkregen und Abfluss in dicht bebauten Quartieren.' : fillers[i % fillers.length],
+  ...body(6, i + 3),
+  `Lizenz CC BY 4.0 Stand ${i + 1}`,
+]);
+writePdf(path.join(dir, 'seekchat-headers.pdf'), headed, null, "0 << /S /r >> 2 << /S /D >>");
