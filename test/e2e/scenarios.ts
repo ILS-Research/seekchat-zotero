@@ -12,6 +12,7 @@ import { setPref } from '../../src/prefs';
 import { getRegisteredPaneID } from '../../src/ui/chat-section';
 import { createClient } from '../../src/core/llm';
 import { getZotSeekStatus, searchPassages, ZotSeekUnavailableError } from '../../src/core/zotseek/client';
+import { booksInScope } from '../../src/core/library/books';
 import { logger } from '../../src/util/log';
 import { collectionScope, itemsScope, libraryScope, LibraryContextProvider } from '../../src/core/library/library-context';
 import { openSourceCitation } from '../../src/core/library/zotero-items';
@@ -980,6 +981,9 @@ export const scenarios: Scenario[] = [
     const ev = (att: any, title: string, page: number, text: string) => ({
       itemKey: book.key, libraryKey: 'user', label: 'Buch aus zwei PDFs', origin: 'book' as const, text, page, attachmentID: att.id, attachmentTitle: title,
     });
+    // Step 7: the keyword reading gets one target per PDF.
+    const targets = (await booksInScope(itemsScope([book]))).filter((x) => x.itemKey === book.key);
+    assert(targets.length === 2 && targets.every((x) => x.label.includes('Teil')), `book targets: ${JSON.stringify(targets.map((x) => x.label))}; attachments ${JSON.stringify(book.getAttachments())} hashes ${JSON.stringify([part1, part2].map((x: any) => [x.id, x.isPDFAttachment(), x.attachmentHash]))}`);
     const set = buildSources([ev(part1, 'Teil 1', 2, 'Starkregen'), ev(part2, 'Teil 2', 27, 'Waermeinseln'), ev(part2, 'Teil 2', 2, 'Grundlagen')], 10_000);
     const turn: any = { role: 'assistant', content: 'Starkregen [1, S. 2]; Waermeinseln [1, S. 27].', sources: set.sources };
     const opened: [number, number | undefined][] = [];
@@ -1113,6 +1117,8 @@ export const scenarios: Scenario[] = [
       matchedChunk: { snippet: 'Waermeinseln entstehen durch versiegelte Flaechen und fehlende Verdunstung.', page: 27, pageEnd: 27, pageLabel: '25',
         chapter: 'Kapitel 2 Waermeinseln', textSource: 'book', attachmentKey: ctx.longAttachment.key, attachmentTitle: 'Volltext', chunkIndex: 12 },
     }] }));
+    server.Endpoints['/seekbook/pages'] = endpoint('pages', () => ({ attachmentKey: ctx.longAttachment.key, attachmentTitle: 'Volltext',
+      pages: [{ page: 27, label: '25', text: 'SEEKBOOK-SEITENTEXT bereinigt ohne Kopfzeile.' }] }));
     const zs = installZotSeek({ results: [
       passage(a, 'SeekChat E2E Testdokument', 2, 'Starkregenereignisse fuehren in Staedten zu Ueberflutungen.'),
       passage(b, 'SeekChat E2E Langes Buch', 27, 'Waermeinseln in dicht bebauten Quartieren erhoehen die naechtlichen Temperaturen.'),
@@ -1140,10 +1146,18 @@ export const scenarios: Scenario[] = [
       const last = systems[systems.length - 1];
       assert(last.includes('chapter: Kapitel 2 Waermeinseln') && last.includes('(printed 25)') && last.includes('(book)'), `prompt: ${last.slice(0, 800)}`);
       assert(seen.search.length >= 1 && seen.search[0].libraryKey === 'user' && !seen.search[0].itemKeys, `seekbook query: ${JSON.stringify(seen.search)}`);
+      // Step 5: pages of an indexed book come from SeekBook; step 6: the book SeekBook does not know is named.
+      const nPages = seen.pages?.length || 0;
+      await session.ask(`Was steht auf Seite 27 von [${book.n}]?`, { zotseek: false, seekbook: true });
+      const tp = session.turns[session.turns.length - 1];
+      const pagePrompt: string = (await mockLastRequest()).messages[0].content;
+      assert(!tp.error && (seen.pages?.length || 0) === nPages + 1 && seen.pages[nPages].pages === '27' && seen.pages[nPages].attachmentKey === ctx.longAttachment.key
+        && pagePrompt.includes('SEEKBOOK-SEITENTEXT'), `pages via SeekBook: ${tp.meta} / ${JSON.stringify(seen.pages)}`);
       // Follow-up on a new aspect: a supplementary search with few hits; searching in the book goes to SeekBook.
       const nSearch = seen.search.length;
       await session.ask('Und was steht zu Starkregen?', { zotseek: true, seekbook: true });
       const tf = session.turns[session.turns.length - 1];
+      assert(tf.meta?.includes('im SeekBook-Index'), `no note on unindexed books: ${tf.meta}`);
       assert(!tf.error && tf.meta?.includes('ergänzender Suche') && seen.search.slice(nSearch).every((x) => x.topK === '8'),
         `top-up: ${tf.meta} / ${JSON.stringify(seen.search.slice(nSearch))}`);
       const bookN = tf.sources?.find((x) => x.itemKey === b)?.n ?? book.n;

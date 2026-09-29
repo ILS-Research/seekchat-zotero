@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.9.8 – 2026-09-29
+
+- **Pages of indexed books come from SeekBook** ("What is on p. 27 of [2]?"): cleaned text without running headers,
+  from the PDF the page belongs to; without SeekBook (or for books it does not know) the PDF is read as before.
+- **Books missing from the SeekBook index are named** in the meta line when "Books (own index)" is used without the
+  keyword reading, with the hint to tick "Books (keyword search)" or index them.
+- **The keyword reading asks every PDF of a book** (chapter PDFs, appendices), not only the best one; exact copies
+  (same file hash) are skipped, and the progress list names each PDF.
+
 ## 0.9.7 – 2026-09-29
 
 - **Much faster on Ollama:** every call now uses the same `num_ctx` (helper calls used 4096/8192 before; each switch

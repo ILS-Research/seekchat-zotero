@@ -1,11 +1,12 @@
 /**
  * Books in a library chat scope for the source "books (keyword search)":
- * regular items of type "book" with a PDF. No index needed: per question each
+ * regular items of type "book" with a PDF (every PDF of a book is read). No index needed: per question each
  * book is asked like in the PDF chat (session.readBook, book-excerpts.ts); the
  * statements of its answer join the sources of the one joint answer.
  */
 import { describeItem } from '../context/pdf-context';
 import type { LibraryScope } from './library-context';
+import { pdfTitle } from './zotero-items';
 
 /** A book for the library chat's "books" source: its PDF and a label. */
 export interface BookTarget {
@@ -28,10 +29,29 @@ export function splitBooks(books: BookTarget[], searchable: Set<string> | null):
 /** At most this many books get the answering call per question (the others: state "limit"). */
 export const MAX_BOOKS_READ = 8;
 
-async function pdfOf(item: any): Promise<any | null> {
+/**
+ * All PDFs of a book, best one first, without exact copies (same file hash). A book can consist of
+ * several PDFs (one per chapter, appendices); the keyword reading asks each of them.
+ */
+async function pdfsOf(item: any): Promise<any[]> {
+  const all: any[] = Zotero.Items.get(item.getAttachments()).filter((a: any) => a?.isPDFAttachment?.() && !a.deleted);
   const best = await item.getBestAttachment();
-  if (best?.isPDFAttachment?.()) return best;
-  return Zotero.Items.get(item.getAttachments()).find((a: any) => a?.isPDFAttachment?.()) || null;
+  const ordered = [...(best?.isPDFAttachment?.() ? [best] : []), ...all.filter((a) => a.id !== best?.id)];
+  const seen = new Set<string>();
+  const out: any[] = [];
+  for (const a of ordered) {
+    // attachmentHash is async (md5 of the file); unreadable file: keep the PDF.
+    let hash = '';
+    try {
+      hash = String((await a.attachmentHash) || '');
+    } catch {
+      hash = '';
+    }
+    if (hash && seen.has(hash)) continue;
+    if (hash) seen.add(hash);
+    out.push(a);
+  }
+  return out;
 }
 
 export async function booksInScope(scope: LibraryScope): Promise<BookTarget[]> {
@@ -42,10 +62,25 @@ export async function booksInScope(scope: LibraryScope): Promise<BookTarget[]> {
   const books: BookTarget[] = [];
   for (const item of items) {
     if (!item || item.deleted || !item.isRegularItem?.() || item.itemType !== 'book') continue;
-    const attachment = await pdfOf(item);
-    if (attachment) books.push({ attachment, label: describeItem(attachment), itemKey: item.key });
+    const pdfs = await pdfsOf(item);
+    for (const attachment of pdfs) {
+      // Several PDFs: the label names the PDF ("… – Teil 3"), so the progress list tells them apart.
+      const label = pdfs.length > 1 ? `${describeItem(attachment)} · ${pdfTitle(attachment)}` : describeItem(attachment);
+      books.push({ attachment, label, itemKey: item.key });
+    }
   }
   return books.sort((a, b) => a.label.localeCompare(b.label));
+}
+
+/** Books of the scope (item keys) that SeekBook cannot search: what the keyword reading or a later index run has to cover. */
+export function unindexedBooks(books: BookTarget[], searchable: Set<string> | null): BookTarget[] {
+  if (!searchable) return [];
+  const seen = new Set<string>();
+  return books.filter((b) => {
+    if (!b.itemKey || searchable.has(b.itemKey) || seen.has(b.itemKey)) return false;
+    seen.add(b.itemKey);
+    return true;
+  });
 }
 
 /** Keys of the books in a collection or selection scope; undefined for a whole library (no filter needed). */

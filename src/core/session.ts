@@ -29,8 +29,8 @@ import {
 } from './library/sources';
 import { LibraryContextProvider } from './library/library-context';
 import { logger } from '../util/log';
-import { bookKeysInScope, MAX_BOOKS_READ, splitBooks, type BookTarget } from './library/books';
-import { diagnose as diagnoseSeekBook, readEnvironment as readSeekBookEnvironment, searchableBooks, SeekBookUnavailableError } from './seekbook/client';
+import { bookKeysInScope, booksInScope, MAX_BOOKS_READ, splitBooks, unindexedBooks, type BookTarget } from './library/books';
+import { diagnose as diagnoseSeekBook, readEnvironment as readSeekBookEnvironment, loadBookPages, MAX_PAGES, searchableBooks, SeekBookUnavailableError } from './seekbook/client';
 import { buildExcerptMessages, parseExcerpts } from './library/book-excerpts';
 import { buildPlanMessages, fallbackPlan, parsePlan, type SearchPlan } from './library/plan';
 import { itemOfSource, libraryKeyOf, pdfTitle } from './library/zotero-items';
@@ -422,13 +422,21 @@ export class ChatSession {
       status(t('meta.loadingPages', { n: source.n, pages: compressRanges(req.pages) }));
       try {
         const item = itemOfSource(source);
-        // The PDF most of the source's excerpts come from (a book can have several).
-        const id = attachmentFor(source);
+        // The PDF the requested pages belong to (a book can have several).
+        const id = attachmentFor(source, req.pages[0]);
         const att = (id && Zotero.Items.get(id))
           || (item?.isAttachment?.() ? item : await item?.getBestAttachment?.());
         if (!att?.isPDFAttachment?.()) throw new UserFacingError(t('error.noPdf'));
-        const pages = (await getPdfPages(att)).filter((p) => req.pages.includes(p.pageNumber) && p.text);
+        // Indexed books: SeekBook's cleaned pages (no running headers), else the PDF's own text.
+        let pages: { pageNumber: number; text: string }[] | null = null;
+        let via = 'PDF';
+        if (item?.itemType === 'book' && diagnoseSeekBook(readSeekBookEnvironment()) === null) {
+          pages = await this.seekBookPages(item, att, req.pages, signal);
+          if (pages) via = 'SeekBook';
+        }
+        if (!pages) pages = (await getPdfPages(att)).filter((p) => req.pages.includes(p.pageNumber) && p.text);
         if (!pages.length) throw new UserFacingError(t('error.noSuchPages'));
+        L.info(`load pages [${source.n}] ${compressRanges(req.pages)} via ${via}: ${pages.length} pages`);
         for (const p of pages) {
           out.push({ itemKey: source.itemKey, libraryKey: source.libraryKey, label: source.label, origin: source.origin ?? 'zotseek',
             attachmentID: att.id, attachmentTitle: pdfTitle(att), text: p.text, page: p.pageNumber, loaded: true });
@@ -472,6 +480,33 @@ export class ChatSession {
       }
     }
     return out;
+  }
+
+  /**
+   * Pages of an indexed book from SeekBook (`/seekbook/pages`, runs of consecutive pages, at most 10 per request).
+   * Null when SeekBook cannot serve them (book not indexed, error): the caller reads the PDF instead.
+   */
+  private async seekBookPages(item: any, att: any, wanted: number[], signal: AbortSignal): Promise<{ pageNumber: number; text: string }[] | null> {
+    const libraryKey = libraryKeyOf(item.libraryID);
+    if (!libraryKey) return null;
+    const runs: [number, number][] = [];
+    for (const p of [...wanted].sort((a, b) => a - b)) {
+      const last = runs[runs.length - 1];
+      if (last && p === last[1] + 1 && p - last[0] < MAX_PAGES) last[1] = p;
+      else runs.push([p, p]);
+    }
+    const out: { pageNumber: number; text: string }[] = [];
+    try {
+      for (const [from, to] of runs) {
+        const res = await loadBookPages(libraryKey, att.key, from, to, signal);
+        for (const p of res.pages) out.push({ pageNumber: p.page, text: p.text });
+      }
+    } catch (e: any) {
+      if (signal.aborted) throw e;
+      L.info(`SeekBook pages not available (${e?.message || e}), reading the PDF`);
+      return null;
+    }
+    return out.length ? out : null;
   }
 
   /** Step 1: standalone question and ZotSeek queries; the question itself if the model fails. */
@@ -566,6 +601,15 @@ export class ChatSession {
         keywordBooks = split.keyword;
         if (split.indexed.length) notes.push(tn('meta.booksViaSeekBook', split.indexed.length));
         L.info(`books split: ${split.indexed.length} via index, ${split.keyword.length} by keywords${indexedBooks ? '' : ' (SeekBook coverage unknown)'}`);
+      }
+    }
+    if (searchNow && opts.seekbook && indexedBooks && !opts.books.length) {
+      // Step 6: books SeekBook cannot search are missing from the answer unless the keyword reading covers them.
+      const missing = unindexedBooks(await booksInScope(library.scope), indexedBooks);
+      if (missing.length) {
+        const names = [...new Set(missing.map((b) => b.label.replace(/ · .*$/, '')))];
+        notes.push(tn('meta.booksNotIndexed', names.length, { names: names.slice(0, 5).join('; ') + (names.length > 5 ? ' …' : '') }));
+        L.info(`books not indexed in SeekBook: ${names.length}`);
       }
     }
     if (keywordBooks.length && !answer.bookProgress) {
