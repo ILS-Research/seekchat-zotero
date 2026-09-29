@@ -10,6 +10,11 @@ export interface ChatRequest {
   maxTokens: number;
   /** Context window in tokens; honored by providers that accept it (Ollama). */
   numCtx?: number;
+  /**
+   * Reasoning phase of thinking models (Qwen 3, gpt-oss …), Ollama only. Undefined = server default (for Qwen 3:
+   * on, and the reasoning is hidden from us, so the answer starts late). SeekChat sends false for helper calls.
+   */
+  think?: boolean;
   signal?: AbortSignal;
 }
 

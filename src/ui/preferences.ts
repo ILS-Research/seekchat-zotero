@@ -41,6 +41,12 @@ export function onPrefsLoad(win: Window): void {
     });
   }
 
+  const thinking = $<HTMLInputElement>('thinking');
+  if (thinking) {
+    thinking.checked = getPref('thinking') === true;
+    thinking.addEventListener('change', () => setPref('thinking', thinking.checked));
+  }
+
   const prompt = $<HTMLTextAreaElement>('systemPrompt');
   if (prompt) {
     prompt.placeholder = defaultSystemPrompt();

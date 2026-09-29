@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.9.7 – 2026-09-29
+
+- **Much faster on Ollama:** every call now uses the same `num_ctx` (helper calls used 4096/8192 before; each switch
+  made Ollama reload the model, 5–6 s, twice per question), and helper calls send `think: false`. Answers no longer
+  run a hidden reasoning phase either (Qwen 3 reasoned by default and the reasoning never reached SeekChat); new
+  setting "Let the model think before answering" switches it back on. Live (JIRA documentation, qwen3 27B): first
+  question 84 → 52 s, follow-up 81 → 39 s, first token of the follow-up 34 → 7 s.
+
+- **Follow-ups on a new aspect only top up the result:** at most 8 hits per query and 35 % of the text budget
+  (at least 12 000 characters) instead of a second full search. Before, "and what is a backlog?" sent a prompt as
+  large as the first question (115 000 characters in the reported chat).
+- **Overlapping excerpts of one source** are cut to their new sentences (marked "…") or dropped when almost nothing
+  new is left; neighbouring book passages often share whole paragraphs without one containing the other.
+- "Search in [n]" for a **book** goes to SeekBook (ZotSeek usually has no or only partial book text); the meta line
+  names the index used.
+- E2E: SeekBook can be sideloaded (`E2E_SEEKBOOK_XPI`); a live scenario indexes the JIRA documentation
+  (`test/assets`, CC BY 2.5) with SeekBook and asks the two questions of the report.
+
 ## 0.9.6 – 2026-09-29
 
 - **Follow-ups discuss the result instead of searching everything again.** The first question searches all sources;

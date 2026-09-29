@@ -140,6 +140,45 @@ function normalized(text: string): string {
   return text.replace(/\s+/g, ' ').trim().toLowerCase();
 }
 
+/** Sentences (or long fragments) of a text, normalized, for overlap checks. */
+function sentences(text: string): string[] {
+  return text.split(/(?<=[.!?:;])\s+/).map(normalized).filter((x) => x.length >= 20);
+}
+
+/** An excerpt whose new sentences come to fewer characters than this adds nothing worth sending. */
+const MIN_NEW_CHARS = 80;
+
+/**
+ * Overlap with excerpts already taken from the same source: passages of
+ * neighbouring windows, several queries or earlier answers often share whole
+ * sentences without one containing the other. Returns the text to send (known
+ * sentences cut out, marked with "…"), or null when (almost) nothing new is left.
+ */
+export function withoutKnownSentences(text: string, known: Set<string>): string | null {
+  const parts = text.split(/(?<=[.!?:;])\s+/);
+  const fresh = parts.filter((p) => {
+    const n = normalized(p);
+    return n.length < 20 || !known.has(n);
+  });
+  if (fresh.length === parts.length) return text;
+  const freshChars = fresh.join(' ').length;
+  if (freshChars < MIN_NEW_CHARS) return null;
+  // Keep the order; one "…" where known sentences were cut.
+  const out: string[] = [];
+  let cut = false;
+  for (const p of parts) {
+    const n = normalized(p);
+    if (n.length >= 20 && known.has(n)) {
+      cut = true;
+      continue;
+    }
+    if (cut && out.length) out.push('…');
+    cut = false;
+    out.push(p);
+  }
+  return out.join(' ');
+}
+
 /** Characters one excerpt costs in the prompt (text plus its "(S. N)" line). */
 function cost(text: string): number {
   return text.length + 12;
@@ -160,6 +199,12 @@ export function buildSources(
   const numbers: SourceNumbers = opts.numbers ?? new Map();
   const byItem = new Map<string, LibrarySource>();
   const seenText = new Map<string, string[]>();
+  const seenSentences = new Map<string, Set<string>>();
+  const remember = (id: string, text: string) => {
+    const set = seenSentences.get(id) || new Set<string>();
+    for (const x of sentences(text)) set.add(x);
+    seenSentences.set(id, set);
+  };
   let used = 0;
   let passagesUsed = 0;
   let withoutText = 0;
@@ -187,6 +232,7 @@ export function buildSources(
     used += extra;
     passagesUsed += excerpts.length;
     seenText.set(id, excerpts.map((e) => normalized(e.text)));
+    for (const e of excerpts) remember(id, e.text);
     byItem.set(id, { ...prev, n: numberOf(id), excerpts });
   }
   const carried = byItem.size;
@@ -198,8 +244,11 @@ export function buildSources(
       continue;
     }
     const id = sourceId(e);
-    const text = e.text.trim();
-    // The same chunk can come back twice (hybrid legs, several queries); a chunk contained in another adds nothing.
+    // The same chunk can come back twice (hybrid legs, several queries); a chunk contained in another adds nothing,
+    // one that mostly repeats sentences already taken is cut down to the new ones (or dropped).
+    const trimmed = withoutKnownSentences(e.text.trim(), seenSentences.get(id) || new Set());
+    if (trimmed === null) continue;
+    const text = trimmed;
     const norm = normalized(text);
     const known = seenText.get(id) || [];
     if (known.some((k) => k.includes(norm))) continue;
@@ -212,6 +261,7 @@ export function buildSources(
     used += header + cost(text);
     passagesUsed++;
     seenText.set(id, [...known.filter((k) => !norm.includes(k)), norm]);
+    remember(id, text);
     const excerpt: SourceExcerpt = {
       page: e.page, text, textSource: e.textSource, noteKey: e.noteKey, loaded: e.loaded,
       attachmentID: e.attachmentID, attachmentTitle: e.attachmentTitle, pageLabel: e.pageLabel, chapter: e.chapter,

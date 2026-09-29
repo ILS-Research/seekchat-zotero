@@ -120,6 +120,25 @@ function installZotSeek(opts: { indexed?: number; search?: boolean; results?: an
   return state;
 }
 
+/**
+ * Saves the real SeekBook (sideloaded in live runs) and its endpoints before a stand-in replaces them;
+ * the returned function puts them back.
+ */
+function stashSeekBook(): () => void {
+  const server = (Zotero as any).Server;
+  const paths = ['/seekbook/stats', '/seekbook/search', '/seekbook/books', '/seekbook/pages'];
+  const plugin = (Zotero as any).SeekBook;
+  const endpoints = paths.map((p) => server.Endpoints[p]);
+  return () => {
+    paths.forEach((p, i) => {
+      if (endpoints[i]) server.Endpoints[p] = endpoints[i];
+      else delete server.Endpoints[p];
+    });
+    if (plugin) (Zotero as any).SeekBook = plugin;
+    else delete (Zotero as any).SeekBook;
+  };
+}
+
 /** A ZotSeek search result with text, as /zotseek/search returns it for granularity=passages. */
 function passage(itemKey: string, title: string, page: number, text: string): any {
   return {
@@ -992,6 +1011,7 @@ export const scenarios: Scenario[] = [
   ['sources: coverage line and the SeekBook switch follow ZotSeek and SeekBook live', async () => {
     const zs = installZotSeek({ indexed: 5 });
     const server = (Zotero as any).Server;
+    const restoreSeekBook = stashSeekBook();
     const installSeekBook = (books: number) => {
       (Zotero as any).SeekBook = { apiVersion: 1, standIn: true };
       const E: any = function () {};
@@ -1003,6 +1023,8 @@ export const scenarios: Scenario[] = [
       delete (Zotero as any).SeekBook;
       delete server.Endpoints['/seekbook/stats'];
     };
+    // A sideloaded real SeekBook (live runs) is taken away for this scenario and restored at the end.
+    removeSeekBook();
     const prefs = { excludeBooks: Zotero.Prefs.get('zotseek.excludeBooks', true), includeSeekBook: Zotero.Prefs.get('zotseek.includeSeekBook', true) };
     try {
       openLibraryChat(libraryScope(Zotero.Libraries.userLibraryID));
@@ -1060,6 +1082,7 @@ export const scenarios: Scenario[] = [
       cw.close();
     } finally {
       removeSeekBook();
+      restoreSeekBook();
       Zotero.Prefs.set('zotseek.excludeBooks', prefs.excludeBooks ?? true, true);
       Zotero.Prefs.set('zotseek.includeSeekBook', prefs.includeSeekBook ?? false, true);
       zs.uninstall();
@@ -1080,6 +1103,7 @@ export const scenarios: Scenario[] = [
         } };
       return E;
     };
+    const restoreSeekBook = stashSeekBook();
     (Zotero as any).SeekBook = { apiVersion: 1, standIn: true };
     server.Endpoints['/seekbook/stats'] = endpoint('stats', () => ({ ready: true, indexedBooks: 1, queuedDocuments: 0, apiVersion: 1 }));
     server.Endpoints['/seekbook/books'] = endpoint('books', () => ({ apiVersion: 1, books: [{ itemKey: b, searchable: true, readyDocuments: 1 }] }));
@@ -1116,6 +1140,19 @@ export const scenarios: Scenario[] = [
       const last = systems[systems.length - 1];
       assert(last.includes('chapter: Kapitel 2 Waermeinseln') && last.includes('(printed 25)') && last.includes('(book)'), `prompt: ${last.slice(0, 800)}`);
       assert(seen.search.length >= 1 && seen.search[0].libraryKey === 'user' && !seen.search[0].itemKeys, `seekbook query: ${JSON.stringify(seen.search)}`);
+      // Follow-up on a new aspect: a supplementary search with few hits; searching in the book goes to SeekBook.
+      const nSearch = seen.search.length;
+      await session.ask('Und was steht zu Starkregen?', { zotseek: true, seekbook: true });
+      const tf = session.turns[session.turns.length - 1];
+      assert(!tf.error && tf.meta?.includes('ergänzender Suche') && seen.search.slice(nSearch).every((x) => x.topK === '8'),
+        `top-up: ${tf.meta} / ${JSON.stringify(seen.search.slice(nSearch))}`);
+      const bookN = tf.sources?.find((x) => x.itemKey === b)?.n ?? book.n;
+      const nSearch2 = seen.search.length;
+      await session.ask(`Suche in [${bookN}] nach Verdunstung`, { zotseek: true, seekbook: true });
+      const td = session.turns[session.turns.length - 1];
+      const docQuery = seen.search.slice(nSearch2).find((x) => x.q === 'Verdunstung');
+      assert(!td.error && docQuery?.itemKeys === b && td.meta?.includes('(SeekBook): 1 Abschnitte'), `document search: ${td.meta} / ${JSON.stringify(seen.search.slice(nSearch2))}`);
+
       // ZotSeek already bringing SeekBook (switch locked) + keyword books: the indexed book is not read by keywords.
       session.clear();
       const beforeVia = (await mockRequests()).length;
@@ -1146,8 +1183,7 @@ export const scenarios: Scenario[] = [
       }
     } finally {
       zs.uninstall();
-      for (const path of ['/seekbook/stats', '/seekbook/books', '/seekbook/search']) delete server.Endpoints[path];
-      delete (Zotero as any).SeekBook;
+      restoreSeekBook();
     }
   }],
 
@@ -1255,6 +1291,58 @@ export const scenarios: Scenario[] = [
     assert(!first.error && !follow.error, `errors: ${first.content} / ${follow.content}`);
     assert(follow.meta?.includes('keine neue Suche') && !follow.bookProgress, `follow-up searched again: ${follow.meta}`);
     assert(followMs < firstMs, `follow-up ${followMs} ms not faster than first ${firstMs} ms`);
+    session.clear();
+  }],
+  // Needs E2E_SEEKBOOK_XPI (SeekBook sideloaded) and test/assets/JIRASOFTWARESERVER071-290216.pdf (CC BY 2.5).
+  // The two questions of the user's report: prompt sizes and times go to live-report.json.
+  ['live: JIRA book through SeekBook – first question, then a follow-up on a new aspect stays small', async (ctx) => {
+    useLiveServer(ctx);
+    const sb = (Zotero as any).SeekBook;
+    if (!sb?.indexer) throw new SkipError('SeekBook not sideloaded (E2E_SEEKBOOK_XPI)');
+    const file = `${Zotero.Prefs.get('seekchat.e2e.assetsDir')}/JIRASOFTWARESERVER071-290216.pdf`;
+    if (!(await Zotero.getMainWindow().IOUtils.exists(file))) throw new SkipError('JIRA PDF not in test/assets');
+    const host = new URL(Zotero.Prefs.get('seekchat.e2e.liveUrl')).hostname;
+    Zotero.Prefs.set('seekbook.provider', 'ollama');
+    Zotero.Prefs.set('seekbook.baseUrl', Zotero.Prefs.get('seekchat.e2e.liveUrl'));
+    Zotero.Prefs.set('seekbook.model', 'qwen3-embedding:8b');
+    Zotero.Prefs.set('seekbook.allowedRemoteHosts', host);
+    const { parentID } = await importFixture('JIRA-Dokumentation', file);
+    const book = Zotero.Items.get(parentID);
+    let t0 = Date.now();
+    await sb.indexer.indexBooks([book], true);
+    await waitFor('JIRA book indexed', async () => sb.isIndexed("user", book.key), 1500000);
+    const indexMs = Date.now() - t0;
+
+    const session = getSession(new LibraryContextProvider(libraryScope(Zotero.Libraries.userLibraryID)));
+    session.clear();
+    const lastPrompt = (turn: any) => turn.requests?.[turn.requests.length - 1]?.messages?.map((m: any) => m.content).join('\n') || '';
+    const repeated = (prompt: string) => {
+      const seen = new Set<string>();
+      let dup = 0;
+      for (const sentence of prompt.split(/(?<=[.!?])\s+/).filter((x) => x.length > 60)) {
+        if (seen.has(sentence)) dup += sentence.length;
+        seen.add(sentence);
+      }
+      return dup;
+    };
+    t0 = Date.now();
+    await session.ask('Bitte sag mir wie man issues in jira anlegt', { zotseek: false, seekbook: true });
+    const q1 = session.turns[session.turns.length - 1];
+    const q1Ms = Date.now() - t0;
+    t0 = Date.now();
+    await session.ask('Was ist denn ein Backlog in Jira und wie kann ich es anlegen?', { zotseek: false, seekbook: true });
+    const q2 = session.turns[session.turns.length - 1];
+    const q2Ms = Date.now() - t0;
+    const p1 = lastPrompt(q1);
+    const p2 = lastPrompt(q2);
+    await reportLive(ctx, {
+      step: 'jira-seekbook', indexMs, q1Ms, q2Ms, q1PromptChars: p1.length, q2PromptChars: p2.length,
+      q1RepeatedChars: repeated(p1), q2RepeatedChars: repeated(p2), q1Meta: q1.meta, q2Meta: q2.meta, q1: q1.content, q2: q2.content,
+    });
+    assert(!q1.error && !q2.error, `errors: ${q1.content} / ${q2.content}`);
+    assert(/\[\d+, S\. \d+/.test(q1.content) && /\[\d+, S\. \d+/.test(q2.content), 'answers without page citations');
+    assert(p2.length < p1.length, `follow-up prompt ${p2.length} not smaller than first ${p1.length}`);
+    assert(repeated(p1) < p1.length * 0.05 && repeated(p2) < p2.length * 0.1, `repeated text: ${repeated(p1)} / ${repeated(p2)}`);
     session.clear();
   }],
 ];

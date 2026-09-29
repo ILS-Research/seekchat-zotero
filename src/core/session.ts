@@ -30,7 +30,7 @@ import {
 import { LibraryContextProvider } from './library/library-context';
 import { logger } from '../util/log';
 import { bookKeysInScope, MAX_BOOKS_READ, splitBooks, type BookTarget } from './library/books';
-import { searchableBooks, SeekBookUnavailableError } from './seekbook/client';
+import { diagnose as diagnoseSeekBook, readEnvironment as readSeekBookEnvironment, searchableBooks, SeekBookUnavailableError } from './seekbook/client';
 import { buildExcerptMessages, parseExcerpts } from './library/book-excerpts';
 import { buildPlanMessages, fallbackPlan, parsePlan, type SearchPlan } from './library/plan';
 import { itemOfSource, libraryKeyOf, pdfTitle } from './library/zotero-items';
@@ -75,6 +75,14 @@ export type { BookTarget };
 const L = logger('Chat');
 /** Excerpts kept of a source an earlier answer cited without page. */
 const CARRIED_UNPAGED = 2;
+/**
+ * A follow-up that searches again only tops up the result so far: fewer hits per
+ * query and a smaller budget (a share of the text budget, at least FOLLOWUP_MIN_CHARS).
+ * Without this a new aspect ("and what is a backlog?") sent a prompt as large as the first.
+ */
+const FOLLOWUP_TOP_K = 8;
+const FOLLOWUP_SHARE = 0.35;
+const FOLLOWUP_MIN_CHARS = 12000;
 
 export type BookState = 'waiting' | 'language' | 'keywords' | 'reading' | 'found' | 'none' | 'nohits' | 'skipped' | 'error' | 'limit';
 
@@ -226,7 +234,7 @@ export class ChatSession {
     const sample = await provider.sampleText(3000);
     try {
       const reply = await client.streamChat(
-        { model: prefs.model, messages: buildLanguageMessages(sample), temperature: 0, maxTokens: 64, numCtx: 4096, signal },
+        { model: prefs.model, messages: buildLanguageMessages(sample), temperature: 0, maxTokens: 64, numCtx: prefs.numCtx, think: false, signal },
         () => {},
       );
       const fromModel = parseLanguageReply(reply);
@@ -256,7 +264,8 @@ export class ChatSession {
           messages: buildKeywordMessages({ question, previousQuestion, docTitle: provider.describe(), language }),
           temperature: 0.2,
           maxTokens: 512,
-          numCtx: 4096,
+          numCtx: prefs.numCtx,
+          think: false,
           signal,
         },
         () => {},
@@ -439,9 +448,23 @@ export class ChatSession {
       try {
         if (!item) throw new UserFacingError(t('error.documentNotFound'));
         const target = { itemKey: item.key, libraryKey: libraryKeyOf(item.libraryID) };
-        const found = (await library.searchInItem(req.query, target, signal)).filter((e) => e.text);
+        // Books: SeekBook first (ZotSeek usually excludes books or has only their first chapters), then ZotSeek.
+        let found: Evidence[] = [];
+        let via = 'ZotSeek';
+        if (item.itemType === 'book' && diagnoseSeekBook(readSeekBookEnvironment()) === null) {
+          try {
+            found = (await library.searchBookIndex([req.query], [item.key], signal, FOLLOWUP_TOP_K)).filter((e) => e.text);
+            via = 'SeekBook';
+          } catch (e: any) {
+            if (!(e instanceof SeekBookUnavailableError)) throw e;
+          }
+        }
+        if (!found.length) {
+          found = (await library.searchInItem(req.query, target, signal)).filter((e) => e.text);
+          via = 'ZotSeek';
+        }
         out.push(...found);
-        notes.push(t('meta.searchedDocument', { name, query: req.query, n: found.length }));
+        notes.push(t('meta.searchedDocument', { name, query: req.query, n: found.length, via }));
       } catch (e: any) {
         if (signal.aborted) throw e;
         if (!(e instanceof UserFacingError)) logError(e);
@@ -460,7 +483,7 @@ export class ChatSession {
       // From the second question on, the planner may ask to load pages or search in a named document (7e-2).
       const sources = history.length ? known.map((s) => ({ n: s.n, label: s.label, book: s.origin === 'book' })) : undefined;
       const reply = await client.streamChat(
-        { model: prefs.model, messages: buildPlanMessages({ question, history, scope, sources }), temperature: 0.1, maxTokens: 1024, numCtx: 8192, signal },
+        { model: prefs.model, messages: buildPlanMessages({ question, history, scope, sources }), temperature: 0.1, maxTokens: 1024, numCtx: prefs.numCtx, think: false, signal },
         () => {},
       );
       return parsePlan(reply, question, sources ? new Set(known.map((s) => s.n)) : undefined);
@@ -522,6 +545,9 @@ export class ChatSession {
     const followUp = history.length > 0 && known.length > 0;
     const searchNow = !followUp || plan.search === true || (!plan.fromModel && !carried.length);
     if (followUp) notes.push(t(searchNow ? 'meta.followupSearch' : 'meta.followupNoSearch'));
+    const topUp = followUp && searchNow;
+    const topK = topUp ? FOLLOWUP_TOP_K : undefined;
+    const budget = topUp ? Math.min(prefs.contextChars, Math.max(FOLLOWUP_MIN_CHARS, Math.round(prefs.contextChars * FOLLOWUP_SHARE))) : prefs.contextChars;
     L.info(`follow-up: ${followUp}, new search: ${searchNow}, carried sources: ${carried.length} (${carried.reduce((n, c) => n + c.excerpts.length, 0)} excerpts)`);
 
     // Books SeekBook can search go to its index, the rest to the keyword reading (M4).
@@ -553,7 +579,7 @@ export class ChatSession {
     if (opts.zotseek && searchNow) {
       status(t('meta.searchingZotSeek'));
       try {
-        zotseek = await L.time('ZotSeek search', () => library.searchEvidence(plan.queries, ctrl.signal), (r) => `${r.length} passages`);
+        zotseek = await L.time('ZotSeek search', () => library.searchEvidence(plan.queries, ctrl.signal, topK), (r) => `${r.length} passages`);
       } catch (e: any) {
         // With other sources or loaded pages there is still something to answer from.
         if ((!others && !opts.seekbook) || !(e instanceof ZotSeekUnavailableError)) throw e;
@@ -564,7 +590,7 @@ export class ChatSession {
     if (opts.seekbook && searchNow) {
       status(t('meta.searchingSeekBook'));
       try {
-        seekbook = await L.time('SeekBook search', () => library.searchBookIndex(plan.queries, bookKeys, ctrl.signal), (r) => `${r.length} passages`);
+        seekbook = await L.time('SeekBook search', () => library.searchBookIndex(plan.queries, bookKeys, ctrl.signal, topK), (r) => `${r.length} passages`);
         // ZotSeek indexing books itself would bring the same books again.
         const covered = new Set(seekbook.map(sourceId));
         if (indexedBooks) for (const key of indexedBooks) covered.add(sourceId({ libraryKey: library.scope.libraryKey ?? null, itemKey: key }));
@@ -582,7 +608,7 @@ export class ChatSession {
     if (answer.bookProgress) notes.push(this.booksSummary(answer.bookProgress));
 
     // 3. One numbered source list; sources cited before come first and keep their numbers.
-    const set = buildSources([...loaded, ...interleave(zotseek, seekbook, ...fromBooks)], prefs.contextChars, {
+    const set = buildSources([...loaded, ...interleave(zotseek, seekbook, ...fromBooks)], budget, {
       numbers: this.sourceNumbers,
       carried,
     });
@@ -619,6 +645,7 @@ export class ChatSession {
         temperature: prefs.temperature,
         maxTokens: prefs.maxTokens,
         numCtx: prefs.numCtx,
+        think: prefs.thinking,
         signal: ctrl.signal,
       },
       (delta) => {
@@ -749,6 +776,7 @@ export class ChatSession {
           temperature: 0.1,
           maxTokens: Math.min(prefs.maxTokens, 4096),
           numCtx: prefs.numCtx,
+          think: false,
           signal: bookCtrl.signal,
         },
         () => {},
@@ -834,6 +862,7 @@ export class ChatSession {
         temperature: prefs.temperature,
         maxTokens: prefs.maxTokens,
         numCtx: prefs.numCtx,
+        think: prefs.thinking,
         signal: ctrl.signal,
       },
       (delta) => {

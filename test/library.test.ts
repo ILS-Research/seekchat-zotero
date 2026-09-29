@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { splitSourceCitations } from '../src/core/citations';
-import { buildSources, formatSources, sourceLabel } from '../src/core/library/sources';
+import { buildSources, formatSources, sourceLabel, withoutKnownSentences, type Evidence } from '../src/core/library/sources';
 import { buildMessages, describeContext, defaultLibraryPrompt } from '../src/core/prompt';
 import type { ZotSeekPassage } from '../src/core/zotseek/client';
 import { setLocale } from '../src/i18n';
@@ -81,4 +81,17 @@ test('book answers: the no-match marker is recognised with quotes or a period', 
   const { isNoMatch } = await import('../src/core/prompt');
   for (const a of ['KEINE ANGABE', '„KEINE ANGABE“', 'Keine Angabe.', ' **KEINE ANGABE** ']) assert.ok(isNoMatch(a), a);
   assert.ok(!isNoMatch('Keine Angabe zu Hitze, aber zu Regen [S. 3].'));
+});
+
+test('overlapping excerpts of one source: known sentences cut, mostly known excerpts dropped', () => {
+  const s1 = 'Create issues by clicking Create at the top of the screen.';
+  const s2 = 'Fill in the fields using the data shown below in the dialog.';
+  const s3 = 'Only the fields marked with an asterisk are mandatory ones.';
+  const s4 = 'Ranking lets you order the backlog by dragging issues around, the most important ones go to the top.';
+  const ev = (page: number, text: string): Evidence => ({ itemKey: 'B', libraryKey: 'user', label: 'Buch', origin: 'book', page, text });
+  const set = buildSources([ev(6, `${s1} ${s2} ${s3}`), ev(8, `${s2} ${s3} ${s4}`), ev(9, `${s1} ${s2}`)], 100000);
+  const ex = set.sources[0].excerpts;
+  assert.equal(ex.length, 2, JSON.stringify(ex));
+  assert.equal(ex[1].text, s4, 'only the new sentence of p. 8 is kept');
+  assert.equal(withoutKnownSentences(`${s1} ${s4}`, new Set()), `${s1} ${s4}`);
 });

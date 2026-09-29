@@ -12,6 +12,8 @@ export interface SeekChatPrefs {
   maxTokens: number;
   contextChars: number;
   historyTurns: number;
+  /** Let thinking models reason before answering (Ollama `think`); slower, off by default. Helper calls never think. */
+  thinking: boolean;
   systemPrompt: string;
   allowedRemoteHosts: string;
   /** "auto": limits from the model (minus 20 %); "manual": numCtx, maxTokens, contextChars as set. */
@@ -52,6 +54,7 @@ export function readPrefs(): SeekChatPrefs {
     maxTokens: int('maxTokens', 2048, 64, 65536),
     contextChars: int('contextChars', 40000, 2000, 4000000),
     historyTurns: int('historyTurns', 4, 0, 50),
+    thinking: getPref('thinking') === true,
     systemPrompt: str('systemPrompt'),
     allowedRemoteHosts: str('allowedRemoteHosts'),
     libraryTopK: int('libraryTopK', 30, 1, 100),

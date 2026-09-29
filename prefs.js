@@ -20,6 +20,8 @@ pref("extensions.zotero.seekchat.maxTokens", 2048);
 pref("extensions.zotero.seekchat.contextChars", 40000);
 // Previous question/answer pairs sent along for follow-up questions.
 pref("extensions.zotero.seekchat.historyTurns", 4);
+// Reasoning phase of thinking models (Qwen 3 …) for answers: better on hard questions, much slower. Helper calls never think.
+pref("extensions.zotero.seekchat.thinking", false);
 // Empty = built-in default prompt.
 pref("extensions.zotero.seekchat.systemPrompt", "");
 // Comma-separated host names that may serve the chat model in addition to

@@ -94,11 +94,16 @@ Extending: new sources are new `ContextProvider`s; session, prompt and turn rend
   own line. Running page headers/footers (title, page number, license) precede every page's text.
 - Real-document checks: put PDFs into `test/assets/` (ignored by git); the E2E scenario
   "assets" writes `e2e/out/assets-report.json` (pages, timings, fit, outline, keyword selection).
+- **Ollama reloads the model whenever `num_ctx` changes (5–6 s each).** All calls use the resolved `prefs.numCtx`;
+  never give helper calls their own context size. Thinking models reason by default and Ollama hides that in
+  `message.thinking`: helper calls send `think: false`, answers `think: prefs.thinking` (default off).
 - Ollama's `/v1` endpoint ignores `num_ctx`; with its small default context the PDF is silently
   truncated. Keep Ollama on the native API.
 - Log lines must go to `Services.console` (see `src/util/log.ts`): a sandbox's `console`, even the main window's
   called from the sandbox, never reaches the Browser Console. E2E "logging reaches the Browser Console" checks it.
-- Follow-ups must stay small: carried sources hold only cited excerpts, and a new search only runs when the planner
+- Live run with a real book index: `E2E_SEEKBOOK_XPI=../seekbook-zotero_src/dist/seekbook-<v>.xpi E2E_TIMEOUT=3000
+  E2E_LIVE_URL=… ./e2e/run.sh` (indexes `test/assets/JIRASOFTWARESERVER071-290216.pdf` with qwen3-embedding:8b).
+- Follow-ups must stay small (a new search is only a top-up: `FOLLOWUP_TOP_K`, `FOLLOWUP_SHARE` in session.ts); carried sources hold only cited excerpts, and a new search only runs when the planner
   sets `"search": true` (mock: `e2e/mock-*.mjs` decides by the question's words).
 - Library window: the SeekBook switch stays locked until ZotSeek's status **and** the scope coverage are known
   (SeekBook's status arrives first; unlocking on it alone let the box flash up as allowed).

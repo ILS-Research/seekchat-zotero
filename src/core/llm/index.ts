@@ -26,7 +26,7 @@ function logged(client: LlmClient): LlmClient {
       const chars = req.messages.reduce((n, m) => n + m.content.length, 0);
       const t0 = Date.now();
       let first = 0;
-      L.info(`→ ${req.model}: ${req.messages.length} messages, ${chars} chars, numCtx ${req.numCtx ?? '-'}, maxTokens ${req.maxTokens}`);
+      L.info(`→ ${req.model}: ${req.messages.length} messages, ${chars} chars, numCtx ${req.numCtx ?? "-"}, maxTokens ${req.maxTokens}, think ${req.think ?? "default"}`);
       try {
         const out = await client.streamChat(req, (d) => {
           if (!first) first = Date.now() - t0;

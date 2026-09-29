@@ -31,9 +31,16 @@ if [ -n "${E2E_LIVE_URL:-}" ]; then
   [ -n "$live_ip" ] && LIVE+=(--add-host "$live_host:$live_ip")
 fi
 
+# Optional: SeekBook sideloaded as well (live scenario with a real book index), e.g.
+#   E2E_SEEKBOOK_XPI=../seekbook-zotero_src/dist/seekbook-0.3.3.xpi E2E_LIVE_URL=… ./e2e/run.sh
+if [ -n "${E2E_SEEKBOOK_XPI:-}" ]; then
+  LIVE+=(-v "$(realpath "$E2E_SEEKBOOK_XPI")":/seekbook.xpi:ro)
+fi
+
 "${DOCKER[@]}" run --rm -u "$(id -u):$(id -g)" \
   -v "$PWD/dist":/dist:ro -v "$PWD/e2e/out":/out \
   -v "$PWD/test/assets":/assets:ro \
+  -e E2E_ONLY="${E2E_ONLY:-}" \
   -e E2E_TIMEOUT="${E2E_TIMEOUT:-$([ -n "${E2E_LIVE_URL:-}" ] && echo 600 || echo 240)}" \
   "${LIVE[@]}" \
   seekchat-e2e:latest

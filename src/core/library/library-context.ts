@@ -123,12 +123,14 @@ export class LibraryContextProvider implements ContextProvider {
    * ZotSeek passages for one or more queries (in the scope), as evidence. Several
    * queries are interleaved by rank, so each aspect of the question gets its best hits.
    */
-  async searchEvidence(queries: string[], signal?: AbortSignal): Promise<Evidence[]> {
-    const topK = this.scope.itemIDs ? MAX_TOP_K : readPrefs().libraryTopK;
+  async searchEvidence(queries: string[], signal?: AbortSignal, topKLimit?: number): Promise<Evidence[]> {
+    // Item and collection scopes filter afterwards, so they fetch the maximum; the limit is applied after filtering.
+    const wanted = topKLimit ?? readPrefs().libraryTopK;
+    const topK = this.scope.itemIDs ? MAX_TOP_K : wanted;
     const lists: Evidence[][] = [];
     for (const q of queries) {
       const passages = await searchPassages(q, { topK, libraryKey: this.scope.libraryKey, signal });
-      lists.push(filterPassages(passages, this.scope).map(fromZotSeek));
+      lists.push(filterPassages(passages, this.scope).slice(0, wanted).map(fromZotSeek));
     }
     return interleave(...lists);
   }
@@ -137,12 +139,12 @@ export class LibraryContextProvider implements ContextProvider {
    * SeekBook passages (own book index) for the queries, interleaved by rank.
    * `itemKeys`: only these books (a collection or selection); omitted = the whole library.
    */
-  async searchBookIndex(queries: string[], itemKeys: string[] | undefined, signal?: AbortSignal): Promise<Evidence[]> {
+  async searchBookIndex(queries: string[], itemKeys: string[] | undefined, signal?: AbortSignal, topK?: number): Promise<Evidence[]> {
     if (itemKeys && !itemKeys.length) return [];
     const libraryID = this.scope.libraryID;
     const lists: Evidence[][] = [];
     for (const q of queries) {
-      const passages = await searchBooks(q, { topK: readPrefs().libraryTopK, libraryKey: this.scope.libraryKey, itemKeys, signal });
+      const passages = await searchBooks(q, { topK: topK ?? readPrefs().libraryTopK, libraryKey: this.scope.libraryKey, itemKeys, signal });
       lists.push(passages.map((p) => {
         const att = p.attachmentKey ? Zotero.Items.getByLibraryAndKey(libraryID, p.attachmentKey) : null;
         return fromSeekBook(p, att ? att.id : undefined);

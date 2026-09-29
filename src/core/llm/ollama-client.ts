@@ -18,21 +18,31 @@ export class OllamaClient implements LlmClient {
     return parseOllamaShow(await resp.json());
   }
 
+  /** Models that rejected the `think` field (not a thinking model); asked without it from then on. */
+  private noThink = new Set<string>();
+
   async streamChat(req: ChatRequest, onDelta: (text: string) => void): Promise<string> {
-    const resp = await request(this.cfg, '/api/chat', {
-      method: 'POST',
-      signal: req.signal,
-      body: {
-        model: req.model,
-        messages: req.messages,
-        stream: true,
-        options: {
-          temperature: req.temperature,
-          num_predict: req.maxTokens,
-          ...(req.numCtx ? { num_ctx: req.numCtx } : {}),
-        },
+    const think = req.think !== undefined && !this.noThink.has(req.model) ? { think: req.think } : {};
+    const body = {
+      model: req.model,
+      messages: req.messages,
+      stream: true,
+      ...think,
+      options: {
+        temperature: req.temperature,
+        num_predict: req.maxTokens,
+        ...(req.numCtx ? { num_ctx: req.numCtx } : {}),
       },
-    });
+    };
+    let resp: Response;
+    try {
+      resp = await request(this.cfg, '/api/chat', { method: 'POST', signal: req.signal, body });
+    } catch (e: any) {
+      // "… does not support thinking": ask again without the field.
+      if (!('think' in think) || !/think/i.test(String(e?.message || e))) throw e;
+      this.noThink.add(req.model);
+      return this.streamChat(req, onDelta);
+    }
     let full = '';
     await readLines(resp, (line) => {
       const ev = parseOllamaLine(line);

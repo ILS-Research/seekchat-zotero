@@ -49,8 +49,10 @@ const server = http.createServer(async (req, res) => {
       // Follow-up about a page of source [1]: ask to load it (7e-2).
       const page = q.match(/Seite (\d+) von \[1\]/);
       if (page && system.includes('load_pages')) plan.load_pages = [{ source: 1, pages: page[1] }];
+      const doc = q.match(/Suche in \[(\d+)\] nach (.+)/);
+      if (doc && system.includes('load_documents')) plan.load_documents = [{ source: Number(doc[1]), query: doc[2] }];
       // Follow-ups: search again only for a new topic, not to rework the result or load pages.
-      if (system.includes('"search": true')) plan.search = !page && !/Fasse|zusammen|Tabelle/.test(q);
+      if (system.includes('"search": true')) plan.search = !page && !doc && !/Fasse|zusammen|Tabelle/.test(q);
       return stream(res, JSON.stringify(plan));
     }
     // Pre-reading a book: nothing for "Vulkane", else the first page sent; slow for "Hitze" (skip/stop tests).
