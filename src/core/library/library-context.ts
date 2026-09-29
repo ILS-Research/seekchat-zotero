@@ -12,7 +12,8 @@ import type { BuildOptions, ContextBlock, ContextProvider } from '../context/typ
 import { UserFacingError } from '../errors';
 import { readPrefs } from '../../prefs';
 import { searchPassages, type ZotSeekPassage } from '../zotseek/client';
-import { buildSources, formatSources, fromZotSeek, interleave, type Evidence } from './sources';
+import { searchBooks } from '../seekbook/client';
+import { buildSources, formatSources, fromSeekBook, fromZotSeek, interleave, type Evidence } from './sources';
 import { libraryIDOf, libraryKeyOf } from './zotero-items';
 
 /** ZotSeek's upper limit for topK. */
@@ -128,6 +129,24 @@ export class LibraryContextProvider implements ContextProvider {
     for (const q of queries) {
       const passages = await searchPassages(q, { topK, libraryKey: this.scope.libraryKey, signal });
       lists.push(filterPassages(passages, this.scope).map(fromZotSeek));
+    }
+    return interleave(...lists);
+  }
+
+  /**
+   * SeekBook passages (own book index) for the queries, interleaved by rank.
+   * `itemKeys`: only these books (a collection or selection); omitted = the whole library.
+   */
+  async searchBookIndex(queries: string[], itemKeys: string[] | undefined, signal?: AbortSignal): Promise<Evidence[]> {
+    if (itemKeys && !itemKeys.length) return [];
+    const libraryID = this.scope.libraryID;
+    const lists: Evidence[][] = [];
+    for (const q of queries) {
+      const passages = await searchBooks(q, { topK: readPrefs().libraryTopK, libraryKey: this.scope.libraryKey, itemKeys, signal });
+      lists.push(passages.map((p) => {
+        const att = p.attachmentKey ? Zotero.Items.getByLibraryAndKey(libraryID, p.attachmentKey) : null;
+        return fromSeekBook(p, att ? att.id : undefined);
+      }));
     }
     return interleave(...lists);
   }

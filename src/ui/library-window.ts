@@ -134,7 +134,7 @@ class LibraryChatView {
   /** Running book search of the current scope (send() waits for it). */
   private booksReady: Promise<void> = Promise.resolve();
   private booksEl!: HTMLElement;
-  /** Source "books (own index)" = SeekBook. Only the switch for now: answers do not use it yet (M4). */
+  /** Source "books (own index)" = SeekBook, allowed or locked by seekBookChoice(). */
   private seekbookBox: HTMLInputElement;
   private seekbookEl: HTMLElement;
   private useSeekBook = false;
@@ -341,12 +341,13 @@ class LibraryChatView {
     const q = this.input.value.trim();
     if (!q || !this.session || this.session.busy) return;
     const zotseek = this.useZotSeek && (await this.checkStatus());
+    const seekbook = this.seekbookUsable();
     // The book search may still run right after opening; without waiting the books would silently be left out.
     if (this.useBooks && this.books === null) await this.booksReady;
     const books = this.useBooks ? this.books || [] : [];
-    if (!zotseek && !books.length) return;
+    if (!zotseek && !seekbook && !books.length) return;
     this.input.value = '';
-    void this.session.ask(q, { zotseek, books });
+    void this.session.ask(q, { zotseek, seekbook, books });
   }
 
   private openSettings(): void {
@@ -363,13 +364,19 @@ class LibraryChatView {
     }, 60);
   }
 
+  /** SeekBook chosen, ready and not locked (ZotSeek already bringing its books). */
+  private seekbookUsable(): boolean {
+    return this.useSeekBook && this.seekbook?.available === true && !this.seekbookBox.disabled;
+  }
+
   private render(): void {
     const s = this.session;
     this.renderSources();
     const zotseekOk = this.status?.available === true && this.useZotSeek;
     const nBooks = this.books?.length ?? 0;
     const booksOk = this.useBooks && nBooks > 0;
-    const available = zotseekOk || booksOk;
+    const seekbookOk = this.seekbookUsable();
+    const available = zotseekOk || booksOk || seekbookOk;
     this.booksEl.textContent = !this.useBooks ? ''
       : this.books === null ? t('lib.booksSearching')
       : !nBooks ? t('lib.booksNone')
@@ -390,11 +397,12 @@ class LibraryChatView {
     const atBottom = this.messages.scrollHeight - this.messages.scrollTop - this.messages.clientHeight < 40;
     const turns = s?.turns || [];
     if (!turns.length) {
-      this.messages.replaceChildren(this.el('div', 'seekchat-library-empty', !this.useZotSeek && !this.useBooks
+      this.messages.replaceChildren(this.el('div', 'seekchat-library-empty', !this.useZotSeek && !this.useBooks && !this.useSeekBook
         ? t('lib.noSource')
         : available
         ? t('lib.intro', { scope: this.scope?.label || '' }) +
           (zotseekOk ? t('lib.introZotSeek', { pageLabel: t('cite.page') }) : '') +
+          (seekbookOk ? t('lib.introSeekBook', { pageLabel: t('cite.page') }) : '') +
           (booksOk ? t('lib.introBooks', { n: nBooks, pageLabel: t('cite.page') }) : '')
         : this.status ? t('lib.unavailable') : ''));
       return;
@@ -429,7 +437,7 @@ class LibraryChatView {
     else {
       notes.push(t('lib.seekbookReady', { n: formatCount(this.seekbook.indexedBooks) }));
       if (choice.reason === 'nativeToo' && this.useSeekBook) notes.push(t('lib.seekbookNativeToo'));
-      if (this.useSeekBook) notes.push(t('lib.seekbookPreview'));
+      if (this.useSeekBook && this.useBooks) notes.push(t('lib.seekbookSplitsBooks'));
     }
     this.seekbookEl.textContent = notes.join(' ');
   }

@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.9.4 – 2026-09-29
+
+- **"Books (own index)" answers now** (SeekBook, M4): the library chat searches SeekBook with the planned queries
+  (library, collection or selection; a collection or selection sends only its books). Passages keep their PDF,
+  chapter and printed page number; the prompt shows them ("chapter: …", "printed 25").
+- Books SeekBook has indexed (new `/seekbook/books`, SeekBook 0.3.0) are no longer read by keywords when both book
+  sources are ticked; only the others are.
+- With ZotSeek indexing books itself, its passages from books SeekBook covers are left out (meta line says how many).
+- SeekBook client: `searchBooks`, `searchableBooks`, `loadBookPages`.
+
 ## 0.9.3 – 2026-09-29
 
 - Coverage line: the total is split when books are among the searched items ("ZotSeek durchsucht hier 3 Einträge

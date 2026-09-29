@@ -24,11 +24,12 @@ import { chapterScope, type Outline } from './context/outline';
 import type { ChapterScope, ContextProvider, LongDocStrategy } from './context/types';
 import type { LlmClient } from './llm/types';
 import {
-  attachmentFor, buildSources, formatSources, interleave, sourceId,
+  attachmentFor, buildSources, formatSources, interleave, sourceId, withoutBooks,
   type Evidence, type LibrarySource, type SourceNumbers,
 } from './library/sources';
 import { LibraryContextProvider } from './library/library-context';
-import { MAX_BOOKS_READ, type BookTarget } from './library/books';
+import { bookKeysInScope, MAX_BOOKS_READ, splitBooks, type BookTarget } from './library/books';
+import { searchableBooks, SeekBookUnavailableError } from './seekbook/client';
 import { buildExcerptMessages, parseExcerpts } from './library/book-excerpts';
 import { buildPlanMessages, fallbackPlan, parsePlan, type SearchPlan } from './library/plan';
 import { itemOfSource, libraryKeyOf, pdfTitle } from './library/zotero-items';
@@ -285,9 +286,10 @@ export class ChatSession {
 
   /**
    * Asks the session's source. Library chat options: `zotseek` searches ZotSeek (the
-   * session's provider), `books` pre-reads these books; both go into one answer.
+   * session's provider), `seekbook` searches SeekBook's book index, `books` pre-reads
+   * these books (those SeekBook can search are left to it); all go into one answer.
    */
-  async ask(question: string, opts: { zotseek?: boolean; books?: BookTarget[] } = {}): Promise<void> {
+  async ask(question: string, opts: { zotseek?: boolean; seekbook?: boolean; books?: BookTarget[] } = {}): Promise<void> {
     if (this.busy || !question.trim()) return;
     const q = question.trim();
     const prefs = readPrefs();
@@ -303,7 +305,7 @@ export class ChatSession {
     this.notify();
     try {
       if (library) {
-        await this.run(answer, ctrl, () => this.answerLibrary(answer, library, q, history, ctrl, { zotseek: opts.zotseek !== false, books }));
+        await this.run(answer, ctrl, () => this.answerLibrary(answer, library, q, history, ctrl, { zotseek: opts.zotseek !== false, seekbook: !!opts.seekbook, books }));
         // After the first answer: say once that follow-ups can load pages and search in named documents (7e-2).
         const answers = this.turns.filter((x) => x.role === 'assistant' && !x.error);
         if (!answer.error && answers.length === 1 && !this.turns.some((x) => x.notice)) answer.notice = t('lib.followupHint');
@@ -455,7 +457,7 @@ export class ChatSession {
     question: string,
     history: HistoryTurn[],
     ctrl: AbortController,
-    opts: { zotseek: boolean; books: BookTarget[] },
+    opts: { zotseek: boolean; seekbook: boolean; books: BookTarget[] },
   ): Promise<void> {
     const prefs = await this.answerPrefs();
     const base = createClient(prefs);
@@ -466,15 +468,40 @@ export class ChatSession {
     const notes: string[] = [];
     const scope = library.describe();
 
-    // Without ZotSeek's endpoint (and no books) there is nothing to plan for: fail before any model call.
+    // Without ZotSeek's endpoint (and no other source) there is nothing to plan for: fail before any model call.
     // (Follow-ups may still load pages of known sources, which needs no ZotSeek.)
     const missing = opts.zotseek ? diagnose(readEnvironment()) : null;
-    if (missing && !opts.books.length && !history.length) throw new ZotSeekUnavailableError(missing);
+    if (missing && !opts.books.length && !opts.seekbook && !history.length) throw new ZotSeekUnavailableError(missing);
     const known = this.knownSources();
 
-    // 1. Planning: standalone question for follow-ups, queries for ZotSeek. Books make their own search terms.
+    // Books SeekBook can search go to its index, the rest to the keyword reading (M4).
+    let bookKeys: string[] | undefined;
+    let indexedBooks: Set<string> | null = null;
+    let keywordBooks = opts.books;
+    if (opts.seekbook) {
+      bookKeys = bookKeysInScope(library.scope);
+      try {
+        indexedBooks = await searchableBooks(library.scope.libraryKey || 'user', bookKeys, ctrl.signal);
+      } catch (e: any) {
+        if (!(e instanceof SeekBookUnavailableError)) throw e;
+      }
+      if (opts.books.length) {
+        const split = splitBooks(opts.books, indexedBooks);
+        keywordBooks = split.keyword;
+        if (split.indexed.length) {
+          notes.push(tn('meta.booksViaSeekBook', split.indexed.length));
+          answer.bookProgress = keywordBooks.length
+            ? keywordBooks.map((b) => ({ label: b.label, attachmentID: b.attachment.id, state: 'waiting' as BookState }))
+            : undefined;
+          this.notify();
+        }
+      }
+    }
+    const searches = opts.zotseek || opts.seekbook;
+
+    // 1. Planning: standalone question for follow-ups, queries for ZotSeek and SeekBook. Books make their own search terms.
     let plan = fallbackPlan(question);
-    if (history.length || opts.zotseek) {
+    if (history.length || searches) {
       status(t('meta.planning'));
       const client = this.recordingClient(base, answer, () => t('purpose.plan'));
       plan = await this.planSearch(client, prefs, question, history, scope, ctrl.signal, known);
@@ -482,34 +509,52 @@ export class ChatSession {
         notes.push(t('meta.planFailed'));
       } else {
         if (plan.question !== question) notes.push(t('meta.understood', { question: plan.question }));
-        if (opts.zotseek) notes.push(t('meta.queries', { queries: plan.queries.map((x) => `„${x}“`).join(', ') }));
+        if (searches) notes.push(t('meta.queries', { queries: plan.queries.map((x) => `„${x}“`).join(', ') }));
       }
     }
 
     // 2. Evidence: pages and documents asked for (7e-2), then each source.
     const loaded = await this.loadRequested(plan, known, library, notes, status, ctrl.signal);
+    const others = keywordBooks.length > 0 || loaded.length > 0;
     let zotseek: Evidence[] = [];
     if (opts.zotseek) {
       status(t('meta.searchingZotSeek'));
       try {
         zotseek = await library.searchEvidence(plan.queries, ctrl.signal);
       } catch (e: any) {
-        // With books or loaded pages there is still something to answer from.
-        if ((!opts.books.length && !loaded.length) || !(e instanceof ZotSeekUnavailableError)) throw e;
+        // With other sources or loaded pages there is still something to answer from.
+        if ((!others && !opts.seekbook) || !(e instanceof ZotSeekUnavailableError)) throw e;
         notes.push(t('meta.zotseekSkipped', { message: e.message }));
       }
     }
-    const fromBooks = opts.books.length ? await this.readBooks(answer, opts.books, plan, base, prefs, ctrl, status) : [];
+    let seekbook: Evidence[] = [];
+    if (opts.seekbook) {
+      status(t('meta.searchingSeekBook'));
+      try {
+        seekbook = await library.searchBookIndex(plan.queries, bookKeys, ctrl.signal);
+        // ZotSeek indexing books itself would bring the same books again.
+        const covered = new Set(seekbook.map(sourceId));
+        if (indexedBooks) for (const key of indexedBooks) covered.add(sourceId({ libraryKey: library.scope.libraryKey ?? null, itemKey: key }));
+        const before = zotseek.length;
+        zotseek = withoutBooks(zotseek, covered);
+        if (zotseek.length < before) notes.push(tn('meta.zotseekBookDuplicates', before - zotseek.length));
+        notes.push(tn('meta.seekbookPassages', seekbook.length, { books: new Set(seekbook.map(sourceId)).size }));
+      } catch (e: any) {
+        if ((!others && !opts.zotseek) || !(e instanceof SeekBookUnavailableError)) throw e;
+        notes.push(t('meta.seekbookSkipped', { message: e.message }));
+      }
+    }
+    const fromBooks = keywordBooks.length ? await this.readBooks(answer, keywordBooks, plan, base, prefs, ctrl, status) : [];
     if (ctrl.signal.aborted) throw new Error('aborted');
     if (answer.bookProgress) notes.push(this.booksSummary(answer.bookProgress));
 
     // 3. One numbered source list; sources cited before come first and keep their numbers.
-    const set = buildSources([...loaded, ...interleave(zotseek, ...fromBooks)], prefs.contextChars, {
+    const set = buildSources([...loaded, ...interleave(zotseek, seekbook, ...fromBooks)], prefs.contextChars, {
       numbers: this.sourceNumbers,
       carried: this.carriedSources(prefs.historyTurns),
     });
     if (!set.sources.length) {
-      const onlyZotSeek = !opts.books.length;
+      const onlyZotSeek = !opts.books.length && !opts.seekbook;
       throw new UserFacingError(onlyZotSeek && set.withoutText ? t('error.onlyNoText', { scope })
         : onlyZotSeek ? t('error.noPassages', { scope }) : t('error.nothingFound', { scope }));
     }

@@ -11,6 +11,7 @@
  */
 import { t } from '../../i18n';
 import type { ZotSeekPassage } from '../zotseek/client';
+import type { SeekBookPassage } from '../seekbook/client';
 
 export type EvidenceOrigin = 'zotseek' | 'book';
 
@@ -99,6 +100,27 @@ export function fromZotSeek(p: ZotSeekPassage): Evidence {
     itemKey: p.itemKey, libraryKey: p.libraryKey, label: sourceLabel(p), origin: 'zotseek',
     text: p.text, page: p.page, textSource: p.textSource, noteKey: p.noteKey,
   };
+}
+
+/**
+ * A SeekBook passage as book evidence. `attachmentID` resolves SeekBook's
+ * attachment key to the Zotero PDF (citations open it on the right page).
+ */
+export function fromSeekBook(p: SeekBookPassage, attachmentID?: number): Evidence {
+  return {
+    itemKey: p.itemKey, libraryKey: p.libraryKey, label: sourceLabel(p), origin: 'book',
+    text: p.text, page: p.page, textSource: 'book',
+    attachmentID, attachmentTitle: p.attachmentTitle, pageLabel: p.pageLabel, chapter: p.chapter,
+  };
+}
+
+/**
+ * Drops ZotSeek evidence of books that SeekBook searches: with ZotSeek indexing
+ * books itself and SeekBook switched on, the same book would come twice
+ * (SeekBook's passages have chapters and printed page numbers, so they stay).
+ */
+export function withoutBooks(evidence: Evidence[], bookIds: Set<string>): Evidence[] {
+  return bookIds.size ? evidence.filter((e) => !bookIds.has(sourceId(e))) : evidence;
 }
 
 export function sourceId(s: Pick<Evidence, 'libraryKey' | 'itemKey'>): string {

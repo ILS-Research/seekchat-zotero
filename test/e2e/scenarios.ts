@@ -1023,7 +1023,7 @@ export const scenarios: Scenario[] = [
         throw new Error(`${e.message}; disabled=${box.disabled}, note="${note()}", coverage="${coverage()}"`);
       }
       box.click();
-      await waitFor('preview note', () => box.checked && note().includes('Vorschau'), 5000);
+      await waitFor('ticked', () => box.checked && !note().includes('Vorschau'), 5000);
 
       // 3. ZotSeek binds SeekBook: locked, and the tick is taken back (pref observer, no refocus).
       Zotero.Prefs.set('zotseek.includeSeekBook', true, true);
@@ -1041,7 +1041,7 @@ export const scenarios: Scenario[] = [
       Zotero.Prefs.set('zotseek.excludeBooks', false, true);
       await waitFor('allowed with native books', () => !box.disabled, 10000);
       box.click();
-      await waitFor('note on doubles', () => note().includes('doppelt'), 5000);
+      await waitFor('note on doubles', () => note().includes('nur SeekBooks Stellen'), 5000);
 
       // 6. SeekBook switched off meanwhile: locked on the next focus, tick removed.
       removeSeekBook();
@@ -1053,6 +1053,81 @@ export const scenarios: Scenario[] = [
       Zotero.Prefs.set('zotseek.excludeBooks', prefs.excludeBooks ?? true, true);
       Zotero.Prefs.set('zotseek.includeSeekBook', prefs.includeSeekBook ?? false, true);
       zs.uninstall();
+    }
+  }],
+
+  ['library chat with SeekBook: indexed books from its index, ZotSeek doubles left out, chapter and printed page in the prompt', async (ctx) => {
+    const a = Zotero.Items.get(ctx.parentID).key;
+    const b = Zotero.Items.get(ctx.longParentID).key;
+    const server = (Zotero as any).Server;
+    const seen: Record<string, any[]> = { search: [], books: [] };
+    const endpoint = (name: string, payload: (sp: URLSearchParams) => any) => {
+      const E: any = function () {};
+      E.prototype = { supportedMethods: ['GET'], supportedDataTypes: ['application/json'], permitBookmarklet: false,
+        init: async (req: any) => {
+          (seen[name] ||= []).push(Object.fromEntries(req.searchParams));
+          return [200, 'application/json', JSON.stringify(payload(req.searchParams))];
+        } };
+      return E;
+    };
+    (Zotero as any).SeekBook = { apiVersion: 1, standIn: true };
+    server.Endpoints['/seekbook/stats'] = endpoint('stats', () => ({ ready: true, indexedBooks: 1, queuedDocuments: 0, apiVersion: 1 }));
+    server.Endpoints['/seekbook/books'] = endpoint('books', () => ({ apiVersion: 1, books: [{ itemKey: b, searchable: true, readyDocuments: 1 }] }));
+    server.Endpoints['/seekbook/search'] = endpoint('search', () => ({ source: 'seekbook', apiVersion: 1, results: [{
+      itemKey: b, libraryKey: 'user', title: 'SeekChat E2E Langes Buch', authors: ['Muster'], year: 2021, score: 0.03,
+      semanticScore: 0.8, keywordScore: 0.5, itemType: 'book',
+      matchedChunk: { snippet: 'Waermeinseln entstehen durch versiegelte Flaechen und fehlende Verdunstung.', page: 27, pageEnd: 27, pageLabel: '25',
+        chapter: 'Kapitel 2 Waermeinseln', textSource: 'book', attachmentKey: ctx.longAttachment.key, attachmentTitle: 'Volltext', chunkIndex: 12 },
+    }] }));
+    const zs = installZotSeek({ results: [
+      passage(a, 'SeekChat E2E Testdokument', 2, 'Starkregenereignisse fuehren in Staedten zu Ueberflutungen.'),
+      passage(b, 'SeekChat E2E Langes Buch', 27, 'Waermeinseln in dicht bebauten Quartieren erhoehen die naechtlichen Temperaturen.'),
+    ] });
+    try {
+      const session = getSession(new LibraryContextProvider(libraryScope(Zotero.Libraries.userLibraryID)));
+      session.clear();
+      const before = (await mockRequests()).length;
+      await session.ask('Was sagt meine Bibliothek zu Starkregen und Hitze?', {
+        zotseek: true, seekbook: true, books: [{ attachment: ctx.longAttachment, label: 'SeekChat E2E Langes Buch', itemKey: b }],
+      });
+      const t = session.turns[session.turns.length - 1];
+      assert(!t.error, `answer is an error: ${t.content}`);
+      const book = t.sources?.find((s) => s.itemKey === b);
+      const article = t.sources?.find((s) => s.itemKey === a);
+      assert(book?.origin === 'book' && article?.origin === 'zotseek', `sources: ${JSON.stringify(t.sources)}`);
+      assert(book.excerpts.length === 1 && book.excerpts[0].chapter === 'Kapitel 2 Waermeinseln' && book.excerpts[0].pageLabel === '25'
+        && book.excerpts[0].attachmentID === ctx.longAttachment.id && book.excerpts[0].text.includes('versiegelte'), `book excerpts: ${JSON.stringify(book.excerpts)}`);
+      assert(t.meta?.includes('1 ZotSeek-Stelle aus einem Buch weggelassen') && t.meta.includes('1 Buch über seinen Index durchsucht')
+        && t.meta.includes('SeekBook: 1 Stelle'), `meta: ${t.meta}`);
+      assert(!t.bookProgress, `keyword reading of an indexed book: ${JSON.stringify(t.bookProgress)}`);
+      const reqs = (await mockRequests()).slice(before);
+      const systems = reqs.map((r: any) => r.messages[0].content as string);
+      assert(!systems.some((x) => x.includes('answer a question from one book')), 'the indexed book was read by keywords');
+      const last = systems[systems.length - 1];
+      assert(last.includes('chapter: Kapitel 2 Waermeinseln') && last.includes('(printed 25)') && last.includes('(book)'), `prompt: ${last.slice(0, 800)}`);
+      assert(seen.search.length >= 1 && seen.search[0].libraryKey === 'user' && !seen.search[0].itemKeys, `seekbook query: ${JSON.stringify(seen.search)}`);
+      // Collection scope: SeekBook only gets the scope's books.
+      const col = new Zotero.Collection();
+      col.name = 'SeekChat E2E SeekBook';
+      await col.saveTx();
+      const bItem = Zotero.Items.get(ctx.longParentID);
+      bItem.addToCollection(col.id);
+      await bItem.saveTx();
+      try {
+        const s2 = getSession(new LibraryContextProvider(collectionScope(col)));
+        s2.clear();
+        await s2.ask('Was steht zu Hitze?', { zotseek: false, seekbook: true });
+        const t2 = s2.turns[s2.turns.length - 1];
+        assert(!t2.error && t2.sources?.[0]?.itemKey === b, `collection answer: ${t2.content} ${JSON.stringify(t2.sources)}`);
+        assert(seen.search[seen.search.length - 1].itemKeys === b && seen.books[seen.books.length - 1].itemKeys === b,
+          `collection queries: ${JSON.stringify([seen.search, seen.books])}`);
+      } finally {
+        await col.eraseTx();
+      }
+    } finally {
+      zs.uninstall();
+      for (const path of ['/seekbook/stats', '/seekbook/books', '/seekbook/search']) delete server.Endpoints[path];
+      delete (Zotero as any).SeekBook;
     }
   }],
 
