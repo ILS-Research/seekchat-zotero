@@ -107,8 +107,17 @@ gewachsen sind.
   - Imports mitten im Code (`const L = …` vor `import` in den Clients),
   - der Re-Export von `bookDetails` mitten in `src/ui/turn-view.ts:50-51`,
   - in `ChatView` werden Felder nach dem Konstruktor deklariert (`hintEl`, `notesBox`).
-- **Die HTTP-Hilfen für ZotSeek und SeekBook sind fast gleich** (`getJson` mit Header `Zotero-Allowed-Request`). Laut
-  Kommentar ist das bei host-guard gewollt, hier aber ohne Grund doppelt.
+- **Die HTTP-Hilfen für ZotSeek und SeekBook sind ähnlich** (`getJson` in `src/core/zotseek/client.ts` und
+  `src/core/seekbook/client.ts`). *Niedrige Priorität, Tendenz: kein Fix.*
+  - Anders als bei `host-guard` (dort eine gewollte Kopie über Plugin-Grenzen hinweg) liegen beide Dateien in SeekChat.
+    Eine gemeinsame Hilfsfunktion für Zoteros lokalen Server würde weder ZotSeek noch SeekBook voraussetzen; die
+    Unabhängigkeit der Plugins stünde also nicht im Weg.
+  - Gemeinsam wäre aber nur der kleine Kern: Fetch mit `Zotero-Allowed-Request`, `redirect: 'error'`, Zeitmessung, JSON
+    lesen. Die Fehlerbehandlung unterscheidet sich (ZotSeek wirft bei 404 oder fehlendem JSON, SeekBook gibt Status und
+    JSON an den Aufrufer weiter) und bliebe in den Clients. Der Gewinn ist gering, die getrennten Clients sind leichter
+    zu lesen.
+  - Wenn überhaupt, dann die bestehende Kopplung lösen: `seekbook/client.ts` importiert `parseSearchResponse` aus
+    `zotseek/client.ts`. Den Parser in ein neutrales Modul zu legen, wäre sauberer.
 - **Die Server-Clients sind nicht direkt getestet.** Die Parser haben Tests, die Clients für Ollama und OpenAI (Retry,
   Stream-Ende, Fehlerpfad) nicht. Ein Test mit einem gemockten `fetch` wäre günstig.
 
