@@ -22,6 +22,8 @@ DOCKER=(docker)
 if ! docker info >/dev/null 2>&1; then DOCKER=(sudo docker); fi
 
 IMAGE=seekchat-build:node22
+# One source for the in-house CAs: e2e/certs (docker/certs is a generated copy, ignored by git).
+rm -rf docker/certs && mkdir -p docker/certs && cp e2e/certs/*.crt docker/certs/
 "${DOCKER[@]}" build --progress=plain -t "$IMAGE" docker/
 
 run() {

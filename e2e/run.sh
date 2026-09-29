@@ -23,6 +23,9 @@ mkdir -p e2e/out test/assets
 # (E2E_LIVE_PROVIDER=openai for /v1 servers, E2E_LIVE_API_KEY for servers that need a bearer key).
 # Without E2E_LIVE_URL they are skipped.
 LIVE=()
+# The portal (reverse proxy, certificate signed by the in-house CA) must be reachable by name in the container.
+portal_ip=$(getent hosts zotero.ils.local | awk '{print $1; exit}')
+[ -n "$portal_ip" ] && LIVE+=(--add-host "zotero.ils.local:$portal_ip" -e E2E_PORTAL=true)
 if [ -n "${E2E_LIVE_URL:-}" ]; then
   LIVE=(-e E2E_LIVE_URL -e E2E_LIVE_MODEL -e E2E_LIVE_PROVIDER -e E2E_LIVE_API_KEY)
   # Resolve the host here, in case the container's DNS does not know internal names.

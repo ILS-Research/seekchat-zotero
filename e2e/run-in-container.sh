@@ -26,6 +26,7 @@ user_pref("extensions.zotero.seekchat.e2e.resultsPath", "/out/results.json");
 user_pref("extensions.zotero.seekchat.e2e.outDir", "/out");
 user_pref("extensions.zotero.seekchat.e2e.fixturesDir", "/fixtures");
 user_pref("extensions.zotero.seekchat.e2e.assetsDir", "/assets");
+user_pref("extensions.zotero.seekchat.e2e.portal", ${E2E_PORTAL:-false});
 user_pref("extensions.zotero.seekchat.e2e.only", "${E2E_ONLY:-}");
 // UI texts in the scenarios are German; English is checked in its own scenario.
 user_pref("extensions.zotero.seekchat.locale", "de");

@@ -28,7 +28,9 @@ they use `docker` or fall back to `sudo docker`, and run containers with the cal
   The portal serves `data/downloads/` publicly (see the selfhost README, section Downloads). The E2E profile
   disables updates.
 - Portal: `https://zotero.ils.local` (this server; until IT switches DNS, `/etc/hosts` maps it to 192.168.125.23).
-  Its Apache still serves a self-signed `srv-geo2-ubuntu` certificate, so Zotero's update check fails there for now.
+  Its reverse proxy serves a certificate signed by the in-house CA ILS_GuM (`e2e/certs/ils-gum-ca.crt`, installed in
+  the host's system store too); the build image, the E2E image and Zotero's profile trust it (E2E scenario "portal").
+  `build.sh` copies `e2e/certs/*.crt` to the generated, git-ignored `docker/certs/`.
 - Never commit unless asked. Git repo on branch `master`.
 
 ## Layout

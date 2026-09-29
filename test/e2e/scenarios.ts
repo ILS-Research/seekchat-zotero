@@ -1187,6 +1187,24 @@ export const scenarios: Scenario[] = [
     }
   }],
 
+  // Zotero's own connection (NSS store of the profile) must accept the portal's certificate, signed by the in-house CA:
+  // otherwise the plugin's automatic update check fails.
+  ['portal: Zotero accepts the certificate and serves updates.json', async () => {
+    let json: any;
+    try {
+      const resp = await Zotero.getMainWindow().fetch('https://zotero.ils.local/downloads/seekchat/updates.json');
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      json = await resp.json();
+    } catch (e: any) {
+      if (/Unable to connect|NetworkError|Failed to fetch/i.test(String(e?.message)) && !Zotero.Prefs.get('seekchat.e2e.portal')) {
+        throw new SkipError(`portal not reachable in this run: ${e.message}`);
+      }
+      throw e;
+    }
+    const updates = Object.values<any>(json.addons)[0].updates;
+    assert(updates.length && updates[updates.length - 1].update_link.startsWith('https://zotero.ils.local/'), JSON.stringify(json).slice(0, 200));
+  }],
+
   ['logging reaches the Browser Console ([SeekChat:<module>] [INFO])', async () => {
     const seen: string[] = [];
     // What the Browser Console shows is what the console service gets.
