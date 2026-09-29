@@ -33,7 +33,9 @@ or a whole library**. You choose where the answers come from:
 - One answer from all sources, with numbered sources and a source list with page links.
 - Books with several PDFs (one per chapter) open at the right PDF.
 - A line tells you what is covered – and what is not (e.g. PDFs without a parent item).
-- Follow-ups can load whole pages: *“What exactly is on page 45 of [2]?”*
+- **First question = search, then discussion:** the first question searches all chosen sources. Follow-ups work on
+  that result – they see the passages cited so far and are much faster. Ask for more when you need it:
+  *“What exactly is on page 45 of [2]?”*, *“search also for …”*; for a new topic start a new chat.
 - Save a chat as Markdown or as a Zotero note.
 
 ---

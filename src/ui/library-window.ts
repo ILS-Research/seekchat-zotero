@@ -391,6 +391,7 @@ class LibraryChatView {
     const model = readPrefs().model;
     this.modelEl.textContent = model || t('common.noModel');
     this.input.disabled = !available;
+    this.input.placeholder = t(s?.turns.some((x) => x.role === 'assistant' && !x.error && x.sources?.length) ? 'lib.placeholderFollowup' : 'lib.placeholder');
     this.sendBtn.disabled = !available && !s?.busy;
     this.sendBtn.textContent = s?.busy ? t('common.stop') : t('common.send');
     this.clearBtn.disabled = !s || s.turns.length === 0;

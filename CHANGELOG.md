@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.9.6 – 2026-09-29
+
+- **Follow-ups discuss the result instead of searching everything again.** The first question searches all sources;
+  from the second on, the planner decides whether the question needs new material (`"search": true`, e.g. a new
+  aspect or "search also for …"). Otherwise no ZotSeek/SeekBook search and no book reading: the answer uses the
+  passages cited so far plus pages/documents asked for. The meta line says which way it went.
+- Carried sources keep **only the cited excerpts** (pages named in `[n, S. x]`; two excerpts for a source cited
+  without page) instead of all excerpts of a cited source. Live (qwen3 27B): first question 74 s, follow-up 24 s.
+- The hint after the first answer and the input placeholder explain this workflow.
+- Fix: log lines did not reach the Browser Console (the sandbox's console does not); they now go to the console
+  service. E2E checks it.
+
 ## 0.9.5 – 2026-09-29
 
 - Fix: "Books (own index)" no longer shows as allowed right after opening the window; it stays locked until

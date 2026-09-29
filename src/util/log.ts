@@ -5,11 +5,26 @@
  */
 export type LogLevel = 'debug' | 'info' | 'warn' | 'error';
 
-function consoleOf(): any {
+/**
+ * The Browser Console. A plugin sandbox's `console` (and the main window's, called from the sandbox)
+ * does not reach it – checked in E2E – so lines go to the console service directly.
+ */
+function toConsole(level: LogLevel, line: string): void {
   try {
-    return Zotero.getMainWindow?.()?.console || (globalThis as any).console;
+    const svc = (globalThis as any).Services?.console ?? (Zotero as any).getMainWindow?.()?.Services?.console;
+    if (level === 'warn' || level === 'error') {
+      const Ci = (globalThis as any).Ci ?? (globalThis as any).Components?.interfaces;
+      const Cc = (globalThis as any).Cc ?? (globalThis as any).Components?.classes;
+      const err = Cc?.['@mozilla.org/scripterror;1']?.createInstance(Ci.nsIScriptError);
+      if (err && svc) {
+        err.init(line, '', null, 0, 0, level === 'error' ? Ci.nsIScriptError.errorFlag : Ci.nsIScriptError.warningFlag, 'chrome javascript');
+        svc.logMessage(err);
+        return;
+      }
+    }
+    svc?.logStringMessage(line);
   } catch {
-    return (globalThis as any).console;
+    // unit tests: no Services
   }
 }
 
@@ -45,8 +60,7 @@ export function logger(module: string): Logger {
     } catch {
       // unit tests: no Zotero
     }
-    const c = consoleOf();
-    (level === 'error' ? c?.error : level === 'warn' ? c?.warn : c?.log)?.call(c, line);
+    toConsole(level, line);
   };
   const l: Logger = {
     debug: (...a) => write('debug', a),

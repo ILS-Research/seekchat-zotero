@@ -36,7 +36,7 @@ import { buildPlanMessages, fallbackPlan, parsePlan, type SearchPlan } from './l
 import { itemOfSource, libraryKeyOf, pdfTitle } from './library/zotero-items';
 import { buildTerms, countMatchingPages, selectPagesByTerms } from './context/page-selection';
 import { getPdfPages } from './context/pdf-context';
-import { citedSourceNumbers } from './citations';
+import { splitSourceCitations } from './citations';
 import { diagnose, readEnvironment, ZotSeekUnavailableError } from './zotseek/client';
 import { readPrefs, type SeekChatPrefs } from '../prefs';
 import { resolveLimits } from './limits';
@@ -73,6 +73,8 @@ export interface LlmRequestLog {
 export type { BookTarget };
 
 const L = logger('Chat');
+/** Excerpts kept of a source an earlier answer cited without page. */
+const CARRIED_UNPAGED = 2;
 
 export type BookState = 'waiting' | 'language' | 'keywords' | 'reading' | 'found' | 'none' | 'nohits' | 'skipped' | 'error' | 'limit';
 
@@ -302,9 +304,8 @@ export class ChatSession {
     const answer: Turn = { role: 'assistant', content: '', pending: true };
     const library = this.provider instanceof LibraryContextProvider ? this.provider : null;
     const books = library ? opts.books || [] : [];
-    // With a split pending the list is made after it (otherwise it would first show books that then vanish).
+    // The book list is made in answerLibrary, once it is clear which books are read (split, follow-up without search).
     const split = !!(opts.seekbook || opts.skipIndexedBooks);
-    if (books.length && !split) answer.bookProgress = books.map((b) => ({ label: b.label, attachmentID: b.attachment.id, state: 'waiting' }));
     this.turns.push({ role: 'user', content: q }, answer);
     const ctrl = newAbortController();
     this.abortCtrl = ctrl;
@@ -358,20 +359,33 @@ export class ChatSession {
     return { ...prefs, numCtx: limits.numCtx, maxTokens: limits.maxTokens, contextChars: limits.contextChars };
   }
 
-  /** Sources cited in the answers still in the history window, latest excerpts, by number. */
+  /**
+   * Sources cited in the answers still in the history window, with only the excerpts
+   * those answers cited (pages named in [n, S. x]; a source cited without page keeps
+   * its first CARRIED_UNPAGED excerpts). Follow-ups discuss this result, so it must be
+   * small: before 0.9.6 every excerpt of a cited source came again and follow-ups crawled.
+   */
   private carriedSources(maxTurns: number): LibrarySource[] {
     const answers = this.turns.filter((t) => t.role === 'assistant' && !t.error && !t.pending && t.sources?.length);
     const latest = new Map<string, LibrarySource>();
     for (const turn of answers) for (const s of turn.sources!) latest.set(sourceId(s), s);
-    const cited = new Map<string, LibrarySource>();
+    const cited = new Map<string, { source: LibrarySource; pages: Set<number>; unpaged: boolean }>();
     for (const turn of answers.slice(Math.max(0, answers.length - maxTurns))) {
       const byN = new Map(turn.sources!.map((s) => [s.n, s]));
-      for (const n of citedSourceNumbers(turn.content, (x) => byN.has(x))) {
-        const id = sourceId(byN.get(n)!);
-        cited.set(id, latest.get(id)!);
+      for (const seg of splitSourceCitations(turn.content, (x) => byN.has(x))) {
+        if (seg.type !== 'source') continue;
+        const id = sourceId(byN.get(seg.n)!);
+        const entry = cited.get(id) || { source: latest.get(id)!, pages: new Set<number>(), unpaged: false };
+        if (seg.page) entry.pages.add(seg.page);
+        else entry.unpaged = true;
+        cited.set(id, entry);
       }
     }
-    return Array.from(cited.values()).sort((a, b) => a.n - b.n);
+    return Array.from(cited.values()).map(({ source, pages, unpaged }) => {
+      const onPages = source.excerpts.filter((e) => e.page && pages.has(e.page));
+      const rest = unpaged ? source.excerpts.filter((e) => !onPages.includes(e)).slice(0, CARRIED_UNPAGED) : [];
+      return { ...source, excerpts: [...onPages, ...rest] };
+    }).filter((s) => s.excerpts.length).sort((a, b) => a.n - b.n);
   }
 
   /** All sources of earlier answers in this chat, latest excerpts, by number. */
@@ -484,11 +498,37 @@ export class ChatSession {
     if (missing && !opts.books.length && !opts.seekbook && !history.length) throw new ZotSeekUnavailableError(missing);
     const known = this.knownSources();
 
+    const searches = opts.zotseek || opts.seekbook;
+
+    // 1. Planning: standalone question for follow-ups, queries for ZotSeek and SeekBook. Books make their own search terms.
+    let plan = fallbackPlan(question);
+    if (history.length || searches) {
+      status(t('meta.planning'));
+      const client = this.recordingClient(base, answer, () => t('purpose.plan'));
+      plan = await this.planSearch(client, prefs, question, history, scope, ctrl.signal, known);
+      L.info(`plan${plan.fromModel ? '' : ' (fallback)'}: question "${plan.question.slice(0, 120)}", queries ${JSON.stringify(plan.queries)}`, plan);
+      if (!plan.fromModel) {
+        notes.push(t('meta.planFailed'));
+      } else {
+        if (plan.question !== question) notes.push(t('meta.understood', { question: plan.question }));
+        if (searches && (!history.length || plan.search)) notes.push(t('meta.queries', { queries: plan.queries.map((x) => `„${x}“`).join(', ') }));
+      }
+    }
+
+    // From the second question on the chat discusses the result so far: the cited passages come again, pages and
+    // documents asked for are loaded, and the sources are searched again only when the planner says the question
+    // needs new material (or planning failed and nothing is carried).
+    const carried = this.carriedSources(prefs.historyTurns);
+    const followUp = history.length > 0 && known.length > 0;
+    const searchNow = !followUp || plan.search === true || (!plan.fromModel && !carried.length);
+    if (followUp) notes.push(t(searchNow ? 'meta.followupSearch' : 'meta.followupNoSearch'));
+    L.info(`follow-up: ${followUp}, new search: ${searchNow}, carried sources: ${carried.length} (${carried.reduce((n, c) => n + c.excerpts.length, 0)} excerpts)`);
+
     // Books SeekBook can search go to its index, the rest to the keyword reading (M4).
     let bookKeys: string[] | undefined;
     let indexedBooks: Set<string> | null = null;
-    let keywordBooks = opts.books;
-    if (opts.seekbook || (opts.skipIndexedBooks && opts.books.length)) {
+    let keywordBooks = searchNow ? opts.books : [];
+    if (searchNow && (opts.seekbook || (opts.skipIndexedBooks && opts.books.length))) {
       bookKeys = bookKeysInScope(library.scope);
       try {
         indexedBooks = await searchableBooks(library.scope.libraryKey || 'user', bookKeys, ctrl.signal);
@@ -506,28 +546,11 @@ export class ChatSession {
       answer.bookProgress = keywordBooks.map((b) => ({ label: b.label, attachmentID: b.attachment.id, state: 'waiting' as BookState }));
       this.notify();
     }
-    const searches = opts.zotseek || opts.seekbook;
-
-    // 1. Planning: standalone question for follow-ups, queries for ZotSeek and SeekBook. Books make their own search terms.
-    let plan = fallbackPlan(question);
-    if (history.length || searches) {
-      status(t('meta.planning'));
-      const client = this.recordingClient(base, answer, () => t('purpose.plan'));
-      plan = await this.planSearch(client, prefs, question, history, scope, ctrl.signal, known);
-      L.info(`plan${plan.fromModel ? '' : ' (fallback)'}: question "${plan.question.slice(0, 120)}", queries ${JSON.stringify(plan.queries)}`, plan);
-      if (!plan.fromModel) {
-        notes.push(t('meta.planFailed'));
-      } else {
-        if (plan.question !== question) notes.push(t('meta.understood', { question: plan.question }));
-        if (searches) notes.push(t('meta.queries', { queries: plan.queries.map((x) => `„${x}“`).join(', ') }));
-      }
-    }
-
     // 2. Evidence: pages and documents asked for (7e-2), then each source.
     const loaded = await this.loadRequested(plan, known, library, notes, status, ctrl.signal);
     const others = keywordBooks.length > 0 || loaded.length > 0;
     let zotseek: Evidence[] = [];
-    if (opts.zotseek) {
+    if (opts.zotseek && searchNow) {
       status(t('meta.searchingZotSeek'));
       try {
         zotseek = await L.time('ZotSeek search', () => library.searchEvidence(plan.queries, ctrl.signal), (r) => `${r.length} passages`);
@@ -538,7 +561,7 @@ export class ChatSession {
       }
     }
     let seekbook: Evidence[] = [];
-    if (opts.seekbook) {
+    if (opts.seekbook && searchNow) {
       status(t('meta.searchingSeekBook'));
       try {
         seekbook = await L.time('SeekBook search', () => library.searchBookIndex(plan.queries, bookKeys, ctrl.signal), (r) => `${r.length} passages`);
@@ -561,7 +584,7 @@ export class ChatSession {
     // 3. One numbered source list; sources cited before come first and keep their numbers.
     const set = buildSources([...loaded, ...interleave(zotseek, seekbook, ...fromBooks)], prefs.contextChars, {
       numbers: this.sourceNumbers,
-      carried: this.carriedSources(prefs.historyTurns),
+      carried,
     });
     if (!set.sources.length) {
       const onlyZotSeek = !opts.books.length && !opts.seekbook;

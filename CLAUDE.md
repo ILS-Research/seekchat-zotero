@@ -96,6 +96,10 @@ Extending: new sources are new `ContextProvider`s; session, prompt and turn rend
   "assets" writes `e2e/out/assets-report.json` (pages, timings, fit, outline, keyword selection).
 - Ollama's `/v1` endpoint ignores `num_ctx`; with its small default context the PDF is silently
   truncated. Keep Ollama on the native API.
+- Log lines must go to `Services.console` (see `src/util/log.ts`): a sandbox's `console`, even the main window's
+  called from the sandbox, never reaches the Browser Console. E2E "logging reaches the Browser Console" checks it.
+- Follow-ups must stay small: carried sources hold only cited excerpts, and a new search only runs when the planner
+  sets `"search": true` (mock: `e2e/mock-*.mjs` decides by the question's words).
 - Library window: the SeekBook switch stays locked until ZotSeek's status **and** the scope coverage are known
   (SeekBook's status arrives first; unlocking on it alone let the box flash up as allowed).
 

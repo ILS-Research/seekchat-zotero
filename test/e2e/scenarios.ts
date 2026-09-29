@@ -12,6 +12,7 @@ import { setPref } from '../../src/prefs';
 import { getRegisteredPaneID } from '../../src/ui/chat-section';
 import { createClient } from '../../src/core/llm';
 import { getZotSeekStatus, searchPassages, ZotSeekUnavailableError } from '../../src/core/zotseek/client';
+import { logger } from '../../src/util/log';
 import { collectionScope, itemsScope, libraryScope, LibraryContextProvider } from '../../src/core/library/library-context';
 import { openSourceCitation } from '../../src/core/library/zotero-items';
 import { getLibraryChatWindow, getPrefsPaneID, openLibraryChat } from '../../src/ui/library-window';
@@ -858,7 +859,7 @@ export const scenarios: Scenario[] = [
       && doc.querySelector('.seekchat-sources-list li')?.textContent?.includes('📖'), 5000);
 
     // SeekChat's hint after the first answer, then a follow-up that loads a page of source [1] (7e-2).
-    assert(t.notice?.includes('bestimmten Seiten'), `notice: ${t.notice}`);
+    assert(t.notice?.includes('Folgefragen besprechen'), `notice: ${t.notice}`);
     await waitFor('notice shown', () => doc.querySelector('.seekchat-msg.notice')?.textContent?.includes('S. 45'), 5000);
     const beforeLoad = (await mockRequests()).length;
     t = await ask('Was steht genau auf Seite 2 von [1]?');
@@ -870,6 +871,15 @@ export const scenarios: Scenario[] = [
     assert(lastSystem.includes('S. 2, whole page') && lastSystem.includes('loaded in full'), `answer prompt: ${lastSystem.slice(0, 500)}`);
 
     // No keyword hits: the book is not read; the source cited before is carried into the answer.
+    // Reworking the result: no new search, no book read again, only the cited passages come along.
+    const beforeRework = (await mockRequests()).length;
+    t = await ask('Fasse das zusammen.');
+    const reworkSystems = (await mockRequests()).slice(beforeRework).map((r: any) => r.messages[0].content as string);
+    assert(!t.error && !t.bookProgress && t.meta?.includes('keine neue Suche')
+      && !reworkSystems.some((x: string) => x.includes('answer a question from one book')), `rework: ${t.meta} / ${JSON.stringify(t.bookProgress)}`);
+    const reworkPrompt = reworkSystems[reworkSystems.length - 1];
+    assert(reworkPrompt.includes('<sources>') && (reworkPrompt.match(/\(S\. \d+/g) || []).length <= 3, `rework prompt: ${reworkPrompt.slice(0, 600)}`);
+
     t = await ask('Was steht zu Vulkane?');
     assert(['nohits', 'none'].includes(t.bookProgress?.[0].state || ''), `book state: ${JSON.stringify(t.bookProgress)}`);
     assert(!t.error && t.meta?.includes('1 Quelle aus früheren Antworten') && t.sources?.[0]?.n === 1, `carried: ${t.meta} / ${t.content}`);
@@ -1141,6 +1151,19 @@ export const scenarios: Scenario[] = [
     }
   }],
 
+  ['logging reaches the Browser Console ([SeekChat:<module>] [INFO])', async () => {
+    const seen: string[] = [];
+    // What the Browser Console shows is what the console service gets.
+    const listener = { observe: (m: any) => { if (String(m?.message).includes('[SeekChat:')) seen.push(String(m.message)); } };
+    Services.console.registerListener(listener);
+    try {
+      logger('E2E').info('console check');
+      await waitFor('console message', () => seen.some((x) => x.includes('[SeekChat:E2E] [INFO] console check')), 3000);
+    } finally {
+      Services.console.unregisterListener(listener);
+    }
+  }],
+
   ['live: model server lists the configured model', async (ctx) => {
     useLiveServer(ctx);
     const prefs = readPrefs();
@@ -1211,6 +1234,27 @@ export const scenarios: Scenario[] = [
     });
     assert(!book.error && book.sources?.some((s) => s.origin === 'book') && /\[\d+, S\. \d+\]/.test(book.content), `book answer: ${book.content}`);
     assert(!none.error, `no-match question failed: ${none.content}`);
+    session.clear();
+  }],
+  ['live: follow-up discusses the result (no new search) and is faster than the first question', async (ctx) => {
+    useLiveServer(ctx);
+    const b = Zotero.Items.get(ctx.longParentID);
+    const books = [{ attachment: ctx.longAttachment, label: 'SeekChat E2E Langes Buch', itemKey: b.key }];
+    const session = getSession(new LibraryContextProvider(itemsScope([b])));
+    session.clear();
+    let t0 = Date.now();
+    await session.ask('Was sagt das Buch zum Stadtklima?', { zotseek: false, books });
+    const first = session.turns[session.turns.length - 1];
+    const firstMs = Date.now() - t0;
+    t0 = Date.now();
+    await session.ask('Fasse das bitte in drei Stichpunkten zusammen.', { zotseek: false, books });
+    const follow = session.turns[session.turns.length - 1];
+    const followMs = Date.now() - t0;
+    const prompt = follow.requests?.[follow.requests.length - 1]?.messages?.[0]?.content || '';
+    await reportLive(ctx, { step: 'followup', firstMs, followMs, meta: follow.meta, answer: follow.content, promptChars: prompt.length, firstPromptChars: first.requests?.[first.requests.length - 1]?.messages?.[0]?.content.length });
+    assert(!first.error && !follow.error, `errors: ${first.content} / ${follow.content}`);
+    assert(follow.meta?.includes('keine neue Suche') && !follow.bookProgress, `follow-up searched again: ${follow.meta}`);
+    assert(followMs < firstMs, `follow-up ${followMs} ms not faster than first ${firstMs} ms`);
     session.clear();
   }],
 ];

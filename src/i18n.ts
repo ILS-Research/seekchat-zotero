@@ -117,6 +117,8 @@ const EN = {
   'meta.booksViaSeekBook.other': '{n} books searched through their index instead of read by keywords',
   'meta.zotseekBookDuplicates.one': '{n} ZotSeek passage from a book left out (SeekBook has it)',
   'meta.zotseekBookDuplicates.other': '{n} ZotSeek passages from books left out (SeekBook has them)',
+  'meta.followupNoSearch': 'Follow-up: answered from the passages cited so far (no new search)',
+  'meta.followupSearch': 'Follow-up with a new search',
   'meta.carried.one': '{n} source from earlier answers included again',
   'meta.carried.other': '{n} sources from earlier answers included again',
   'meta.zotseekSkipped': 'ZotSeek not used: {message}',
@@ -174,6 +176,7 @@ const EN = {
   'lib.items.other': '{n} selected items',
   'lib.windowTitle': 'SeekChat – {scope}',
   'lib.placeholder': 'Question for the selection above … (Enter to send, Shift+Enter for a new line)',
+  'lib.placeholderFollowup': 'Follow-up on the result above – or "search also for …" (Enter to send)',
   'lib.checking': 'Checking ZotSeek …',
   'lib.indexed': 'ZotSeek: {n} items indexed',
   'lib.sourceZotSeek': 'ZotSeek',
@@ -212,10 +215,10 @@ const EN = {
   'lib.sourceList': 'Sources ({cited} of {total} cited)',
   'lib.note': 'note',
   'lib.originBook': 'book',
-  'lib.followupHint': 'ℹ From now on you can ask about specific pages of a source or about one specific document, e.g. ' +
-    '"What exactly is on p. 45 of [1]?", "Read pp. 10–12 of the book again" or "What does Muster 2021 say about methods?". ' +
-    'The chat history only holds the answers, not the texts of the sources: SeekChat then loads those pages from the PDF ' +
-    'or searches that document with ZotSeek before answering. Pages are physical PDF pages, as in the citations.',
+  'lib.followupHint': 'ℹ The first question searched all sources. Follow-ups now discuss this result: they see the passages ' +
+    'cited above and do not search everything again – that keeps them fast. You can load more: "What exactly is on p. 45 of [1]?", ' +
+    '"Read pp. 10–12 of the book again", "What does Muster 2021 say about methods?". For a new aspect say so ("search also for …"); ' +
+    'for a new topic start a new chat. Pages are physical PDF pages, as in the citations.',
   'lib.tooltip': 'SeekChat: chat with the library (with ZotSeek)',
 
   // Coverage hint
@@ -423,6 +426,8 @@ const DE: Record<Key, string> = {
   'meta.booksViaSeekBook.other': '{n} Bücher über ihren Index durchsucht statt per Stichwort gelesen',
   'meta.zotseekBookDuplicates.one': '{n} ZotSeek-Stelle aus einem Buch weggelassen (SeekBook liefert sie)',
   'meta.zotseekBookDuplicates.other': '{n} ZotSeek-Stellen aus Büchern weggelassen (SeekBook liefert sie)',
+  'meta.followupNoSearch': 'Folgefrage: beantwortet aus den bisher zitierten Stellen (keine neue Suche)',
+  'meta.followupSearch': 'Folgefrage mit neuer Suche',
   'meta.carried.one': '{n} Quelle aus früheren Antworten wieder einbezogen',
   'meta.carried.other': '{n} Quellen aus früheren Antworten wieder einbezogen',
   'meta.zotseekSkipped': 'ZotSeek nicht genutzt: {message}',
@@ -477,6 +482,7 @@ const DE: Record<Key, string> = {
   'lib.items.other': '{n} ausgewählte Einträge',
   'lib.windowTitle': 'SeekChat – {scope}',
   'lib.placeholder': 'Frage an die Auswahl oben … (Enter senden, Shift+Enter neue Zeile)',
+  'lib.placeholderFollowup': 'Folgefrage zum Ergebnis oben – oder „suche auch nach …“ (Enter senden)',
   'lib.checking': 'Prüfe ZotSeek …',
   'lib.indexed': 'ZotSeek: {n} Einträge indexiert',
   'lib.sourceZotSeek': 'ZotSeek',
@@ -517,10 +523,10 @@ const DE: Record<Key, string> = {
   'lib.sourceList': 'Quellen ({cited} von {total} zitiert)',
   'lib.note': 'Notiz',
   'lib.originBook': 'Buch',
-  'lib.followupHint': 'ℹ Ab jetzt kannst du nach bestimmten Seiten einer Quelle oder nach einem bestimmten Dokument fragen, z. B. ' +
-    '„Was steht genau auf S. 45 von [1]?“, „Lies S. 10–12 des Buchs noch einmal“ oder „Was sagt Muster 2021 zu den Methoden?“. ' +
-    'Der Chatverlauf enthält nur die Antworten, nicht die Texte der Quellen: SeekChat lädt dann diese Seiten aus dem PDF ' +
-    'nach oder durchsucht das Dokument mit ZotSeek, bevor es antwortet. Seiten sind die PDF-Seiten wie in den Zitaten.',
+  'lib.followupHint': 'ℹ Die erste Frage hat alle Quellen durchsucht. Folgefragen besprechen jetzt dieses Ergebnis: Sie sehen die ' +
+    'oben zitierten Stellen und durchsuchen nicht alles neu – so bleiben sie schnell. Nachladen geht jederzeit: „Was steht genau ' +
+    'auf S. 45 von [1]?“, „Lies S. 10–12 des Buchs noch einmal“, „Was sagt Muster 2021 zu den Methoden?“. Für einen neuen Aspekt ' +
+    'sag es („suche auch nach …“); für ein neues Thema starte einen neuen Chat. Seiten sind die PDF-Seiten wie in den Zitaten.',
   'lib.tooltip': 'SeekChat: Chat über die Bibliothek (mit ZotSeek)',
 
   'cov.searches.one': 'ZotSeek durchsucht hier {n} Eintrag{split}.',

@@ -45,6 +45,11 @@ export interface SearchPlan {
   queries: string[];
   /** False if the model's reply was unusable and the plan is the fallback. */
   fromModel: boolean;
+  /**
+   * Follow-ups: whether to search the sources again. Undefined for first questions (always search);
+   * false = discuss the earlier result (cited passages plus pages/documents asked for) without a new search.
+   */
+  search?: boolean;
   /** Follow-ups: pages to load from known sources, documents to search in. */
   loadPages?: PageRequest[];
   loadDocuments?: DocumentRequest[];
@@ -62,7 +67,10 @@ export function buildPlanMessages(opts: { question: string; history: HistoryTurn
     'If it asks about one specific document (by number, author or title), add "load_documents": [{"source": <number>, ' +
     '"query": "<what to look for in it>"}], or {"title": "<title or author as named>", "query": "..."} for a document not in ' +
     `the list. At most ${MAX_LOAD_REQUESTS} entries each; leave both out when the question does not ask for specific pages ` +
-    'or documents.' : '';
+    'or documents. ' +
+    'Follow-up questions normally discuss the result so far: the passages cited in the earlier answers are available again. ' +
+    'Add "search": true only if the new question needs material the earlier answers do not cover (a new topic or aspect, ' +
+    'or the user asks to search again or look for more); otherwise "search": false.' : '';
   const system =
     'You prepare a literature search in the user\'s Zotero library for a chat assistant. ' +
     'Given the conversation so far and the new question, answer only with a JSON object: ' +
@@ -139,6 +147,7 @@ export function parsePlan(reply: string, question: string, known?: Set<number>):
         query: typeof r.query === 'string' && r.query.trim() ? r.query.trim() : standalone,
       }))
       .slice(0, MAX_LOAD_REQUESTS);
+    plan.search = json.search === true;
     if (loadPages.length) plan.loadPages = loadPages;
     if (loadDocuments.length) plan.loadDocuments = loadDocuments;
   }
