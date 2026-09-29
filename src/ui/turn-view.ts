@@ -155,3 +155,65 @@ function renderMessage(doc: Document, turn: Turn, handlers: CitationHandlers, pe
   }
   return box;
 }
+
+/** What a turn's rendering depends on; a turn whose signature is unchanged keeps its DOM. */
+export function turnSignature(turn: Turn): string {
+  return JSON.stringify([
+    turn.role, turn.content, turn.notice, turn.meta, !!turn.error, !!turn.pending, !!turn.noteSaved,
+    turn.sources?.map((s) => s.n), turn.bookProgress,
+  ]);
+}
+
+/**
+ * Keeps the rendered turns of one chat and redraws only turns that changed. While an answer
+ * streams, the earlier messages stay untouched: text in them can be selected, and details
+ * opened by the user stay open.
+ */
+export class TurnListView {
+  private cache = new Map<Turn, { sig: string; nodes: Node[] }>();
+  private owner: unknown = null;
+
+  /** Renders `turns` into `container`; `owner` (the session) change drops everything cached. */
+  update(container: HTMLElement, turns: Turn[], handlers: CitationHandlers, owner: unknown, pendingText?: string): void {
+    if (owner !== this.owner) this.reset(owner);
+    const doc = container.ownerDocument;
+    const next = new Map<Turn, { sig: string; nodes: Node[] }>();
+    const nodes: Node[] = [];
+    for (const turn of turns) {
+      const sig = turnSignature(turn);
+      let entry = this.cache.get(turn);
+      if (!entry || entry.sig !== sig) {
+        const rendered = renderTurn(doc, turn, handlers, pendingText);
+        const fresh = rendered.nodeType === 11 ? Array.from(rendered.childNodes) : [rendered];
+        // Keep a book list the user opened or closed while the question runs.
+        const old = entry?.nodes[0] as HTMLElement | undefined;
+        const oldBox = old?.querySelector?.('.seekchat-books-progress') as HTMLDetailsElement | null | undefined;
+        const newBox = (fresh[0] as HTMLElement).querySelector?.('.seekchat-books-progress') as HTMLDetailsElement | null;
+        if (oldBox && newBox && turn.pending) newBox.open = oldBox.open;
+        entry = { sig, nodes: fresh };
+      }
+      next.set(turn, entry);
+      nodes.push(...entry.nodes);
+    }
+    this.cache = next;
+    // Move only what differs, so unchanged nodes are never detached.
+    let ref = container.firstChild;
+    for (const n of nodes) {
+      if (n === ref) {
+        ref = ref.nextSibling;
+        continue;
+      }
+      container.insertBefore(n, ref);
+    }
+    while (ref) {
+      const after: ChildNode | null = ref.nextSibling;
+      ref.remove();
+      ref = after;
+    }
+  }
+
+  reset(owner: unknown = null): void {
+    this.cache.clear();
+    this.owner = owner;
+  }
+}

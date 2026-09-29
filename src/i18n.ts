@@ -194,6 +194,7 @@ const EN = {
   'zotseek.endpointOff': 'The library chat needs "AI Agent Access" in the ZotSeek settings.',
   'zotseek.noIndex': 'ZotSeek has not indexed anything yet. Please index the library in ZotSeek first (mode "full" for PDF contents).',
   'zotseek.error': 'ZotSeek search not reachable.',
+  'zotseek.noJson': 'HTTP {status}, no JSON response',
 
   // Library chat window
   'lib.scope': 'Scope:',
@@ -340,7 +341,7 @@ const EN = {
   'prefs.manualHelp': 'The context window only applies to Ollama (num_ctx); OpenAI-compatible servers set it themselves. ' +
     'Rule of thumb: PDF text (characters) ÷ 3.5 + answer length + history must fit into the context window. ' +
     'Longer PDFs are cut down to the pages that best match the question.',
-  'prefs.systemPrompt': 'System prompt for the PDF chat (empty = default):',
+  'prefs.systemPrompt': 'System prompt for the PDF chat (empty = default; the page citation format is always added):',
   'prefs.library': 'Library chat (with ZotSeek)',
   'prefs.libraryTopK': 'Passages per question from ZotSeek:',
   'prefs.libraryHelp': 'How many matching passages ZotSeek returns per question (1–100). What fits into "PDF text per ' +
@@ -532,6 +533,7 @@ const DE: Record<Key, string> = {
   'zotseek.endpointOff': 'Chat über die Bibliothek braucht in den ZotSeek-Einstellungen „AI Agent Access“.',
   'zotseek.noIndex': 'ZotSeek hat noch nichts indexiert. Bitte zuerst in ZotSeek die Bibliothek indexieren (Modus „full“ für PDF-Inhalte).',
   'zotseek.error': 'ZotSeek-Suche nicht erreichbar.',
+  'zotseek.noJson': 'HTTP {status}, keine JSON-Antwort',
 
   'lib.scope': 'Umfang:',
   'lib.sources': 'Quellen:',
@@ -677,7 +679,7 @@ const DE: Record<Key, string> = {
   'prefs.manualHelp': 'Das Kontextfenster gilt nur für Ollama (num_ctx); bei OpenAI-kompatiblen Servern legt es der Server fest. ' +
     'Faustregel: PDF-Text (Zeichen) ÷ 3,5 + Antwortlänge + Verlauf muss ins Kontextfenster passen. ' +
     'Längere PDFs werden auf die zur Frage passendsten Seiten gekürzt.',
-  'prefs.systemPrompt': 'System-Prompt für den PDF-Chat (leer = Standard):',
+  'prefs.systemPrompt': 'System-Prompt für den PDF-Chat (leer = Standard; das Format der Seitenzitate wird immer ergänzt):',
   'prefs.library': 'Chat über die Bibliothek (mit ZotSeek)',
   'prefs.libraryTopK': 'Abschnitte pro Frage von ZotSeek:',
   'prefs.libraryHelp': 'Wie viele passende Textabschnitte ZotSeek pro Frage liefert (1–100). Davon geht mit, was in „PDF-Text ' +

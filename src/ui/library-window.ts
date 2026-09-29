@@ -20,7 +20,7 @@ import { booksInScope } from '../core/library/books';
 import { MAX_BOOKS_READ, type BookTarget } from '../core/library/books';
 import { readPrefs } from '../prefs';
 import { logError } from '../util/log';
-import { renderTurn } from './turn-view';
+import { TurnListView } from './turn-view';
 import { t, tn } from '../i18n';
 import { saveChat, withFeedback } from './save-chat';
 import { saveAnswerAsNote, saveLibraryChatAsNote } from './save-note';
@@ -158,6 +158,7 @@ class LibraryChatView {
   private status: ZotSeekStatus | null = null;
   private unsubscribe: (() => void) | null = null;
   private renderTimer: any = null;
+  private turnList = new TurnListView();
 
   constructor(private win: any, root: HTMLElement) {
     this.doc = win.document;
@@ -401,6 +402,7 @@ class LibraryChatView {
     const atBottom = this.messages.scrollHeight - this.messages.scrollTop - this.messages.clientHeight < 40;
     const turns = s?.turns || [];
     if (!turns.length) {
+      this.turnList.reset();
       this.messages.replaceChildren(this.el('div', 'seekchat-library-empty', !this.useZotSeek && !this.useBooks && !this.useSeekBook
         ? t('lib.noSource')
         : available
@@ -423,7 +425,7 @@ class LibraryChatView {
         .then(() => { turn.noteSaved = true; this.render(); })
         .catch((e) => { btn.disabled = false; logError(e); });
     };
-    this.messages.replaceChildren(...turns.map((turn) => renderTurn(this.doc, turn, { onSource, onSkipBook, onSaveAnswer }, t('lib.searching'))));
+    this.turnList.update(this.messages, turns, { onSource, onSkipBook, onSaveAnswer }, s, t('lib.searching'));
     if (atBottom || s?.busy) this.messages.scrollTop = this.messages.scrollHeight;
   }
 

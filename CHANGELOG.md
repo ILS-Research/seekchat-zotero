@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.12.1 – 2026-09-29
+
+Fixes from the code review (`REVIEW_OPUS_5.5_NODOCS.md`, items 1, 4, 5, 7, 8):
+
+- **Skipping a book no longer fails other books** of the same language: the shared search-term call belongs to the
+  whole question, a skipped book only stops waiting for it.
+- **Streams are closed** when the answer ends early (done event, error), so the model server stops sending.
+- **Custom system prompt keeps clickable citations:** the page citation format is always added to it.
+- **Only changed messages are redrawn** while an answer streams: text in earlier answers can be selected, and the book
+  list keeps the state the user gave it.
+- The ZotSeek "no JSON response" detail is translated.
+
 ## 0.12.0 – 2026-09-29
 
 - **The page open in the reader goes along:** when a long PDF is open in a reader tab, the current page and two on

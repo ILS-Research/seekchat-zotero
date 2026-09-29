@@ -7,10 +7,9 @@ import { t } from '../i18n';
 import { describeItem, PdfContextProvider } from '../core/context/pdf-context';
 import { getSession, type ChatSession } from '../core/session';
 import { LongDocPanel } from './long-doc-panel';
-import { renderTurn } from './turn-view';
+import { TurnListView } from './turn-view';
 import { saveChat, withFeedback } from './save-chat';
-import { saveAnswerAsNote } from './save-note';
-import { savePdfChatAsNote } from './save-note';
+import { saveAnswerAsNote, savePdfChatAsNote } from './save-note';
 import { readPrefs } from '../prefs';
 import { logError } from '../util/log';
 
@@ -53,6 +52,7 @@ class ChatView {
   private attachment: any = null;
   private unsubscribe: (() => void) | null = null;
   private renderTimer: any = null;
+  private turnList = new TurnListView();
 
   constructor(private doc: Document, body: HTMLElement) {
     this.root = this.el('div', 'seekchat');
@@ -205,7 +205,7 @@ class ChatView {
         .then(() => { turn.noteSaved = true; this.notesKey = ''; this.render(); })
         .catch((e) => { btn.disabled = false; logError(e); });
     };
-    this.messages.replaceChildren(...(s?.turns || []).map((turn) => renderTurn(this.doc, turn, { onPage, onSaveAnswer })));
+    this.turnList.update(this.messages, s?.turns || [], { onPage, onSaveAnswer }, s);
     if (atBottom || s?.busy) this.messages.scrollTop = this.messages.scrollHeight;
   }
 

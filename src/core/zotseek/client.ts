@@ -179,7 +179,7 @@ async function getJson(url: string, signal?: AbortSignal): Promise<any> {
   try {
     json = await resp.json();
   } catch {
-    throw new ZotSeekUnavailableError('error', `HTTP ${resp.status}, keine JSON-Antwort`);
+    throw new ZotSeekUnavailableError('error', t('zotseek.noJson', { status: resp.status }));
   }
   if (!resp.ok) throw new ZotSeekUnavailableError('error', `HTTP ${resp.status}: ${String(json?.error || '').slice(0, 200)}`);
   return json;

@@ -12,10 +12,19 @@ function pageMark(): string {
  * the model answers in the language of the question and cites pages with the UI's marker.
  */
 export function defaultSystemPrompt(): string {
-  const p = pageMark();
   return 'You are a scientific assistant in Zotero. Answer questions only on the basis of the provided document. ' +
-    `Support each statement with the page right after it, in the format [${p} 12]. If the document does not contain ` +
+    `${citationRule()} If the document does not contain ` +
     'the answer, say so openly instead of guessing. Answer in the language of the question, concisely and precisely.';
+}
+
+/** Page citation format; also sent with a custom system prompt, since the UI makes only this format clickable. */
+export function citationRule(): string {
+  return `Support each statement with the page right after it, in the format [${pageMark()} 12].`;
+}
+
+/** The user's own system prompt plus the citation rule, or the default prompt. */
+export function pdfSystemPrompt(custom?: string): string {
+  return custom?.trim() ? `${custom.trim()}\n\n${citationRule()}` : defaultSystemPrompt();
 }
 
 /** Marker the model answers with when a pre-read book has nothing on the question (library chat, source "books"). */
@@ -140,7 +149,7 @@ export function buildMessages(opts: {
     ? `\nThe user currently has page ${context.currentPage} open in the reader; "this page" or "here" means that page.`
     : '';
   const system =
-    `${opts.systemPrompt || defaultSystemPrompt()}\n\n` +
+    `${pdfSystemPrompt(opts.systemPrompt)}\n\n` +
     `Document: ${context.title}\n${note}${printed}${current}\n\n<document>\n${context.body}\n</document>${notes}`;
   return [
     { role: 'system', content: system },

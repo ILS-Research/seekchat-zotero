@@ -789,12 +789,12 @@ export class ChatSession {
       const langKey = lang?.code || '?';
       let pending = keywordsByLanguage.get(langKey);
       if (!pending) {
-        pending = this.expandKeywords(provider, client, prefs, plan.question, '', lang, bookCtrl.signal);
+        // Shared by the books of this language: tied to the whole question, not to this book,
+        // so skipping the book that started the call does not fail the others waiting on it.
+        pending = this.expandKeywords(provider, client, prefs, plan.question, '', lang, ctrl.signal);
         keywordsByLanguage.set(langKey, pending);
-        // A skipped book must not leave its books-mates without search terms.
-        pending.catch(() => keywordsByLanguage.delete(langKey));
       }
-      const keywords = await pending;
+      const keywords = await untilAborted(pending, bookCtrl.signal);
       progress.keywords = keywords;
       this.notify();
 
@@ -952,6 +952,16 @@ export class ChatSession {
       },
     );
   }
+}
+
+/** `promise`, or a rejection as soon as `signal` aborts (the promise itself runs on). */
+export function untilAborted<T>(promise: Promise<T>, signal: AbortSignal): Promise<T> {
+  if (signal.aborted) return Promise.reject(new Error('aborted'));
+  return new Promise<T>((resolve, reject) => {
+    const onAbort = () => reject(new Error('aborted'));
+    signal.addEventListener('abort', onAbort, { once: true });
+    promise.then(resolve, reject).finally(() => signal.removeEventListener('abort', onAbort));
+  });
 }
 
 /** Share of the text budget notes may take; longer notes are cut. */

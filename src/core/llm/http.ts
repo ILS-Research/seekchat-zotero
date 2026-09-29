@@ -59,6 +59,7 @@ export async function readLines(resp: Response, onLine: (line: string) => boolea
   const reader = resp.body.getReader();
   const decoder = newTextDecoder();
   const lines = new LineBuffer();
+  let finished = false;
   try {
     for (;;) {
       const { done, value } = await reader.read();
@@ -67,9 +68,12 @@ export async function readLines(resp: Response, onLine: (line: string) => boolea
         if (onLine(line) === false) return;
       }
     }
+    finished = true;
     for (const line of lines.push(decoder.decode())) onLine(line);
     for (const line of lines.flush()) onLine(line);
   } finally {
+    // Stopped early (done event, parser error): close the body so the server stops sending.
+    if (!finished) await reader.cancel().catch(() => {});
     reader.releaseLock();
   }
 }

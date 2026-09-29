@@ -5,6 +5,9 @@ ZotSeek's) in Zotero 7–10, using a self-hosted model (Ollama native API or any
 when scope or decisions change. User-facing UI text is English with a German translation: every string goes through `t()` in `src/i18n.ts`
 (add the key to both tables); prompts to the model are English in code. Section header and context menu use Fluent (`locale/*.ftl`).
 
+**Open review:** `REVIEW_OPUS_5.5_NODOCS.md` (German, code review of v0.12.0) — implement it following its
+"Umsetzungsplan" step by step and update the status column there as steps are done.
+
 ## Commands
 
 The host (production server) has no usable Node. **Everything runs in Docker** via the scripts;
