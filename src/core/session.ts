@@ -13,7 +13,7 @@ import { stripThinking } from './llm/stream-parsers';
 import { buildMessages, compressRanges, describeContext, type HistoryTurn } from './prompt';
 import { languageName, t, tn } from '../i18n';
 import { UserFacingError } from './errors';
-import { PdfContextProvider } from './context/pdf-context';
+import { currentReaderPage, PdfContextProvider } from './context/pdf-context';
 import type { NoteContext } from './context/types';
 import { buildKeywordMessages, parseKeywords } from './context/keywords';
 import {
@@ -927,7 +927,11 @@ export class ChatSession {
     purpose = t('purpose.answer');
     const notesCtx = contextNotesText(Array.from(this.contextNotes), prefs.contextChars);
     if (notesCtx.length) notes.push(tn('meta.notesContext', notesCtx.length, { titles: notesCtx.map((n) => `„${n.title}“`).join(', ') }));
-    const context = await provider.build(`${question}\n${lastQuestion}`, prefs.contextChars, { keywords, chapters, rankedPages, notes: notesCtx });
+    const currentPage = provider instanceof PdfContextProvider ? currentReaderPage(provider.attachment) ?? undefined : undefined;
+    const context = await provider.build(`${question}\n${lastQuestion}`, prefs.contextChars, { keywords, chapters, rankedPages, notes: notesCtx, currentPage });
+    if (context.aroundPages?.length && context.mode === 'excerpt') {
+      notes.push(t('meta.currentPage', { page: currentPage!, pages: compressRanges(context.aroundPages) }));
+    }
     answer.meta = [`${prefs.model} · ${describeContext(context)}`, ...notes].join('\n');
     this.notify();
     let raw = '';

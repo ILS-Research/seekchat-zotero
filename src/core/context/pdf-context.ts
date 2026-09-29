@@ -18,6 +18,8 @@ export { UserFacingError };
 
 /** Page texts of a PDF attachment via Zotero's PDF worker (form feed = page break). */
 const L = logger('PDF');
+/** Pages on each side of the page open in the reader that always go along. */
+export const CURRENT_PAGE_SPAN = 2;
 
 export async function getPdfPages(attachment: any): Promise<Page[]> {
   const version = `${attachment.version}:${attachment.dateModified}`;
@@ -107,13 +109,27 @@ export class PdfContextProvider implements ContextProvider {
     // Budget left for the pages after the notes the user added as context.
     const notes = opts.notes || [];
     budgetChars = Math.max(2000, budgetChars - notes.reduce((n, x) => n + x.text.length + x.title.length + 20, 0));
-    const selection = opts.rankedPages
-      ? selectRankedPages(pool, opts.rankedPages, budgetChars)
-      : selectPagesByTerms(pool, buildTerms(query, opts.keywords), budgetChars);
+    // The page open in the reader and two on each side always go along (they are what the user looks at).
+    const around = opts.currentPage ? pages.filter((p) => Math.abs(p.pageNumber - opts.currentPage!) <= CURRENT_PAGE_SPAN && p.text) : [];
+    const aroundChars = around.reduce((n, p) => n + p.text.length, 0);
+    const aroundSet = new Set(around.map((p) => p.pageNumber));
+    const rest = around.length ? pool.filter((p) => !aroundSet.has(p.pageNumber)) : pool;
+    const restBudget = Math.max(0, budgetChars - aroundChars);
+    let selection = opts.rankedPages
+      ? selectRankedPages(rest, opts.rankedPages, restBudget)
+      : selectPagesByTerms(rest, buildTerms(query, opts.keywords), restBudget);
+    if (around.length) {
+      const merged = [...around, ...selection.pages].sort((a, b) => a.pageNumber - b.pageNumber);
+      // Everything fits anyway: keep "full"; else it is an excerpt.
+      const full = selection.mode === 'full' && rest.length + around.length === pages.filter((p) => p.text).length;
+      selection = { ...selection, pages: merged, mode: full ? 'full' : 'excerpt' };
+    }
     return {
       title: this.describe(),
       body: formatPages(selection.pages, await pageLabelsOf(this.attachment)),
       notes: notes.length ? notes : undefined,
+      currentPage: opts.currentPage,
+      aroundPages: around.map((p) => p.pageNumber),
       // Whole chapters are still only part of the document.
       mode: allowed ? 'excerpt' : selection.mode,
       includedPages: selection.pages.map((p) => p.pageNumber),
@@ -140,4 +156,23 @@ export async function pageLabelsOf(attachment: any): Promise<(string | null)[] |
   }
   labelCache.set(attachment.id, { version, labels });
   return labels;
+}
+
+/**
+ * Page (1-based) the user has open in a reader tab of this PDF, preferring the selected tab; null if it is not open.
+ * The reader's live view state first, else the page Zotero stored for the attachment.
+ */
+export function currentReaderPage(attachment: any): number | null {
+  try {
+    const win = Zotero.getMainWindow();
+    const readers: any[] = (Zotero.Reader as any)._readers || [];
+    const selected = Zotero.Reader.getByTabID(win?.Zotero_Tabs?.selectedID);
+    const reader = selected?.itemID === attachment.id ? selected : readers.find((r) => r?.itemID === attachment.id);
+    if (!reader) return null;
+    const live = reader._internalReader?._state?.primaryViewStats?.pageIndex;
+    const index = typeof live === 'number' ? live : attachment.getAttachmentLastPageIndex?.();
+    return typeof index === 'number' && index >= 0 ? index + 1 : null;
+  } catch {
+    return null;
+  }
 }

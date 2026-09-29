@@ -28,6 +28,9 @@ export interface ContextBlock {
   chapters?: { titles: string[]; complete: boolean };
   /** PDF chat: notes the user added as context (plain text). */
   notes?: NoteContext[];
+  /** PDF chat: page open in the reader, and the pages sent because of it. */
+  currentPage?: number;
+  aroundPages?: number[];
   /** Library chat: numbered sources (body holds them formatted); citations are [n, S. x]. */
   library?: {
     sources: LibrarySource[];
@@ -50,6 +53,8 @@ export interface BuildOptions {
   chapters?: ChapterScope;
   /** Strategy "semantic": pages ranked by SeekBook/ZotSeek, best first (replaces the keyword selection). */
   rankedPages?: { page: number; pageEnd?: number }[];
+  /** PDF chat: page open in the reader; it and its neighbours always go along. */
+  currentPage?: number;
   /** PDF chat: notes the user added as context; they take their share of the budget first. */
   notes?: NoteContext[];
 }

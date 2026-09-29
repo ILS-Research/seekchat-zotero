@@ -136,9 +136,12 @@ export function buildMessages(opts: {
       'from a note, say so (e.g. "(note „Title“)") instead of a page citation.\n<notes>\n' +
       context.notes.map((n) => `[Note „${n.title}“]\n${n.text}`).join('\n\n') + '\n</notes>'
     : '';
+  const current = context.currentPage
+    ? `\nThe user currently has page ${context.currentPage} open in the reader; "this page" or "here" means that page.`
+    : '';
   const system =
     `${opts.systemPrompt || defaultSystemPrompt()}\n\n` +
-    `Document: ${context.title}\n${note}${printed}\n\n<document>\n${context.body}\n</document>${notes}`;
+    `Document: ${context.title}\n${note}${printed}${current}\n\n<document>\n${context.body}\n</document>${notes}`;
   return [
     { role: 'system', content: system },
     ...opts.history.map((h) => ({ role: h.role, content: h.content })),

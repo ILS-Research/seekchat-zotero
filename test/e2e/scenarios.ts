@@ -3,7 +3,7 @@
  * (e2e/mock-llm.mjs). Later scenarios use what earlier ones put in ctx.
  * Add new scenarios at the end of the list.
  */
-import { getPdfPages, PdfContextProvider } from '../../src/core/context/pdf-context';
+import { currentReaderPage, getPdfPages, PdfContextProvider } from '../../src/core/context/pdf-context';
 import { analyzeFit } from '../../src/core/context/fit';
 import { buildOutline, type OutlineNode } from '../../src/core/context/outline';
 import { readPrefs } from '../../src/prefs';
@@ -542,6 +542,27 @@ export const scenarios: Scenario[] = [
       session.clear();
     } finally {
       restore();
+    }
+  }],
+
+  ['PDF chat: the page open in the reader and two on each side always go along', async (ctx) => {
+    const win = Zotero.getMainWindow();
+    const reader = await Zotero.Reader.open(ctx.longAttachment.id, { pageIndex: 11 });
+    await waitFor('reader on page 12', () => currentReaderPage(ctx.longAttachment) === 12, 15000);
+    const session = getSession(new PdfContextProvider(ctx.longAttachment));
+    session.setStrategy('keywords');
+    session.clear();
+    try {
+      await session.ask('Was steht zu Waermeinseln?');
+      const answer = session.turns[session.turns.length - 1];
+      const system: string = (await mockLastRequest()).messages[0].content;
+      const sent = sentPages(system);
+      assert(!answer.error && [10, 11, 12, 13, 14].every((p) => sent.includes(p)) && sent.includes(27), `pages sent: ${sent}`);
+      assert(system.includes('currently has page 12 open') && answer.meta?.includes('Im Reader geöffnet: S. 12'), `meta: ${answer.meta}`);
+    } finally {
+      session.clear();
+      win.Zotero_Tabs.close(reader?.tabID);
+      win.Zotero_Tabs.select('zotero-pane');
     }
   }],
 

@@ -20,6 +20,7 @@ Select an item with a PDF, or open it in the reader: the side pane shows **“Ch
 - Long books are no problem: SeekChat picks the pages that matter for your question and tells you which ones it read.
 - Answers cite pages; one click opens the PDF there. Printed page numbers are known too; running headers and footers
   are removed before anything is sent.
+- **"This page" works:** with the PDF open in the reader, the current page and its neighbours always go along.
 - **Your notes as context:** tick notes of the item and they go along with every question.
 - **Save what matters:** every answer has a "📝 As note" button; the whole chat goes to Markdown or a note.
 - **Long books:** keyword search, chapter selection, or semantic search through SeekBook (books) / ZotSeek (papers) –

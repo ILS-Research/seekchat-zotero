@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.12.0 – 2026-09-29
+
+- **The page open in the reader goes along:** when a long PDF is open in a reader tab, the current page and two on
+  each side are always sent (besides the pages the strategy picks), and the model is told which page the user is
+  looking at ("this page" / "here" works). The meta line names them.
+
 ## 0.11.0 – 2026-09-29
 
 - **Running headers and footers removed** from PDF pages (title, chapter, page number, licence lines that recur on
