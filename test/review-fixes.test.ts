@@ -43,3 +43,52 @@ test('readLines cancels the body when the reader stops early', async () => {
   assert.deepEqual(seen, ['a', 'b']);
   assert.ok(cancelled, 'body cancelled');
 });
+
+test('history: only complete exchanges, never two questions in a row or a cancelled answer', async () => {
+  const { historyPairs } = await import('../src/core/session');
+  const turns: any[] = [
+    { role: 'user', content: 'q1' }, { role: 'assistant', content: 'a1' },
+    { role: 'user', content: 'q2' }, { role: 'assistant', content: 'Fehler', error: true },
+    { role: 'user', content: 'q3' }, { role: 'assistant', content: 'halb\nAbgebrochen', cancelled: true },
+    { role: 'user', content: 'q4' }, { role: 'assistant', content: 'a4' },
+    { role: 'user', content: 'q5' }, { role: 'assistant', content: '', pending: true },
+  ];
+  assert.deepEqual(historyPairs(turns, 4).map((h) => h.content), ['q1', 'a1', 'q4', 'a4']);
+  assert.deepEqual(historyPairs(turns, 1).map((h) => h.content), ['q4', 'a4'], 'counted in pairs');
+  assert.deepEqual(historyPairs(turns, 0), []);
+});
+
+test('API key: https required for remote hosts, loopback may stay http', async () => {
+  const { assertSecureTransport } = await import('../src/core/host-guard');
+  assert.throws(() => assertSecureTransport(new URL('http://ollama.ils.local'), 'k'), { code: 'HOST_REJECTED' });
+  assert.doesNotThrow(() => assertSecureTransport(new URL('https://ollama.ils.local'), 'k'));
+  assert.doesNotThrow(() => assertSecureTransport(new URL('http://127.0.0.1:11434'), 'k'));
+  assert.doesNotThrow(() => assertSecureTransport(new URL('http://ollama.ils.local'), ''));
+});
+
+test('Ollama drops `think` only on HTTP 400 "does not support thinking"', async () => {
+  const { OllamaClient } = await import('../src/core/llm/ollama-client');
+  const ok = () => new Response('{"message":{"content":"hi"},"done":true}\n', { status: 200 });
+  const run = async (first: () => Response) => {
+    const bodies: any[] = [];
+    const orig = globalThis.fetch;
+    globalThis.fetch = (async (_u: string, init: any) => {
+      bodies.push(JSON.parse(init.body));
+      return bodies.length === 1 ? first() : ok();
+    }) as any;
+    try {
+      const c = new OllamaClient({ baseUrl: 'http://127.0.0.1:11434', allowedRemoteHosts: [] });
+      const req = { model: 'm', messages: [], temperature: 0, maxTokens: 10, think: true };
+      const out = await c.streamChat(req, () => {}).catch((e) => `ERR ${e.message}`);
+      return { out, bodies };
+    } finally {
+      globalThis.fetch = orig;
+    }
+  };
+  const a = await run(() => new Response('{"error":"\\"m\\" does not support thinking"}', { status: 400 }));
+  assert.equal(a.out, 'hi');
+  assert.equal('think' in a.bodies[1], false);
+  const b = await run(() => new Response('{"error":"model qwen3-thinking not found"}', { status: 404 }));
+  assert.match(String(b.out), /^ERR HTTP 404/);
+  assert.equal(b.bodies.length, 1, 'no retry');
+});

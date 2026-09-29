@@ -16,6 +16,8 @@ export interface SeekChatPrefs {
   thinking: boolean;
   systemPrompt: string;
   allowedRemoteHosts: string;
+  /** https server with a self-signed/expired/mismatching certificate: add an exception for the session. */
+  allowInvalidCerts: boolean;
   /** "auto": limits from the model (minus 20 %); "manual": numCtx, maxTokens, contextChars as set. */
   limitsMode: 'auto' | 'manual';
   /** Library chat: passages requested from ZotSeek per question. */
@@ -57,6 +59,7 @@ export function readPrefs(): SeekChatPrefs {
     thinking: getPref('thinking') === true,
     systemPrompt: str('systemPrompt'),
     allowedRemoteHosts: str('allowedRemoteHosts'),
+    allowInvalidCerts: getPref('allowInvalidCerts') === true,
     libraryTopK: int('libraryTopK', 30, 1, 100),
     limitsMode: str('limitsMode') === 'manual' ? 'manual' : 'auto',
   };

@@ -1,4 +1,4 @@
-import { readLines, request } from './http';
+import { HttpError, readLines, request } from './http';
 import { parseOllamaLine } from './stream-parsers';
 import type { ChatRequest, ClientConfig, LlmClient, ModelInfo } from './types';
 
@@ -38,8 +38,9 @@ export class OllamaClient implements LlmClient {
     try {
       resp = await request(this.cfg, '/api/chat', { method: 'POST', signal: req.signal, body });
     } catch (e: any) {
-      // "… does not support thinking": ask again without the field.
-      if (!('think' in think) || !/think/i.test(String(e?.message || e))) throw e;
+      // HTTP 400 "… does not support thinking": ask again without the field. Other errors that merely mention
+      // "think" (a model name like qwen3-thinking, a proxy message) must not switch thinking off for good.
+      if (!('think' in think) || !(e instanceof HttpError && e.status === 400) || !/support[^\n]*think/i.test(e.message)) throw e;
       this.noThink.add(req.model);
       return this.streamChat(req, onDelta);
     }

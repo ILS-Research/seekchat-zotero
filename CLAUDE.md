@@ -43,7 +43,7 @@ they use `docker` or fall back to `sudo docker`, and run containers with the cal
 | `bootstrap.js` | Registers chrome (`chrome://seekchat/`), loads `content/scripts/seekchat.js` into a sandbox, calls `Zotero.SeekChat.startup/shutdown` |
 | `src/index.ts` | Plugin object `Zotero.SeekChat`: window hooks (FTL + `content/chat.css`), section + pref pane registration |
 | `src/prefs.ts` | Typed prefs `extensions.zotero.seekchat.*` (defaults in `prefs.js`) |
-| `src/core/host-guard.ts` | Loopback + explicit allow-list for model hosts (same rules as `../zotseek-src` fork) |
+| `src/core/host-guard.ts`, `src/core/tls.ts` | Loopback + explicit allow-list for model hosts (same rules as `../zotseek-src` fork); with an API key https only (except loopback); "Accept invalid certificate" = session cert override (copy of SeekBook's `tls.ts`) |
 | `src/core/llm/` | `OllamaClient` (`/api/chat`, sets `num_ctx`), `OpenAiClient` (`/chat/completions`), stream parsers, HTTP with host check and `redirect: 'error'` |
 | `src/core/context/` | `ContextProvider` interface; `pdf-context.ts` (PDF worker text, split on `\f`), `page-selection.ts` (full text or page 1 + BM25 pages) |
 | `src/core/prompt.ts`, `citations.ts` | Messages (system prompt + document), `[S. N]` citation parsing |

@@ -10,6 +10,7 @@ import { pageGroups, type LibrarySource } from '../core/library/sources';
 import { SKIPPABLE, type BookProgress, type Turn } from '../core/session';
 import { renderMarkdown, type CitationSplitter } from './markdown';
 import { compressRanges } from '../core/prompt';
+import { bookDetails, bookStateText } from '../core/book-report';
 
 const HTML_NS = 'http://www.w3.org/1999/xhtml';
 
@@ -45,9 +46,6 @@ export function citedSources(content: string, sources: number | LibrarySource[])
   return citedSourceNumbers(content, (n) => known.has(n));
 }
 
-
-export { bookDetails, bookStateText } from '../core/book-report';
-import { bookDetails, bookStateText } from '../core/book-report';
 
 /** Books of a library question: state per book, "skip" while it is still open. */
 function bookList(doc: Document, turn: Turn, handlers: CitationHandlers): HTMLElement {

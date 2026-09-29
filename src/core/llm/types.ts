@@ -39,4 +39,6 @@ export interface ClientConfig {
   baseUrl: string;
   apiKey?: string;
   allowedRemoteHosts: string[];
+  /** Add a certificate exception for an https server whose certificate fails the check (see tls.ts). */
+  allowInvalidCerts?: boolean;
 }

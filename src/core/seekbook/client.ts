@@ -7,10 +7,10 @@
 import { t, type Key } from '../../i18n';
 import { getFetch } from '../../util/env';
 import { logger } from '../../util/log';
-
-const L = logger('SeekBookClient');
 import { UserFacingError } from '../errors';
 import { parseSearchResponse, type ZotSeekPassage } from '../zotseek/client';
+
+const L = logger('SeekBookClient');
 
 export const STATS_PATH = '/seekbook/stats';
 export const SEARCH_PATH = '/seekbook/search';

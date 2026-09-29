@@ -55,6 +55,8 @@ export interface Turn {
   /** Which part of the document the answer was based on. */
   meta?: string;
   error?: boolean;
+  /** Stopped by the user; kept on screen, never sent to the model as history. */
+  cancelled?: boolean;
   pending?: boolean;
   /** Library chat: the numbered sources in the prompt (numbers stable within the chat, not 1..n). */
   sources?: LibrarySource[];
@@ -109,7 +111,7 @@ export interface BookProgress {
 /** Books in these states can still be skipped. */
 export const SKIPPABLE: BookState[] = ['waiting', 'language', 'keywords', 'reading'];
 
-/** Strategies the user can pick for long documents; "vector" is not implemented yet. */
+/** Strategies the user can pick for long documents ("vector" also needs the document in SeekBook or ZotSeek). */
 export const IMPLEMENTED_STRATEGIES: LongDocStrategy[] = ['vector', 'keywords', 'chapters'];
 
 export class ChatSession {
@@ -213,8 +215,7 @@ export class ChatSession {
 
   /** Completed question/answer pairs, newest last, for follow-up questions. */
   private history(maxTurns: number): HistoryTurn[] {
-    const done = this.turns.filter((t) => !t.error && !t.pending && t.content);
-    return done.slice(Math.max(0, done.length - maxTurns * 2)).map((t) => ({ role: t.role, content: t.content }));
+    return historyPairs(this.turns, maxTurns);
   }
 
   /**
@@ -353,6 +354,7 @@ export class ChatSession {
       if (!answer.content.trim()) answer.content = t('common.noAnswer');
     } catch (e: any) {
       if (ctrl.signal.aborted) {
+        answer.cancelled = true;
         answer.content = (answer.content ? answer.content + '\n' : '') + t('common.cancelled');
         if (answer.meta?.endsWith('…')) answer.meta = answer.meta.replace(/\s*[^·\n]*…$/, ` ${t('meta.cancelled')}`);
       } else {
@@ -913,7 +915,6 @@ export class ChatSession {
       }
     }
     if (needKeywords) {
-      if (!IMPLEMENTED_STRATEGIES.includes(this.strategy)) notes.push(t('meta.strategyFallback'));
       status(t('meta.detectLanguage'));
       purpose = t('purpose.language');
       const { lang, source } = await this.resolveLanguage(provider, client, prefs, ctrl.signal);
@@ -952,6 +953,24 @@ export class ChatSession {
       },
     );
   }
+}
+
+/**
+ * The last `maxPairs` complete exchanges: a question directly followed by a finished answer. Questions whose answer
+ * failed or was cancelled are left out with it, so the model never sees two questions in a row (strict chat templates
+ * reject that) nor a half answer.
+ */
+export function historyPairs(turns: Turn[], maxPairs: number): HistoryTurn[] {
+  const pairs: HistoryTurn[][] = [];
+  for (let i = 0; i + 1 < turns.length; i++) {
+    const q = turns[i];
+    const a = turns[i + 1];
+    if (q.role !== 'user' || a.role !== 'assistant') continue;
+    if (a.error || a.pending || a.cancelled || !a.content.trim()) continue;
+    pairs.push([{ role: 'user', content: q.content }, { role: 'assistant', content: a.content }]);
+    i++;
+  }
+  return maxPairs > 0 ? pairs.slice(-maxPairs).flat() : [];
 }
 
 /** `promise`, or a rejection as soon as `signal` aborts (the promise itself runs on). */

@@ -1,4 +1,5 @@
-import { assertAllowedUrl } from '../host-guard';
+import { assertAllowedUrl, assertSecureTransport } from '../host-guard';
+import { prepareTls } from '../tls';
 import { getFetch, newTextDecoder } from '../../util/env';
 import { LineBuffer } from './stream-parsers';
 import type { ClientConfig } from './types';
@@ -17,8 +18,9 @@ export function joinUrl(base: string, path: string): string {
 
 /**
  * One HTTP request to the model server. The URL is checked against the host
- * allow-list at request time, and redirects are refused rather than followed,
- * so a redirect cannot carry document text to another host.
+ * allow-list at request time (with an API key: https only, except loopback), and
+ * redirects are refused rather than followed, so a redirect cannot carry document
+ * text to another host.
  */
 export async function request(
   cfg: ClientConfig,
@@ -26,15 +28,24 @@ export async function request(
   init: { method: string; body?: unknown; signal?: AbortSignal },
 ): Promise<Response> {
   const url = assertAllowedUrl(joinUrl(cfg.baseUrl, path), cfg.allowedRemoteHosts);
+  assertSecureTransport(url, cfg.apiKey);
+  if (typeof Zotero !== 'undefined') await prepareTls(url, !!cfg.allowInvalidCerts);
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
   if (cfg.apiKey) headers['Authorization'] = `Bearer ${cfg.apiKey}`;
-  const resp = await getFetch()(url.href, {
-    method: init.method,
-    headers,
-    body: init.body === undefined ? undefined : JSON.stringify(init.body),
-    redirect: 'error',
-    signal: init.signal,
-  });
+  let resp: Response;
+  try {
+    resp = await getFetch()(url.href, {
+      method: init.method,
+      headers,
+      body: init.body === undefined ? undefined : JSON.stringify(init.body),
+      redirect: 'error',
+      signal: init.signal,
+    });
+  } catch (e: any) {
+    // fetch rejects with a bare TypeError for DNS, refused connections and TLS problems.
+    if (init.signal?.aborted || url.protocol !== 'https:' || cfg.allowInvalidCerts) throw e;
+    throw new Error(`${e?.message || e} (invalid certificate? see "Accept invalid certificate" in the SeekChat settings)`);
+  }
   if (!resp.ok) {
     let detail = '';
     try {

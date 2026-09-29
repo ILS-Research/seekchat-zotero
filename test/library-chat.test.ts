@@ -8,7 +8,7 @@ import { buildExcerptMessages, parseExcerpts } from '../src/core/library/book-ex
 import { citedSourceNumbers, splitSourceCitations } from '../src/core/citations';
 import { buildMessages, describeContext } from '../src/core/prompt';
 import { setLocale } from '../src/i18n';
-import { bookDetails } from '../src/ui/turn-view';
+import { bookDetails } from '../src/core/book-report';
 
 setLocale('de');
 

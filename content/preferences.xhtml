@@ -28,11 +28,14 @@
     <html:label for="seekchat-apiKey" data-i18n="prefs.apiKey">API key (optional):</html:label>
     <html:input type="password" id="seekchat-apiKey"/>
     <html:span/>
+    <html:label><html:input type="checkbox" id="seekchat-allowInvalidCerts"/> <html:span data-i18n="prefs.allowInvalidCerts">Accept invalid certificate</html:span></html:label>
+    <html:span/>
     <html:div><html:button id="seekchat-test" data-i18n="prefs.test">Test connection</html:button> <html:span id="seekchat-status" class="help"/></html:div>
     <html:label for="seekchat-model" data-i18n="prefs.model">Chat model:</html:label>
     <html:select id="seekchat-model"/>
   </html:div>
   <html:p class="help" data-i18n="prefs.serverHelp">Ollama: server root, e.g. https://ollama.example.local.</html:p>
+  <html:p class="help" data-i18n="prefs.httpsHelp"></html:p>
 
   <html:div class="danger">
     <html:p style="margin: 0 0 6px 0;"><html:b data-i18n="prefs.remoteTitle">Allowed remote hosts (caution)</html:b></html:p>

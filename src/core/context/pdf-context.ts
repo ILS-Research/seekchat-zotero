@@ -2,12 +2,10 @@ import { t } from '../../i18n';
 import { formatPages } from '../prompt';
 import { analyzeFit, type FitInfo } from './fit';
 import { buildOutline, type Outline } from './outline';
-import { readPdfOutline } from './pdf-outline';
-import { logError } from '../../util/log';
+import { readPageLabels, readPdfOutline } from './pdf-outline';
+import { logError, logger } from '../../util/log';
 import { UserFacingError } from '../errors';
 import { stripRunningLines } from './clean';
-import { readPageLabels } from './pdf-outline';
-import { logger } from '../../util/log';
 import { buildTerms, selectPagesByTerms, selectRankedPages } from './page-selection';
 import type { BuildOptions, ContextBlock, ContextProvider, Page } from './types';
 

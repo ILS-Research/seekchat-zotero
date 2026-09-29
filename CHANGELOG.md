@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.13.0 – 2026-09-29
+
+More fixes from the code review (`REVIEW_OPUS_5.5_NODOCS.md`, items 2, 3, 6, 12 and the small clean-ups):
+
+- **API key only over https:** with an API key set, a server on another computer must be reached via `https://`
+  (loopback stays allowed). New setting **"Accept invalid certificate"** (self-signed, expired, other name): adds a
+  certificate exception for the chat server until Zotero restarts, as in SeekBook. A failing https connection
+  points to the setting.
+- **Follow-ups send only complete question/answer pairs:** a question whose answer failed or was cancelled is left
+  out with it (no two questions in a row, which strict chat templates reject; no half answers). "Previous questions
+  sent" now counts pairs.
+- **Thinking is switched off for a model only on HTTP 400 "does not support thinking"**, not on any error that
+  mentions "think".
+- Clean-ups: dead "strategy not available" branch removed, imports tidied, error text in the settings translated.
+
 ## 0.12.1 – 2026-09-29
 
 Fixes from the code review (`REVIEW_OPUS_5.5_NODOCS.md`, items 1, 4, 5, 7, 8):

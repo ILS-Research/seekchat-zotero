@@ -6,10 +6,10 @@
  */
 import { getFetch } from '../../util/env';
 import { logger } from '../../util/log';
-
-const L = logger('ZotSeekClient');
 import { UserFacingError } from '../errors';
 import { t, type Key } from '../../i18n';
+
+const L = logger('ZotSeekClient');
 
 export const SEARCH_PATH = '/zotseek/search';
 export const STATS_PATH = '/zotseek/stats';

@@ -30,7 +30,7 @@ gewachsen sind.
    - Lösung: Den gemeinsamen Aufruf an `ctrl.signal` (den Gesamtabbruch) hängen statt an das Signal eines Buchs. Oder
      bei einem Abbruch-Fehler aus einem fremden Promise erneut versuchen.
 
-2. **In der Historie können Fragen ohne Antwort landen** (`src/core/session.ts:215-218`)
+2. ~~**In der Historie können Fragen ohne Antwort landen**~~ – *behoben in 0.13.0* (`src/core/session.ts:215-218`)
    - `history()` filtert fehlerhafte Antworten heraus, lässt die zugehörige Nutzerfrage aber drin.
    - Nach einem Fehler schickt man deshalb zwei `user`-Nachrichten direkt hintereinander. Manche OpenAI-kompatiblen
      Server (strikte Chat-Templates, z. B. bei vLLM) lehnen das ab.
@@ -38,7 +38,7 @@ gewachsen sind.
    - Außerdem zählt `maxTurns * 2` einzelne Nachrichten statt Frage-Antwort-Paaren.
    - Lösung: Die Historie aus vollständigen Paaren aufbauen.
 
-3. **Veralteter Kommentar und toter Code bei `IMPLEMENTED_STRATEGIES`** (`src/core/session.ts:112-113`)
+3. ~~**Veralteter Kommentar und toter Code bei `IMPLEMENTED_STRATEGIES`**~~ – *behoben in 0.13.0* (`src/core/session.ts:112-113`)
    - Der Kommentar sagt „"vector" is not implemented yet“, die Liste enthält `vector` aber.
    - Damit ist `meta.strategyFallback` (`src/core/session.ts:916`) nicht mehr erreichbar.
 
@@ -54,7 +54,7 @@ gewachsen sind.
 
 ## Robustheit und Design
 
-6. **Rückfrage ohne `think` nach grobem Muster** (`src/core/llm/ollama-client.ts:40-45`)
+6. ~~**Rückfrage ohne `think` nach grobem Muster**~~ – *behoben in 0.13.0* (`src/core/llm/ollama-client.ts:40-45`)
    - Jeder HTTP-Fehler, dessen Text „think“ enthält, führt dazu, dass das Modell dauerhaft als `noThink` markiert wird.
    - Das ist grob, aber harmlos. Besser wäre, zusätzlich auf den Status 400 zu prüfen.
 
@@ -89,7 +89,7 @@ gewachsen sind.
     - Nutzer hängen die Debug-Ausgabe gern an Bug-Reports an. Besser nur auf Debug-Ebene loggen oder abschaltbar
       machen.
 
-12. **API-Key und unverschlüsseltes HTTP**
+12. ~~**API-Key und unverschlüsseltes HTTP**~~ – *behoben in 0.13.0*
     - Der Bearer-Key wird auch an erlaubte Remote-Hosts über `http:` gesendet.
     - Sinnvoll wäre eine Warnung in den Einstellungen oder, bei gesetztem Key, nur `https` für Nicht-Loopback-Hosts.
 
@@ -102,7 +102,7 @@ gewachsen sind.
 - **`session.ts` hat 1000 Zeilen und ist ein Monolith.** `answerLibrary`, `readBooks`/`readBook` und `loadRequested`
   sind eine eigene Pipeline und gehören in ein eigenes Modul, etwa `library/pipeline.ts`. Dann wird auch das
   Abbruch-Handling (Fehler 1) übersichtlicher und lässt sich testen.
-- **Kleinigkeiten, die mit der Zeit liegen geblieben sind:**
+- ~~**Kleinigkeiten, die mit der Zeit liegen geblieben sind:**~~ – *behoben in 0.13.0*
   - doppelte Imports (`logger`/`logError` in pdf-context, zweimal `save-note` in chat-section),
   - Imports mitten im Code (`const L = …` vor `import` in den Clients),
   - der Re-Export von `bookDetails` mitten in `src/ui/turn-view.ts:50-51`,
@@ -116,10 +116,10 @@ gewachsen sind.
 
 | Schritt | Inhalt | Status |
 |---|---|---|
-| 1 | Fehler 1–5 beheben, je mit Unit-Test, wo möglich (Historie aus Paaren, gemeinsames Suchbegriff-Signal, `reader.cancel()`) | teilweise: 1, 4, 5 in 0.12.1; offen: 2, 3 |
-| 2 | Punkte 6, 7, 12, 13 (kleine Robustheitskorrekturen) | teilweise: 7 in 0.12.1; offen: 6, 12, 13 |
+| 1 | Fehler 1–5 beheben, je mit Unit-Test, wo möglich (Historie aus Paaren, gemeinsames Suchbegriff-Signal, `reader.cancel()`) | erledigt: 1, 4, 5 in 0.12.1; 2, 3 in 0.13.0 |
+| 2 | Punkte 6, 7, 12, 13 (kleine Robustheitskorrekturen) | teilweise: 7 in 0.12.1; 6, 12 in 0.13.0; offen: 13 |
 | 3 | Nur die laufende Nachricht neu zeichnen (8), LRU für Caches und Sessions (9) | teilweise: 8 in 0.12.1; offen: 9 |
-| 4 | Library-Pipeline aus `session.ts` herauslösen, Aufräumarbeiten, Client-Tests mit gemocktem `fetch` | offen |
+| 4 | Library-Pipeline aus `session.ts` herauslösen, Aufräumarbeiten, Client-Tests mit gemocktem `fetch` | teilweise: Aufräumarbeiten und ein erster Ollama-Client-Test in 0.13.0; offen: Pipeline herauslösen, weitere Client-Tests |
 | 5 | Logging-Datenschutz (11), Interna-Nutzung (10) beobachten und dokumentieren | offen |
 
 Beim Abarbeiten die Status-Spalte pflegen.

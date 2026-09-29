@@ -109,7 +109,6 @@ const EN = {
   'meta.keywords': 'Search terms: {keywords}',
   'meta.noKeywords': 'No search terms received, searching with the question only.',
   'meta.chaptersOver': 'Selection larger than the budget: searching within the chapters.',
-  'meta.strategyFallback': 'Chosen strategy not available yet, using keyword expansion.',
   'meta.detectLanguage': 'Detecting document language …',
   'meta.makeKeywords': 'Generating search terms …',
   'meta.cancelled': 'cancelled',
@@ -300,6 +299,10 @@ const EN = {
   'prefs.providerOpenai': 'OpenAI-compatible (/v1)',
   'prefs.baseUrl': 'Server URL:',
   'prefs.apiKey': 'API key (optional):',
+  'prefs.allowInvalidCerts': 'Accept invalid certificate (self-signed, expired, other name)',
+  'prefs.httpsHelp': 'With an API key, a server on another computer must be reached over https://, so the key and the PDF ' +
+    'text are encrypted on the way. "Accept invalid certificate" adds an exception for that server until Zotero restarts; ' +
+    'the connection stays encrypted, but SeekChat no longer checks who is at the other end.',
   'prefs.test': 'Test connection',
   'prefs.model': 'Chat model:',
   'prefs.serverHelp': 'Ollama: server root, e.g. https://ollama.example.local. OpenAI-compatible: base including /v1, ' +
@@ -450,7 +453,6 @@ const DE: Record<Key, string> = {
   'meta.keywords': 'Suchbegriffe: {keywords}',
   'meta.noKeywords': 'Keine Suchbegriffe erhalten, suche nur mit der Frage.',
   'meta.chaptersOver': 'Auswahl größer als das Budget: Suche innerhalb der Kapitel.',
-  'meta.strategyFallback': 'Gewählte Strategie noch nicht verfügbar, nutze Stichwort-Erweiterung.',
   'meta.detectLanguage': 'Bestimme Dokumentsprache …',
   'meta.makeKeywords': 'Erzeuge Suchbegriffe …',
   'meta.cancelled': 'abgebrochen',
@@ -636,6 +638,10 @@ const DE: Record<Key, string> = {
   'prefs.providerOpenai': 'OpenAI-kompatibel (/v1)',
   'prefs.baseUrl': 'Server-URL:',
   'prefs.apiKey': 'API-Key (optional):',
+  'prefs.allowInvalidCerts': 'Ungültiges Zertifikat akzeptieren (selbstsigniert, abgelaufen, anderer Name)',
+  'prefs.httpsHelp': 'Mit API-Key muss ein Server auf einem anderen Rechner per https:// angesprochen werden, damit Key und ' +
+    'PDF-Text verschlüsselt übertragen werden. „Ungültiges Zertifikat akzeptieren“ legt für diesen Server eine Ausnahme ' +
+    'bis zum Neustart von Zotero an; die Verbindung bleibt verschlüsselt, aber SeekChat prüft nicht mehr, wer am anderen Ende ist.',
   'prefs.test': 'Verbindung testen',
   'prefs.model': 'Chat-Modell:',
   'prefs.serverHelp': 'Ollama: Server-Wurzel, z. B. https://ollama.example.local. OpenAI-kompatibel: Basis inkl. /v1, ' +

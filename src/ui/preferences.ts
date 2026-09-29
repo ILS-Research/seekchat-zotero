@@ -41,6 +41,15 @@ export function onPrefsLoad(win: Window): void {
     });
   }
 
+  const invalidCerts = $<HTMLInputElement>('allowInvalidCerts');
+  if (invalidCerts) {
+    invalidCerts.checked = getPref('allowInvalidCerts') === true;
+    invalidCerts.addEventListener('change', () => {
+      setPref('allowInvalidCerts', invalidCerts.checked);
+      clearLimitsCache();
+    });
+  }
+
   const thinking = $<HTMLInputElement>('thinking');
   if (thinking) {
     thinking.checked = getPref('thinking') === true;
@@ -131,7 +140,7 @@ export function onPrefsLoad(win: Window): void {
       if (readPrefs().limitsMode === 'auto') void showAuto(true);
       setStatus(names.length ? t('prefs.connected', { n: names.length }) : t('prefs.connectedEmpty'));
     } catch (e: any) {
-      setStatus(`Fehler: ${e?.message || e}`);
+      setStatus(t('common.error', { message: String(e?.message || e) }));
     }
   });
 }

@@ -5,12 +5,13 @@ import { OllamaClient } from './ollama-client';
 import { OpenAiClient } from './openai-client';
 import type { LlmClient } from './types';
 
-export function createClient(prefs: Pick<SeekChatPrefs, 'provider' | 'baseUrl' | 'apiKey' | 'allowedRemoteHosts'>): LlmClient {
+export function createClient(prefs: Pick<SeekChatPrefs, 'provider' | 'baseUrl' | 'apiKey' | 'allowedRemoteHosts'> & Partial<Pick<SeekChatPrefs, 'allowInvalidCerts'>>): LlmClient {
   if (!prefs.baseUrl) throw new Error('No chat server configured (SeekChat settings).');
   const cfg = {
     baseUrl: prefs.baseUrl,
     apiKey: prefs.apiKey || undefined,
     allowedRemoteHosts: parseAllowedHosts(prefs.allowedRemoteHosts),
+    allowInvalidCerts: !!prefs.allowInvalidCerts,
   };
   return logged(prefs.provider === 'openai' ? new OpenAiClient(cfg) : new OllamaClient(cfg));
 }

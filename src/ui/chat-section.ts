@@ -53,6 +53,9 @@ class ChatView {
   private unsubscribe: (() => void) | null = null;
   private renderTimer: any = null;
   private turnList = new TurnListView();
+  private hintEl: HTMLElement;
+  private notesBox: HTMLElement;
+  private notesKey = '';
 
   constructor(private doc: Document, body: HTMLElement) {
     this.root = this.el('div', 'seekchat');
@@ -97,10 +100,6 @@ class ChatView {
     this.clearBtn.addEventListener('click', () => this.session?.clear());
     this.hintEl = hint;
   }
-
-  private hintEl: HTMLElement;
-  private notesBox: HTMLElement;
-  private notesKey = '';
 
   /** Child notes of the PDF's item, with a checkbox each: ticked ones go along as context. */
   private renderNotes(): void {
