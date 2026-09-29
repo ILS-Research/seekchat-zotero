@@ -118,7 +118,7 @@ gewachsen sind.
     zu lesen.
   - Wenn überhaupt, dann die bestehende Kopplung lösen: `seekbook/client.ts` importiert `parseSearchResponse` aus
     `zotseek/client.ts`. Den Parser in ein neutrales Modul zu legen, wäre sauberer.
-- **Die Server-Clients sind nicht direkt getestet.** Die Parser haben Tests, die Clients für Ollama und OpenAI (Retry,
+- ~~**Die Server-Clients sind nicht direkt getestet.**~~ – *behoben nach 0.13.0 (`test/llm-clients.test.ts`, nur Tests, kein Release)* Die Parser haben Tests, die Clients für Ollama und OpenAI (Retry,
   Stream-Ende, Fehlerpfad) nicht. Ein Test mit einem gemockten `fetch` wäre günstig.
 
 ## Umsetzungsplan
@@ -128,7 +128,7 @@ gewachsen sind.
 | 1 | Fehler 1–5 beheben, je mit Unit-Test, wo möglich (Historie aus Paaren, gemeinsames Suchbegriff-Signal, `reader.cancel()`) | erledigt: 1, 4, 5 in 0.12.1; 2, 3 in 0.13.0 |
 | 2 | Punkte 6, 7, 12, 13 (kleine Robustheitskorrekturen) | teilweise: 7 in 0.12.1; 6, 12 in 0.13.0; offen: 13 |
 | 3 | Nur die laufende Nachricht neu zeichnen (8), LRU für Caches und Sessions (9) | teilweise: 8 in 0.12.1; offen: 9 |
-| 4 | Library-Pipeline aus `session.ts` herauslösen, Aufräumarbeiten, Client-Tests mit gemocktem `fetch` | teilweise: Aufräumarbeiten und ein erster Ollama-Client-Test in 0.13.0; offen: Pipeline herauslösen, weitere Client-Tests |
+| 4 | Library-Pipeline aus `session.ts` herauslösen, Aufräumarbeiten, Client-Tests mit gemocktem `fetch` | teilweise: Aufräumarbeiten in 0.13.0, Client-Tests danach; offen: Pipeline herauslösen |
 | 5 | Logging-Datenschutz (11), Interna-Nutzung (10) beobachten und dokumentieren | offen |
 
 Beim Abarbeiten die Status-Spalte pflegen.
