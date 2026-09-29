@@ -54,7 +54,10 @@ they use `docker` or fall back to `sudo docker`, and run containers with the cal
 | `src/ui/toolbar-button.ts` | Button right after `#zotseek-toolbar-button`, kept in sync by a MutationObserver (plugin start order is not fixed) |
 | `src/ui/turn-view.ts`, `src/ui/markdown.ts` | Rendering of one chat turn (safe Markdown subset, page or source citations, source list), shared by section and window |
 | `src/core/library/coverage.ts` | What ZotSeek cannot see in a scope (standalone PDFs, excluded books, abstract mode), from Zotero and ZotSeek's global prefs |
-| `src/core/session.ts` | One `ChatSession` per provider key, streaming, abort; in memory only. Library chat pipeline: plan → ZotSeek + SeekBook + keyword books (two at a time, each skippable via `skipBook`; books SeekBook has indexed skip the keyword reading, also when ZotSeek brings SeekBook) → merged sources → one answer |
+| `src/core/session.ts` | One `ChatSession` per provider key (LRU, a running chat is kept): chat state, streaming, abort, `skipBook`; answers PDF questions itself; in memory only |
+| `src/core/library/pipeline.ts` | `LibraryPipeline`, one library question: plan → ZotSeek + SeekBook + keyword books (two at a time, each skippable; books SeekBook has indexed skip the keyword reading, also when ZotSeek brings SeekBook) → merged sources → one answer. Reaches the session only through `PipelineHost`; `carriedSources`/`knownSources` are pure |
+| `src/core/turn.ts`, `src/core/helper-calls.ts` | `Turn`/`BookProgress` types and `historyPairs`; language detection, keyword expansion and the recording client, shared by PDF chat and pipeline |
+| `src/core/context/notes.ts`, `src/util/abort.ts`, `src/util/lru.ts` | Notes as context (`noteText`, entities); `untilAborted`, `SharedCalls` (one call per key, each waiter aborts only its own wait); `LruMap` |
 | `src/ui/chat-section.ts` | Item pane section via `Zotero.ItemPaneManager.registerSection` (library + reader context pane) |
 | `src/ui/preferences.ts`, `content/preferences.xhtml` | Settings pane (fields wired manually, not via `preference=` binding) |
 | `src/core/context/clean.ts` | Running headers/footers removed in `getPdfPages` (copy of SeekBook's rules) |

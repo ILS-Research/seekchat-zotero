@@ -6,7 +6,7 @@
 import { splitCitations, splitSourceCitations } from '../core/citations';
 import { formatDateTime, type ExportInfo } from '../core/export';
 import { pageGroups, type LibrarySource } from '../core/library/sources';
-import type { Turn } from '../core/session';
+import type { Turn } from '../core/turn';
 import { escapeHtml, markdownToHtml, type HtmlPiece } from './markdown';
 import { t } from '../i18n';
 import { bookDetails, bookStateText } from '../core/book-report';

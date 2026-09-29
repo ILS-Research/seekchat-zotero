@@ -1,6 +1,6 @@
 # Code-Review SeekChat (v0.12.0)
 
-Stand: 2026-09-29 · Reviewer: Claude Opus 5.5 · Grundlage: nur Quellcode (`src/`, `bootstrap.js`, `prefs.js`,
+Stand: 2026-09-29 · Zeilenangaben beziehen sich auf v0.12.0 · Reviewer: Claude Opus 5.5 · Grundlage: nur Quellcode (`src/`, `bootstrap.js`, `prefs.js`,
 `manifest.json`, `build.sh`), ohne CLAUDE.md, Readmes, Changelog und Logs („NODOCS“). Die Unit-Tests wurden nicht
 ausgeführt (die Node-Version auf dem Host ist zu alt, vorgesehen ist `./build.sh test` in Docker).
 
@@ -86,6 +86,8 @@ gewachsen sind.
       gespeicherte Seite (`getAttachmentLastPageIndex`, verzögert), sie ist schon der Rückfall. Kein Code-Fix; die
       E2E-Szenarien (Zotero-Version fest in `e2e/Dockerfile`) melden einen Bruch vor jedem Zotero-Update. Bei ZotSeek
       und SeekBook (eigene Plugins) ließe sich stattdessen eine kleine, dokumentierte API festlegen.
+    - Für die Zotero-Interna liegt ein Issue-Entwurf an Zotero bereit: `ISSUE_ZOTERO_READER_API.md` (öffentliche API für
+      offene Reader und die aktuelle Seite; verwandt: zotero/zotero#5942, #3373).
 
 11. ~~**Datenschutz beim Logging**~~ – *behoben in 0.13.1*
     - Fragen (die ersten 120 Zeichen), der Plan und die Queries gehen auf Info-Ebene in die Debug-Ausgabe und die
@@ -103,7 +105,7 @@ gewachsen sind.
 
 ## Wartbarkeit
 
-- **`session.ts` hat 1000 Zeilen und ist ein Monolith.** `answerLibrary`, `readBooks`/`readBook` und `loadRequested`
+- ~~**`session.ts` hat 1000 Zeilen und ist ein Monolith.**~~ – *behoben in 0.13.3: `library/pipeline.ts` (`LibraryPipeline` über `PipelineHost`), `turn.ts`, `helper-calls.ts`, `context/notes.ts`, `util/abort.ts` (`SharedCalls`, getestet); `session.ts` hat noch ~330 Zeilen* `answerLibrary`, `readBooks`/`readBook` und `loadRequested`
   sind eine eigene Pipeline und gehören in ein eigenes Modul, etwa `library/pipeline.ts`. Dann wird auch das
   Abbruch-Handling (Fehler 1) übersichtlicher und lässt sich testen.
 - ~~**Kleinigkeiten, die mit der Zeit liegen geblieben sind:**~~ – *behoben in 0.13.0*
@@ -132,7 +134,7 @@ gewachsen sind.
 | 1 | Fehler 1–5 beheben, je mit Unit-Test, wo möglich (Historie aus Paaren, gemeinsames Suchbegriff-Signal, `reader.cancel()`) | erledigt: 1, 4, 5 in 0.12.1; 2, 3 in 0.13.0 |
 | 2 | Punkte 6, 7, 12, 13 (kleine Robustheitskorrekturen) | erledigt: 7 in 0.12.1; 6, 12 in 0.13.0; 13 in 0.13.1 |
 | 3 | Nur die laufende Nachricht neu zeichnen (8), LRU für Caches und Sessions (9) | erledigt: 8 in 0.12.1; 9 in 0.13.2 |
-| 4 | Library-Pipeline aus `session.ts` herauslösen, Aufräumarbeiten, Client-Tests mit gemocktem `fetch` | teilweise: Aufräumarbeiten in 0.13.0, Client-Tests danach; offen: Pipeline herauslösen |
+| 4 | Library-Pipeline aus `session.ts` herauslösen, Aufräumarbeiten, Client-Tests mit gemocktem `fetch` | erledigt: Aufräumarbeiten in 0.13.0, Client-Tests danach, Pipeline in 0.13.3 |
 | 5 | Logging-Datenschutz (11), Interna-Nutzung (10) beobachten und dokumentieren | teilweise: 11 in 0.13.1; offen: 10 |
 
 Beim Abarbeiten die Status-Spalte pflegen.

@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { buildMessages, defaultSystemPrompt, pdfSystemPrompt } from '../src/core/prompt';
 import { readLines } from '../src/core/llm/http';
-import { untilAborted } from '../src/core/session';
+import { untilAborted } from '../src/util/abort';
 import { setLocale } from '../src/i18n';
 
 setLocale('de');
@@ -45,7 +45,7 @@ test('readLines cancels the body when the reader stops early', async () => {
 });
 
 test('history: only complete exchanges, never two questions in a row or a cancelled answer', async () => {
-  const { historyPairs } = await import('../src/core/session');
+  const { historyPairs } = await import('../src/core/turn');
   const turns: any[] = [
     { role: 'user', content: 'q1' }, { role: 'assistant', content: 'a1' },
     { role: 'user', content: 'q2' }, { role: 'assistant', content: 'Fehler', error: true },
@@ -94,7 +94,7 @@ test('Ollama drops `think` only on HTTP 400 "does not support thinking"', async 
 });
 
 test('noteText decodes numeric and named entities once', async () => {
-  const { noteText, decodeEntities } = await import('../src/core/session');
+  const { noteText, decodeEntities } = await import('../src/core/context/notes');
   assert.equal(noteText('<p>A&#8211;B &#x2014; &ndash; &auml;&nbsp;x</p><p>&amp;lt; &#39;q&#39; &foo;</p>'), 'A–B — – ä x\n&lt; \'q\' &foo;');
   assert.equal(decodeEntities('&#xZZ; &#99999999;'), '&#xZZ; &#99999999;');
 });

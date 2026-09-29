@@ -5,7 +5,7 @@
  */
 import { t, tn, type Key } from '../i18n';
 import { compressRanges } from './prompt';
-import type { BookProgress } from './session';
+import type { BookProgress } from './turn';
 
 export function bookStateText(b: BookProgress): string {
   switch (b.state) {

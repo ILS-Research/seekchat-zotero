@@ -7,7 +7,7 @@
 import { t, tn, type Key } from '../i18n';
 import { citedSourceNumbers, splitCitations, splitSourceCitations } from '../core/citations';
 import { pageGroups, type LibrarySource } from '../core/library/sources';
-import { SKIPPABLE, type BookProgress, type Turn } from '../core/session';
+import { SKIPPABLE, type BookProgress, type Turn } from '../core/turn';
 import { renderMarkdown, type CitationSplitter } from './markdown';
 import { compressRanges } from '../core/prompt';
 import { bookDetails, bookStateText } from '../core/book-report';

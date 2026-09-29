@@ -3,7 +3,7 @@
  * section and the library chat window. Answers are already Markdown; the
  * library chat's sources are appended as a numbered list per answer.
  */
-import type { LlmRequestLog, Turn } from './session';
+import type { LlmRequestLog, Turn } from './turn';
 import { currentLocale, t } from '../i18n';
 import { formatPageGroups, pageGroups } from './library/sources';
 import { bookDetails, bookStateText } from './book-report';

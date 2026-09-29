@@ -7,7 +7,8 @@
 import type { LibraryScope } from '../core/library/library-context';
 import { attachmentFor } from '../core/library/sources';
 import { itemOfSource, libraryKeyOf } from '../core/library/zotero-items';
-import type { ChatSession, Turn } from '../core/session';
+import type { ChatSession } from '../core/session';
+import type { Turn } from '../core/turn';
 import { readPrefs } from '../prefs';
 import { chatToNoteHtml, type NoteLinks } from './note-html';
 

@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.13.3 – 2026-09-29
+
+- Internal: `session.ts` split up (review, maintainability): the library chat's pipeline is its own module
+  (`library/pipeline.ts`), turn types, helper model calls, notes context and abort helpers have their own files.
+  The keyword call shared by books of one language is a small, tested `SharedCalls`. No change in behaviour.
+
 ## 0.13.2 – 2026-09-29
 
 - **Memory bounded, generously** (review item 9): page texts of the 100 most recently used PDFs, page labels of 500,
