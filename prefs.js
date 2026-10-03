@@ -45,3 +45,5 @@ pref("extensions.zotero.seekchat.logContent", false);
 pref("extensions.zotero.seekchat.tools.disabled", "");
 pref("extensions.zotero.seekchat.tools.import_references.parser", "zotero");
 pref("extensions.zotero.seekchat.tools.import_references.pdf", "find");
+pref("extensions.zotero.seekchat.tools.search_library.zotseek", "on");
+pref("extensions.zotero.seekchat.tools.search_library.seekbook", "on");

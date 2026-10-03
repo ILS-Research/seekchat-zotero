@@ -32,10 +32,15 @@ export function storedOption(tool: Tool, option: ToolOption): string {
   return option.choices.some((c) => c.value === v) ? v : option.default;
 }
 
-/** The choice in effect: the stored one if available, else the default. */
+/**
+ * The choice in effect: the stored one if available, else the default, else the first available choice
+ * (e.g. "ZotSeek: use" is the default, but without ZotSeek "off" applies).
+ */
 export function effectiveOption(tool: Tool, option: ToolOption): string {
   const v = storedOption(tool, option);
-  return choiceAvailable(option, v) ? v : option.default;
+  if (choiceAvailable(option, v)) return v;
+  if (choiceAvailable(option, option.default)) return option.default;
+  return option.choices.find((c) => choiceAvailable(option, c.value))?.value ?? option.default;
 }
 
 export function setToolOption(tool: Tool, key: string, value: string): void {

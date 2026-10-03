@@ -54,6 +54,7 @@ they use `docker` or fall back to `sudo docker`, and run containers with the cal
 | `src/ui/toolbar-button.ts` | Library chat button right after `#zotseek-toolbar-button`, tool chat button after it (else after `#zotero-tb-lookup`), kept in sync by a MutationObserver (plugin start order is not fixed) |
 | `src/core/tools/` | Tool chat: `Tool`/`ToolContext` (`types.ts`), `ToolRegistry`, `runToolLoop` (model ↔ tools, max 5 rounds, then once without tools), `ToolChatSession` (one, confirmation waits, offers only enabled tools), `settings.ts` (on/off + options as prefs `seekchat.tools.*`; unavailable choice → default), `index.ts` = the registered tools |
 | `src/core/tools/import-references/` | Tool `import_references`: `reference.ts` (model fields → translator JSON, pure), `resolvers.ts` (resolver chain; new sources such as zotero-reference go in front), `zotero-resolvers.ts` (Translate.Search / Translate.Web lookups with `libraryID: false`, duplicates, saving via `Translate.ItemSaver`), `tool.ts` (preview → confirm → save → PDF; options `parser`, `pdf`), `findrefs-resolver.ts` (Find Online References in front of Zotero's chain) |
+| `src/core/tools/library/` | Read-only library tools: `summary.ts` (pure: item labels, `mergeHits` of Zotero/ZotSeek/SeekBook hits, collection paths and lookup, tag counts, limits), `zotero-library.ts` (Zotero.Search conditions, ZotSeek/SeekBook via their clients with filters re-applied to passage hits, item details, selection, collections, tags), `tools.ts` (`search_library` with options `zotseek`/`seekbook`, `get_item`, `get_selection`, `list_collections`, `list_tags`) |
 | `src/core/findrefs/client.ts` | `Zotero.FindOnlineReferences.api` (zotero-reference, AGPL) – runtime calls only, never copy its code; nothing else may assume the plugin |
 | `src/ui/tools-window.ts`, `content/toolsChat.xhtml` | Tool chat window (target: selected collection or a library) |
 | `src/ui/turn-view.ts`, `src/ui/markdown.ts` | Rendering of one chat turn (safe Markdown subset, page or source citations, source list), shared by section and window |
@@ -132,6 +133,9 @@ Extending: new sources are new `ContextProvider`s; session, prompt and turn rend
 - Non-PDF documents (HTML, EPUB, text) have no locators: `buildMessages` sends `noCitationRule`, `formatSections`
   marks gaps "[…]". Semantic search, current reader page and page labels stay PDF-only (`provider.kind === 'pdf'`).
   Zotero reads an HTML file without `<meta charset>` as Latin-1 when indexing (E2E fixture sets it).
+- Library tools: results stay compact (≤ 25 items, excerpts ≤ 300 chars, abstract ≤ 2000) since the model's context
+  is the server's own. Items are referred to by Zotero key; the mock LLM calls any tool with a user message
+  `TOOL <name> <json>` (E2E). `effectiveOption`: stored → default → first available choice.
 - Library window: the SeekBook switch stays locked until ZotSeek's status **and** the scope coverage are known
   (SeekBook's status arrives first; unlocking on it alone let the box flash up as allowed).
 

@@ -26,9 +26,9 @@ export const IMPORT_REFS = [
   },
 ];
 
-async function toolCall(res, name, args) {
+async function toolCall(res, name, args, text = 'Ich importiere die Quellen. ') {
   res.writeHead(200, { 'Content-Type': 'application/x-ndjson' });
-  res.write(JSON.stringify({ message: { role: 'assistant', content: 'Ich importiere die Quellen. ' }, done: false }) + '\n');
+  if (text) res.write(JSON.stringify({ message: { role: 'assistant', content: text }, done: false }) + '\n');
   res.write(JSON.stringify({ message: { role: 'assistant', content: '', tool_calls: [{ function: { name, arguments: args } }] }, done: false }) + '\n');
   res.end(JSON.stringify({ message: { role: 'assistant', content: '' }, done: true }) + '\n');
 }
@@ -70,10 +70,19 @@ const server = http.createServer(async (req, res) => {
     const last = parsed.messages?.[parsed.messages.length - 1] || {};
     if (parsed.tools?.length) {
       if (last.role === 'tool') {
-        const result = JSON.parse(last.content || '{}');
+        let result = {};
+        try { result = JSON.parse(last.content || '{}'); } catch { /* error text */ }
+        if (last.tool_name && last.tool_name !== 'import_references') {
+          const n = result.total ?? result.selectedItems?.length ?? result.collections?.length ?? result.tags?.length ?? result.key ?? '?';
+          return stream(res, `Ergebnis ${last.tool_name}: ${n}.`);
+        }
         return stream(res, `Erledigt: ${result.saved ?? 0} gespeichert (${result.status || 'ok'}).`);
       }
-      if (/importiere/i.test(last.content || '')) return toolCall(res, 'import_references', { references: IMPORT_REFS });
+      // "TOOL <name> <json>": call that tool with those arguments (library tool scenarios).
+      const direct = (last.content || '').match(/^TOOL (\w+) (\{[\s\S]*\})$/);
+      if (direct) return toolCall(res, direct[1], JSON.parse(direct[2]), '');
+      const offered = parsed.tools.map((x) => x.function?.name);
+      if (/importiere/i.test(last.content || '') && offered.includes('import_references')) return toolCall(res, 'import_references', { references: IMPORT_REFS });
       return stream(res, 'Hallo aus dem Werkzeug-Chat.');
     }
     if (system.includes('Identify the language')) return stream(res, 'de');

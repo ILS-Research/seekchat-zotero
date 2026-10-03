@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.19.0 – 2026-10-03
+
+- **Tool chat can search and read the library** – five new read-only tools, each in the tool list (switchable):
+  - **Search the library:** topic, title, author, year range, item type, tags, collection (with subcollections), "has
+    PDF", added after a date, optionally Zotero's full-text search. Besides Zotero's own search it asks **ZotSeek**
+    (meaning-based search in papers) and **SeekBook** (search in books) when installed – both are settings of the tool,
+    on by default when the plugin is there, otherwise off. Hits are joined per item, filters apply to all sources,
+    passage hits show a short excerpt (with chapter and page for books); SeekBook is not asked twice when ZotSeek
+    already brings its passages. Found items are listed with links.
+  - **Read items:** fields, creators, abstract and – on request – notes, attachments, tags, collections, related items.
+  - **Current selection:** selected items, collection or library, and in the reader the open document and marked text.
+  - **List collections** (as paths, with item counts) and **list tags** (with how many items carry them).
+- The tool chat's system prompt names today's date; the library chosen at the top is now labelled "Library" (searched,
+  and receiving imported items).
+- Tool settings: a choice that is not available (plugin missing) falls back to the first available one.
+
 ## 0.18.0 – 2026-10-03
 
 - **Chat with web pages, e-books and text files**, not only PDFs: HTML snapshots (e.g. the ones saved when importing

@@ -23,10 +23,18 @@ const L = logger('ToolChat');
 export const TOOL_SYSTEM_PROMPT = [
   'You are SeekChat, an assistant inside the reference manager Zotero. You can act in Zotero through the tools you are given.',
   'Use a tool when the user asks for something it does; otherwise answer directly and briefly.',
+  'To answer questions about the user\'s library ("do I have …", "what is in collection …"), search it with search_library '
+  + 'and read items with get_item; for "these items", "this collection" or a marked passage use get_selection first.',
+  'Name only items a tool returned; refer to them by author, year and title (the user sees them linked in the tool results).',
   'When the user gives literature references to add (citations, a bibliography, DOIs, ISBNs, URLs), call import_references once with all of them.',
   'Never claim that something was done unless a tool result says so. After a tool result, tell the user in a few words what happened.',
   'Answer in the language of the user.',
 ].join('\n');
+
+/** System prompt with today's date (for "this year", "added recently"). */
+export function toolSystemPrompt(today = new Date()): string {
+  return `${TOOL_SYSTEM_PROMPT}\nToday is ${today.toISOString().slice(0, 10)}.`;
+}
 
 export class ToolChatSession {
   turns: Turn[] = [];
@@ -105,7 +113,7 @@ export class ToolChatSession {
       if (!prefs.model) throw new UserFacingError(t('error.noModel'));
       const limits = await resolveLimits(prefs);
       const registry = this.enabledTools();
-      const messages: ChatMessage[] = [{ role: 'system', content: TOOL_SYSTEM_PROMPT }, ...history, { role: 'user', content: q }];
+      const messages: ChatMessage[] = [{ role: 'system', content: toolSystemPrompt() }, ...history, { role: 'user', content: q }];
       L.info(`tools: ${registry.specs().map((x) => x.name).join(', ') || 'none'}`);
       await runToolLoop({
         client: createClient(prefs),

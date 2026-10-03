@@ -62,6 +62,9 @@ Zotero tools**. The first tool imports references:
 - **PDFs come along** where freely available: like Zotero's *Find Full Text* (DOI page, the reference's link,
   open access, your custom resolvers); can be switched off in the tool list.
 - Needs a model with tool calling (e.g. Qwen 3, Llama 3.1+, Mistral).
+- **Ask about your library:** "Which papers on heat islands do I have since 2020?", "What do my notes on the selected
+  item say?", "Which tags do I use for methods?" – the chat searches with Zotero's search and, if installed, ZotSeek
+  and SeekBook (switchable per tool), reads items, collections, tags and your current selection, and links what it finds.
 - The **Tools** section at the top lists all tools: switch single ones off, and choose the lookup for imports –
   Zotero's own, or [Find Online References](../zotero-reference_src) first (better title search for references
   without DOI), when that plugin is installed.

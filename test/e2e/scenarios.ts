@@ -1440,7 +1440,7 @@ export const scenarios: Scenario[] = [
     const session = getToolSession();
     session.clear();
     const list = doc.querySelector('.seekchat-tools-list') as HTMLDetailsElement;
-    assert(list && /1 von 1/.test(list.querySelector('summary')!.textContent!), `summary ${list?.querySelector('summary')?.textContent}`);
+    assert(list && /6 von 6/.test(list.querySelector('summary')!.textContent!), `summary ${list?.querySelector('summary')?.textContent}`);
     list.open = true;
     const item = () => doc.querySelector('.seekchat-tools-item[data-tool="import_references"]') as HTMLElement;
     const select = () => item().querySelector('select[data-option="parser"]') as HTMLSelectElement;
@@ -1451,11 +1451,12 @@ export const scenarios: Scenario[] = [
     const box = item().querySelector('input[type=checkbox]') as HTMLInputElement;
     box.click();
     assert(Zotero.Prefs.get('seekchat.tools.disabled') === 'import_references', `pref ${Zotero.Prefs.get('seekchat.tools.disabled')}`);
-    assert(/0 von 1/.test(doc.querySelector('.seekchat-tools-list summary')!.textContent!), 'summary not updated');
+    assert(/5 von 6/.test(doc.querySelector('.seekchat-tools-list summary')!.textContent!), 'summary not updated');
     view.input.value = 'Bitte importiere das';
     await view.send();
     const req = await mockLastRequest();
-    assert(!req.tools && !session.turns[1].toolRuns?.length, `tools sent while off: ${JSON.stringify(req.tools)}`);
+    const offered = (req.tools || []).map((x: any) => x.function.name);
+    assert(!offered.includes('import_references') && offered.includes('search_library') && !session.turns[1].toolRuns?.length, `tools sent: ${offered}`);
     (item().querySelector('input[type=checkbox]') as HTMLInputElement).click();
     assert(!Zotero.Prefs.get('seekchat.tools.disabled'), 'tool not switched on again');
 
@@ -1560,6 +1561,134 @@ export const scenarios: Scenario[] = [
     const section = await openSectionInLibrary(html.parent.id);
     await waitFor('section target', () => /Webseite: .*Hitzeschutz/.test(section.querySelector('.seekchat-target')?.textContent || ''), 10000)
       .catch((e) => { throw new Error(`${e.message}: ${section.querySelector('.seekchat-target')?.textContent}`); });
+  }],
+
+  ['tool chat: library tools search with Zotero, ZotSeek and SeekBook (as set), read items, selection, collections, tags', async (ctx) => {
+    setPref('provider', 'ollama');
+    setPref('baseUrl', MOCK);
+    setPref('model', 'mock-model');
+    const win = Zotero.getMainWindow();
+    const lib = Zotero.Libraries.userLibraryID;
+    const parent = new Zotero.Collection({ libraryID: lib, name: 'E2E Suche' });
+    await parent.saveTx();
+    const child = new Zotero.Collection({ libraryID: lib, name: 'E2E Hitze', parentID: parent.id });
+    await child.saveTx();
+    const make = async (type: string, title: string, year: string, last: string, tags: string[], collections: number[]) => {
+      const item = new Zotero.Item(type);
+      item.setField('title', title);
+      item.setField('date', year);
+      item.setCreators([{ creatorType: 'author', firstName: 'Eva', lastName: last }]);
+      for (const tag of tags) item.addTag(tag);
+      item.setCollections(collections);
+      await item.saveTx();
+      return item;
+    };
+    const a = await make('journalArticle', 'Hitzeinseln in Großstädten', '2018', 'Schmidt', ['E2E-Hitze', 'Methode/Messung'], [child.id]);
+    const b = await make('book', 'Stadtgrün und Gesundheit', '2005', 'Berger', ['E2E-Hitze'], [parent.id]);
+    const c = await make('report', 'Starkregenvorsorge', '2021', 'Klein', [], []);
+    const note = new Zotero.Item('note');
+    note.setNote('<h1>Lesenotiz</h1><p>Messnetz mit 40 Stationen.</p>');
+    note.parentID = a.id;
+    await note.saveTx();
+
+    const server = (Zotero as any).Server;
+    const restoreSeekBook = stashSeekBook();
+    const E = (payload: () => any) => {
+      const F: any = function () {};
+      F.prototype = { supportedMethods: ['GET'], supportedDataTypes: ['application/json'], permitBookmarklet: false,
+        init: async (_req: any) => [200, 'application/json', JSON.stringify(payload())] };
+      return F;
+    };
+    (Zotero as any).SeekBook = { apiVersion: 1, standIn: true };
+    server.Endpoints['/seekbook/stats'] = E(() => ({ ready: true, indexedBooks: 1, queuedDocuments: 0, apiVersion: 1 }));
+    server.Endpoints['/seekbook/search'] = E(() => ({ source: 'seekbook', apiVersion: 1, results: [{
+      itemKey: b.key, libraryKey: 'user', title: 'Stadtgrün', authors: ['Berger'], year: 2005, score: 0.03, semanticScore: 0.8, keywordScore: null,
+      matchedChunk: { snippet: 'Hitzeperioden belasten ältere Menschen besonders.', page: 40, pageLabel: '38', chapter: 'Kapitel 2', textSource: 'book' },
+    }] }));
+    const zs = installZotSeek({ results: [passage(c.key, 'Starkregenvorsorge', 3, 'Hitze und Starkregen hängen im Klimawandel zusammen.')] });
+    const prefs = ['seekchat.tools.search_library.zotseek', 'seekchat.tools.search_library.seekbook'];
+    try {
+      openToolsChat();
+      const toolsWin = await waitFor('tool chat window', () => getToolsChatWindow(), 10000);
+      const view = await waitFor('tool chat view', () => getToolsChatView(), 10000);
+      view.setTarget(`l${lib}`);
+      const session = getToolSession();
+      session.clear();
+      const call = async (name: string, args: object) => {
+        view.input.value = `TOOL ${name} ${JSON.stringify(args)}`;
+        await view.send();
+        const turn = session.turns[session.turns.length - 1];
+        const req = await mockLastRequest();
+        const toolMsg = [...req.messages].reverse().find((m: any) => m.role === 'tool');
+        assert(!turn.error && toolMsg, `${name}: ${turn.content}`);
+        let result: any;
+        try {
+          result = JSON.parse(toolMsg.content);
+        } catch {
+          result = { text: toolMsg.content };
+        }
+        return { run: turn.toolRuns![0], result, answer: turn.content };
+      };
+
+      // All three sources: Zotero finds the title, ZotSeek and SeekBook their passages.
+      const all = await call('search_library', { query: 'Hitze' });
+      const keys = all.result.results?.map((r: any) => r.key);
+      assert(keys?.includes(a.key) && keys.includes(b.key) && keys.includes(c.key), `keys ${keys} / ${JSON.stringify(all.result).slice(0, 500)} / ${all.run.status}`);
+      assert(all.result.sources.zotero >= 1 && all.result.sources.zotseek === 1 && all.result.sources.seekbook === 1, `sources ${JSON.stringify(all.result.sources)}`);
+      const bookHit = all.result.results.find((r: any) => r.key === b.key);
+      assert(bookHit.foundBy.includes('seekbook') && /Kapitel 2, S\. 38/.test(bookHit.excerpts[0].where), `book hit ${JSON.stringify(bookHit)}`);
+      assert(/ZotSeek: 1 Treffer · SeekBook: 1 Treffer/.test(all.run.status || ''), `status ${all.run.status}`);
+      assert(all.run.items!.every((i) => i.itemID), 'items without link');
+      assert(/Ergebnis search_library: \d+/.test(all.answer), `answer ${all.answer}`);
+      const doc = toolsWin.document;
+      assert(doc.querySelectorAll('.seekchat-tool-run .seekchat-cite').length >= 3, 'no item links in the window');
+
+      // Filters apply to passage hits too: year from 2020 keeps only the report.
+      const recent = await call('search_library', { query: 'Hitze', year_from: 2020 });
+      assert(recent.result.results.map((r: any) => r.key).join() === c.key, `year filter ${JSON.stringify(recent.result.results.map((r: any) => r.label))}`);
+
+      // Collection (with subcollections) and tags, Zotero's search only.
+      const inCol = await call('search_library', { collection: 'E2E Suche', tags: ['E2E-Hitze'], sources: ['zotero'] });
+      assert(inCol.result.results.map((r: any) => r.key).sort().join() === [a.key, b.key].sort().join(), `collection ${JSON.stringify(inCol.result)}`);
+      assert(inCol.result.sources.zotseek === 'switched off' || inCol.result.sources.zotseek === 'not asked (no free-text query, or included in ZotSeek)', `zotseek ${inCol.result.sources.zotseek}`);
+
+      // Option ZotSeek "do not use": no ZotSeek hit any more.
+      Zotero.Prefs.set(prefs[0], 'off');
+      const noZs = await call('search_library', { query: 'Hitze' });
+      assert(noZs.result.sources.zotseek === 'switched off' && !noZs.result.results.some((r: any) => r.key === c.key), `zotseek off ${JSON.stringify(noZs.result.sources)}`);
+      Zotero.Prefs.set(prefs[0], 'on');
+
+      // Read one item with notes and collections.
+      const item = await call('get_item', { key: a.key, include: ['fields', 'notes', 'collections', 'tags'] });
+      assert(item.result.fields.title === 'Hitzeinseln in Großstädten' && item.result.notes[0].text.includes('40 Stationen'), `item ${JSON.stringify(item.result).slice(0, 400)}`);
+      assert(item.result.collections.includes('E2E Suche / E2E Hitze') && item.result.tags.includes('Methode/Messung'), `item collections ${item.result.collections}`);
+      const missing = await call('get_item', { key: 'NOSUCHKY' });
+      assert(missing.run.state === 'error', 'unknown key not reported');
+
+      // Collections as paths, tags with counts.
+      const cols = await call('list_collections', { parent: 'E2E Suche' });
+      assert(cols.result.collections.map((x: any) => x.path).join('|') === 'E2E Suche|E2E Suche / E2E Hitze', `collections ${JSON.stringify(cols.result)}`);
+      const tags = await call('list_tags', { filter: 'E2E-' });
+      assert(tags.result.tags.length === 1 && tags.result.tags[0].tag === 'E2E-Hitze' && tags.result.tags[0].items === 2, `tags ${JSON.stringify(tags.result)}`);
+
+      // Selection: the items selected in the library.
+      win.Zotero_Tabs.select('zotero-pane');
+      await win.ZoteroPane.collectionsView.selectLibrary(lib);
+      await win.ZoteroPane.selectItems([a.id, b.id]);
+      const sel = await call('get_selection', {});
+      assert(sel.result.selectedItems.map((x: any) => x.key).sort().join() === [a.key, b.key].sort().join(), `selection ${JSON.stringify(sel.result)}`);
+
+      // The system prompt names today's date.
+      const req = await mockLastRequest();
+      assert(new RegExp(`Today is ${new Date().toISOString().slice(0, 10)}`).test(req.messages[0].content), 'no date in the prompt');
+      await screenshot(ctx, 'library-tools', toolsWin);
+      toolsWin.close();
+      await waitFor('tool chat window closed', () => !getToolsChatView(), 5000);
+    } finally {
+      for (const p of prefs) Zotero.Prefs.set(p, 'on');
+      zs.uninstall();
+      restoreSeekBook();
+    }
   }],
 
   ['no model request ever sets num_ctx (Ollama would reload the model)', async () => {

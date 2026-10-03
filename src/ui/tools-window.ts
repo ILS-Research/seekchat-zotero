@@ -10,7 +10,7 @@ import { logError } from '../util/log';
 import { TurnListView } from './turn-view';
 import { t } from '../i18n';
 import { getPrefsPaneID } from './library-window';
-import { choiceAvailable, isToolEnabled, setToolEnabled, setToolOption, storedOption } from '../core/tools/settings';
+import { choiceAvailable, effectiveOption, isToolEnabled, setToolEnabled, setToolOption, storedOption } from '../core/tools/settings';
 
 const HTML_NS = 'http://www.w3.org/1999/xhtml';
 const WINDOW_URL = 'chrome://seekchat/content/toolsChat.xhtml';
@@ -191,10 +191,11 @@ export class ToolsChatView {
         });
         const optRow = this.el('div', 'seekchat-library-row seekchat-tools-option-row');
         optRow.append(this.el('span', 'seekchat-library-label', option.label), select);
-        // A stored choice that is not available (plugin missing): the default is used meanwhile.
+        // A stored choice that is not available (plugin missing): another one applies meanwhile.
         if (!choiceAvailable(option, stored)) {
+          const used = effectiveOption(tool, option);
           optRow.append(this.el('span', 'seekchat-library-note seekchat-library-coverage', t('tools.optionFallback', {
-            choice: option.choices.find((c) => c.value === option.default)?.label || option.default,
+            choice: option.choices.find((c) => c.value === used)?.label || used,
           })));
         }
         item.append(optRow);
