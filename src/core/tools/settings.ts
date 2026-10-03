@@ -10,6 +10,11 @@ function disabledSet(): Set<string> {
   return new Set(String(getPref('tools.disabled') || '').split(',').map((s) => s.trim()).filter(Boolean));
 }
 
+/** Switched on and usable now (its plugin installed). */
+export function isToolUsable(tool: Tool): boolean {
+  return isToolEnabled(tool.spec.name) && (tool.available?.() ?? true);
+}
+
 export function isToolEnabled(name: string): boolean {
   return !disabledSet().has(name);
 }

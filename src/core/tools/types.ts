@@ -51,6 +51,10 @@ export interface Tool {
   label(): string;
   description(): string;
   options?: ToolOption[];
+  /** False while something the tool needs is missing (e.g. a plugin): not offered to the model, shown greyed out. */
+  available?: () => boolean;
+  /** Why it is not available, for the tool list. */
+  unavailableHint?: () => string;
   /** Title of a run with these arguments, in the UI language. */
   title(args: Record<string, any>): string;
   /** Does the work; the returned text is the tool result the model reads (JSON or a short sentence). */

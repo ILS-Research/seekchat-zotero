@@ -10,7 +10,7 @@ import { logError } from '../util/log';
 import { TurnListView } from './turn-view';
 import { t } from '../i18n';
 import { getPrefsPaneID } from './library-window';
-import { choiceAvailable, effectiveOption, isToolEnabled, setToolEnabled, setToolOption, storedOption } from '../core/tools/settings';
+import { choiceAvailable, effectiveOption, isToolEnabled, isToolUsable, setToolEnabled, setToolOption, storedOption } from '../core/tools/settings';
 
 const HTML_NS = 'http://www.w3.org/1999/xhtml';
 const WINDOW_URL = 'chrome://seekchat/content/toolsChat.xhtml';
@@ -154,7 +154,7 @@ export class ToolsChatView {
   /** The tool list: a checkbox per tool, its description and settings (unavailable choices disabled). */
   renderTools(): void {
     const tools = this.session.registry.all();
-    const on = tools.filter((x) => isToolEnabled(x.spec.name)).length;
+    const on = tools.filter((x) => isToolUsable(x)).length;
     const summary = this.el('summary', '', t('tools.available', { on, n: tools.length }));
     const list = this.el('div', 'seekchat-tools-items');
     for (const tool of tools) {
@@ -172,6 +172,11 @@ export class ToolsChatView {
       });
       label.append(box, this.doc.createTextNode(` ${tool.label()}`));
       item.append(label, this.el('div', 'seekchat-library-note', tool.description()));
+      // A tool whose plugin is missing stays listed (switch kept), greyed out with the reason.
+      if (!(tool.available?.() ?? true)) {
+        item.classList.add('unavailable');
+        item.append(this.el('div', 'seekchat-library-note seekchat-library-coverage', tool.unavailableHint?.() || t('tools.optionUnavailable')));
+      }
       for (const option of tool.options || []) {
         const select = this.el('select', 'seekchat-tools-option') as HTMLSelectElement;
         select.dataset.option = option.key;
@@ -262,13 +267,16 @@ export class ToolsChatView {
     const atBottom = this.messages.scrollHeight - this.messages.scrollTop - this.messages.clientHeight < 40;
     if (!s.turns.length) {
       this.turnList.reset();
-      const none = !s.registry.all().some((x) => isToolEnabled(x.spec.name));
+      const none = !s.registry.all().some((x) => isToolUsable(x));
       this.messages.replaceChildren(this.el('div', 'seekchat-library-empty', t(none ? 'tools.introNone' : 'tools.intro')));
       return;
     }
     this.turnList.update(this.messages, s.turns, {
       onToolConfirm: (run, ok) => s.confirm(run, ok),
       onToolToggle: (run, i, checked) => s.toggleItem(run, i, checked),
+      onOpenUrl: (url) => {
+        if (/^https?:\/\//i.test(url)) Zotero.launchURL(url);
+      },
       onShowItem: (id) => {
         const main = Zotero.getMainWindow();
         main?.ZoteroPane?.selectItem(id);

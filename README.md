@@ -67,6 +67,9 @@ Zotero tools**. The first tool imports references:
   and SeekBook (switchable per tool), reads items, collections, tags and your current selection, and links what it finds.
 - **Collect what you found:** "Put these papers into a new collection Projekt A / Hitze" – the chat shows a preview
   and creates the collection and adds the items once you confirm.
+- **Related sources from a reference list:** "Which sources cited in this paper are about heat stress?" – with
+  Find Online References installed, the chat reads the document's bibliography, picks the fitting entries and links them
+  (DOI, arXiv, web page or Google Scholar) so you can open and add them in the browser.
 - The **Tools** section at the top lists all tools: switch single ones off, and choose the lookup for imports –
   Zotero's own, or [Find Online References](../zotero-reference_src) first (better title search for references
   without DOI), when that plugin is installed.

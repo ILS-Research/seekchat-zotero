@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.21.0 – 2026-10-03
+
+- **Find related sources in a document's reference list** (tool chat, needs Find Online References 0.7.37+):
+  - **Reference list of a document** reads the bibliography of a PDF (item or PDF key, else the document open in the
+    reader or the selected item) and gives the model all entries; the model decides which fit the question.
+  - **Link related sources** lists the chosen entries with a link each – DOI, arXiv, the entry's web address, else a
+    Google Scholar search – that opens in the browser to add them there; entries already in the library link to the item.
+- Tools that need a plugin are greyed out in the tool list with the reason and not offered to the model while it is
+  missing; the count in the tool list says how many are usable.
+
 ## 0.20.0 – 2026-10-03
 
 - **New tool: save to a collection.** Items found in the chat go into a collection – an existing one, or a new one

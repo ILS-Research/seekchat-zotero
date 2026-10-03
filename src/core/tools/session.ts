@@ -14,7 +14,7 @@ import { newAbortController } from '../../util/env';
 import { content, logError, logger } from '../../util/log';
 import { runToolLoop } from './loop';
 import { ToolRegistry } from './registry';
-import { effectiveOptions, isToolEnabled } from './settings';
+import { effectiveOptions, isToolUsable } from './settings';
 import type { ToolTarget } from './types';
 import { defaultRegistry } from './index';
 
@@ -25,6 +25,8 @@ export const TOOL_SYSTEM_PROMPT = [
   'Use a tool when the user asks for something it does; otherwise answer directly and briefly.',
   'To answer questions about the user\'s library ("do I have …", "what is in collection …"), search it with search_library '
   + 'and read items with get_item; for "these items", "this collection" or a marked passage use get_selection first.',
+  'For sources related to a document (or a topic in it), read its reference list with get_document_references, choose '
+  + 'the fitting entries yourself and show them with show_references (the user gets links to add them in the browser).',
   'To put found items into a collection (also a new one), call save_to_collection with their keys; the user confirms it.',
   'Name only items a tool returned; refer to them by author, year and title (the user sees them linked in the tool results).',
   'When the user gives literature references to add (citations, a bibliography, DOIs, ISBNs, URLs), call import_references once with all of them.',
@@ -57,7 +59,7 @@ export class ToolChatSession {
 
   /** The tools switched on, for one question. */
   enabledTools(): ToolRegistry {
-    return new ToolRegistry(this.tools.all().filter((tool) => isToolEnabled(tool.spec.name)));
+    return new ToolRegistry(this.tools.all().filter((tool) => isToolUsable(tool)));
   }
 
   subscribe(fn: () => void): () => void {

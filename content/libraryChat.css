@@ -44,3 +44,4 @@
 .seekchat-tools-item .seekchat-library-note { margin-left: 20px; }
 .seekchat-tools-option-row { margin-left: 20px; }
 .seekchat-tools-option { max-width: 32em; }
+.seekchat-tools-item.unavailable > label { opacity: 0.55; }

@@ -88,3 +88,16 @@ test('option not available (plugin missing): the first available choice applies'
   assert.equal(effectiveOption(tool, option), 'off');
   delete (globalThis as any).Zotero;
 });
+
+test('reference links: DOI, arXiv, URL, ISBN, else a Scholar search by title', async () => {
+  const { referenceLink, referenceForModel } = await import('../src/core/tools/library/document-references');
+  assert.deepEqual(referenceLink({ identifiers: { DOI: '10.1000/a b' }, text: '' }), { url: 'https://doi.org/10.1000/a%20b', via: 'doi' });
+  assert.equal(referenceLink({ identifiers: { arXiv: '1706.03762' }, text: '' }).url, 'https://arxiv.org/abs/1706.03762');
+  assert.equal(referenceLink({ identifiers: {}, url: 'https://ils.de/x.pdf', text: '' }).via, 'url');
+  assert.equal(referenceLink({ identifiers: { ISBN: '9783161484100' }, text: '' }).via, 'isbn');
+  const s = referenceLink({ identifiers: {}, title: 'Hitze in der Stadt', text: 'Umweltbundesamt (2019): Hitze in der Stadt.' });
+  assert.equal(s.url, 'https://scholar.google.com/scholar?q=Hitze%20in%20der%20Stadt');
+  const m = referenceForModel({ number: 3, text: 'x'.repeat(400), authors: [], identifiers: { DOI: '10.1/x' }, url: 'https://doi.org/10.1/x', year: '2019' });
+  assert.equal(m.n, 3);
+  assert.ok(String(m.text).length < 270 && m.doi === '10.1/x' && !('url' in m));
+});

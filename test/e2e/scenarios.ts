@@ -1440,7 +1440,7 @@ export const scenarios: Scenario[] = [
     const session = getToolSession();
     session.clear();
     const list = doc.querySelector('.seekchat-tools-list') as HTMLDetailsElement;
-    assert(list && /7 von 7/.test(list.querySelector('summary')!.textContent!), `summary ${list?.querySelector('summary')?.textContent}`);
+    assert(list && /7 von 9/.test(list.querySelector('summary')!.textContent!), `summary ${list?.querySelector('summary')?.textContent}`);
     list.open = true;
     const item = () => doc.querySelector('.seekchat-tools-item[data-tool="import_references"]') as HTMLElement;
     const select = () => item().querySelector('select[data-option="parser"]') as HTMLSelectElement;
@@ -1451,7 +1451,7 @@ export const scenarios: Scenario[] = [
     const box = item().querySelector('input[type=checkbox]') as HTMLInputElement;
     box.click();
     assert(Zotero.Prefs.get('seekchat.tools.disabled') === 'import_references', `pref ${Zotero.Prefs.get('seekchat.tools.disabled')}`);
-    assert(/6 von 7/.test(doc.querySelector('.seekchat-tools-list summary')!.textContent!), 'summary not updated');
+    assert(/6 von 9/.test(doc.querySelector('.seekchat-tools-list summary')!.textContent!), 'summary not updated');
     view.input.value = 'Bitte importiere das';
     await view.send();
     const req = await mockLastRequest();
@@ -1704,6 +1704,46 @@ export const scenarios: Scenario[] = [
       (doc2.querySelector('.seekchat-tool-cancel') as HTMLButtonElement).click();
       await again;
       assert(run2.state === 'cancelled' && made.getChildItems(true).length === 2, `after cancel ${run2.state}`);
+
+      // Reference list of a document through Find Online References: without the plugin the tools are not offered.
+      const offeredNow = ((await mockLastRequest()).tools || []).map((x: any) => x.function.name);
+      assert(!offeredNow.includes('get_document_references'), 'reference tools offered without the plugin');
+      const listItem = doc2.querySelector('.seekchat-tools-item[data-tool="get_document_references"]');
+      assert(listItem?.classList.contains('unavailable') && /Find Online References/.test(listItem.textContent || ''), 'tool not greyed out');
+      const asked: any[] = [];
+      (Zotero as any).FindOnlineReferences = { api: {
+        version: 1,
+        parseReference: (text: string) => ({ text, authors: [], identifiers: {} }),
+        lookup: async () => undefined,
+        getReferences: async (item: any) => {
+          asked.push(item.key);
+          return { attachmentKey: item.key, itemKey: item.key, source: 'pdf', references: [
+            { number: 1, text: 'Berger, E. (2005): Stadtgrün und Gesundheit. München.', title: 'Stadtgrün und Gesundheit', authors: ['Berger'], year: '2005', identifiers: {} },
+            { number: 2, text: 'Oke, T. (1982): The energetic basis of the urban heat island. QJRMS 108, 1-24.', title: 'The energetic basis of the urban heat island', authors: ['Oke'], year: '1982', identifiers: { DOI: '10.1002/qj.49710845502' } },
+            { number: 3, text: 'Umweltbundesamt (2019): Hitze in der Stadt. Dessau.', title: 'Hitze in der Stadt', authors: [], year: '2019', identifiers: {} },
+          ] };
+        },
+        findInLibrary: async (ref: any) => (/Stadtgrün/.test(ref.title || '') ? b : undefined),
+      } };
+      try {
+        toolsWin.dispatchEvent(new toolsWin.Event('focus'));
+        await waitFor('reference tools usable', () => !doc2.querySelector('.seekchat-tools-item[data-tool="get_document_references"]')?.classList.contains('unavailable'), 5000);
+        const list = await call('get_document_references', { key: a.key });
+        assert(asked[0] === a.key && list.result.total === 3 && list.result.references[1].doi === '10.1002/qj.49710845502', `list ${JSON.stringify(list.result).slice(0, 400)}`);
+        const shown = await call('show_references', { key: a.key, numbers: [1, 2, 3, 9], reasons: { 2: 'Grundlagenwerk zu Wärmeinseln' } });
+        const links = shown.run.items!;
+        assert(links.length === 3 && links[0].itemID === b.id && links[0].badge === 'in Bibliothek', `first ${JSON.stringify(links[0])}`);
+        assert(links[1].url === 'https://doi.org/10.1002/qj.49710845502' && links[1].detail === 'Grundlagenwerk zu Wärmeinseln', `second ${JSON.stringify(links[1])}`);
+        assert(links[2].url?.startsWith('https://scholar.google.com/scholar?q=Hitze') && links[2].badge === 'Suche', `third ${JSON.stringify(links[2])}`);
+        assert(shown.result.shown.find((x: any) => x.n === 9).status === 'no such entry', 'unknown number not reported');
+        // The window repaints at most every 60 ms: wait for the run with its three links.
+        await waitFor('links rendered', () => {
+          const rendered = Array.from(doc2.querySelectorAll('.seekchat-tool-run') as NodeListOf<Element>).pop();
+          return rendered?.querySelectorAll('.seekchat-cite').length === 3;
+        }, 5000);
+      } finally {
+        delete (Zotero as any).FindOnlineReferences;
+      }
 
       // The system prompt names today's date.
       const req = await mockLastRequest();

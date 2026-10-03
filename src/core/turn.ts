@@ -57,6 +57,8 @@ export interface ToolRunItem {
   checked?: boolean;
   /** Zotero item the label opens (existing duplicate or saved item). */
   itemID?: number;
+  /** Web page the label opens in the browser (when there is no itemID). */
+  url?: string;
 }
 
 export interface LlmRequestLog {

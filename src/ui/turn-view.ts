@@ -29,6 +29,8 @@ export interface CitationHandlers {
   onToolToggle?: (run: ToolRun, index: number, checked: boolean) => void;
   /** Tool chat: show a Zotero item (saved or already present). */
   onShowItem?: (itemID: number) => void;
+  /** Tool chat: open a web page (DOI, publisher, search) in the browser. */
+  onOpenUrl?: (url: string) => void;
 }
 
 function el(doc: Document, tag: string, cls?: string, text?: string): HTMLElement {
@@ -98,6 +100,8 @@ function toolRunBox(doc: Document, run: ToolRun, handlers: CitationHandlers): HT
       if (item.badge) li.append(el(doc, 'span', 'seekchat-tool-badge', item.badge), doc.createTextNode(' '));
       li.append(item.itemID && handlers.onShowItem
         ? cite(doc, item.label, t('lib.showInLibrary'), () => handlers.onShowItem!(item.itemID!))
+        : item.url && handlers.onOpenUrl
+        ? cite(doc, item.label, t('tools.openInBrowser', { url: item.url }), () => handlers.onOpenUrl!(item.url!))
         : el(doc, 'span', 'seekchat-tool-label', item.label));
       if (item.detail) li.append(el(doc, 'div', 'seekchat-tool-detail', item.detail));
       list.append(li);
