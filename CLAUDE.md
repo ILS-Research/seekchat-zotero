@@ -45,7 +45,7 @@ they use `docker` or fall back to `sudo docker`, and run containers with the cal
 | `src/prefs.ts` | Typed prefs `extensions.zotero.seekchat.*` (defaults in `prefs.js`) |
 | `src/core/host-guard.ts`, `src/core/tls.ts` | Loopback + explicit allow-list for model hosts (same rules as `../zotseek-src` fork); with an API key https only (except loopback); "Accept invalid certificate" = session cert override (copy of SeekBook's `tls.ts`) |
 | `src/core/llm/` | `OllamaClient` (`/api/chat`, sets `num_ctx`), `OpenAiClient` (`/chat/completions`), stream parsers, HTTP with host check and `redirect: 'error'` |
-| `src/core/context/` | `ContextProvider` interface; `pdf-context.ts` (PDF worker text, split on `\f`), `page-selection.ts` (full text or page 1 + BM25 pages) |
+| `src/core/context/` | `ContextProvider` interface; `pdf-context.ts` (`PdfContextProvider` = document chat for one attachment, `kind` pdf/html/epub/text; PDF worker text split on `\f`), `document.ts` (non-PDF kinds: text from Zotero's `.zotero-ft-cache` or the file, `splitSections` ≈ 3000 chars, no citations), `page-selection.ts` (full text or page 1 + BM25 pages/sections) |
 | `src/core/prompt.ts`, `citations.ts` | Messages (system prompt + document), `[S. N]` citation parsing |
 | `src/core/seekbook/client.ts`, `src/core/library/source-rules.ts` | SeekBook over REST (`/seekbook/stats`, `/search`, `/books`, `/pages`); which sources may be combined (SeekBook locked while ZotSeek includes it) |
 | `src/core/zotseek/client.ts` | ZotSeek REST (`/zotseek/search`, `/zotseek/stats`) on Zotero's local server: status/diagnosis, passage search. No fallback: without the endpoint there is no library chat |
@@ -129,6 +129,9 @@ Extending: new sources are new `ContextProvider`s; session, prompt and turn rend
 - PDFs: `attachPdf` = `Zotero.Attachments.addAvailableFile` ("Find Full Text"), which forces every URL to https; plain
   http PDF links are downloaded with `importFromURL` after a content-type check. E2E: the mock serves `/hitze.pdf`.
 - E2E image: Zotero 7 ships as `.tar.bz2`, 8+ as `.tar.xz`; other versions via `ARG ZOTERO_VERSION` in `e2e/Dockerfile`.
+- Non-PDF documents (HTML, EPUB, text) have no locators: `buildMessages` sends `noCitationRule`, `formatSections`
+  marks gaps "[…]". Semantic search, current reader page and page labels stay PDF-only (`provider.kind === 'pdf'`).
+  Zotero reads an HTML file without `<meta charset>` as Latin-1 when indexing (E2E fixture sets it).
 - Library window: the SeekBook switch stays locked until ZotSeek's status **and** the scope coverage are known
   (SeekBook's status arrives first; unlocking on it alone let the box flash up as allowed).
 

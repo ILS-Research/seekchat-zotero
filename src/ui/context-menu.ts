@@ -10,6 +10,7 @@
  */
 import { itemsScope } from '../core/library/library-context';
 import { logError } from '../util/log';
+import { docKind, isChatDocument } from '../core/context/document';
 import { getRegisteredPaneID, resolveAttachment } from './chat-section';
 import { openLibraryChat } from './library-window';
 
@@ -23,11 +24,11 @@ function selectedItems(): any[] {
   return Zotero.getActiveZoteroPane?.()?.getSelectedItems?.() || [];
 }
 
-/** Synchronous check for the menu: the item is a PDF or has a PDF attachment. */
+/** Synchronous check for the menu: the item is a document the chat reads (PDF, web page, EPUB, text) or has one. */
 function hasPdf(item: any): boolean {
-  if (item?.isPDFAttachment?.()) return true;
+  if (isChatDocument(item)) return true;
   if (!item?.isRegularItem?.()) return false;
-  return Zotero.Items.get(item.getAttachments()).some((a: any) => a?.isPDFAttachment?.());
+  return Zotero.Items.get(item.getAttachments()).some((a: any) => isChatDocument(a));
 }
 
 /**
@@ -53,6 +54,11 @@ export async function chatWithFile(item: any): Promise<void> {
   const win = Zotero.getMainWindow();
   const att = await resolveAttachment(item, 'library', win.document);
   if (!att) return;
+  // Zotero's reader shows PDFs, EPUBs and web pages; a text file is selected in the library (chat in the item pane).
+  if (docKind(att) === 'text') {
+    await win.ZoteroPane.selectItem(att.id);
+    return;
+  }
   const reader = await Zotero.Reader.open(att.id);
   if (!reader) return;
   win.ZoteroContextPane.collapsed = false;

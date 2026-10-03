@@ -26,6 +26,8 @@ import { addLegacyMenu, chatWithFile, chatWithSelection, menuState, registerMenu
 import { splitSourceCitations } from '../../src/core/citations';
 import { buildSources } from '../../src/core/library/sources';
 import { renderTurn } from '../../src/ui/turn-view';
+import { resolveAttachment } from '../../src/ui/chat-section';
+import { docKind } from '../../src/core/context/document';
 import { assert, delay, screenshot, SkipError, waitFor, type E2EContext } from './harness';
 
 type Scenario = [string, (ctx: E2EContext) => Promise<void>];
@@ -1492,6 +1494,72 @@ export const scenarios: Scenario[] = [
     await screenshot(ctx, 'tool-list', toolsWin);
     toolsWin.close();
     await waitFor('tool chat window closed', () => !getToolsChatView(), 5000);
+  }],
+
+  ['documents: web page, EPUB and text file are chatted with like a PDF, without page citations', async (ctx) => {
+    setPref('provider', 'ollama');
+    setPref('baseUrl', MOCK);
+    setPref('model', 'mock-model');
+    const win = Zotero.getMainWindow();
+    const { IOUtils, PathUtils } = win as any;
+    const dir = PathUtils.join(Zotero.getTempDirectory().path, `seekchat-docs-${Date.now()}`);
+    await IOUtils.makeDirectory(dir);
+    const write = (name: string, text: string) => IOUtils.writeUTF8(PathUtils.join(dir, name), text);
+    const para = (topic: string, n: number) => Array.from({ length: n }, (_, i) => `${topic} Absatz ${i}: ` + 'Fülltext über Stadtklima und Grünflächen. '.repeat(12)).join('\n\n');
+    await write('hitze.html', `<html><head><meta charset="utf-8"><title>Hitze</title><script>var geheim = 'SKRIPT';</script></head><body><h1>Hitzeschutz in St&auml;dten</h1><p>Begrünte Dächer kühlen Quartiere um bis zu zwei Grad.</p></body></html>`);
+    await write('notizen.txt', `Protokoll Workshop\n\nDie Teilnehmenden nannten Trinkbrunnen als wichtigste Maßnahme.\n\n${para('Text', 150)}`);
+    const epubDir = PathUtils.join(dir, 'epub');
+    await IOUtils.makeDirectory(PathUtils.join(epubDir, 'META-INF'), { createAncestors: true });
+    await IOUtils.writeUTF8(PathUtils.join(epubDir, 'mimetype'), 'application/epub+zip');
+    await IOUtils.writeUTF8(PathUtils.join(epubDir, 'META-INF', 'container.xml'), '<?xml version="1.0"?><container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container"><rootfiles><rootfile full-path="content.opf" media-type="application/oebps-package+xml"/></rootfiles></container>');
+    await IOUtils.writeUTF8(PathUtils.join(epubDir, 'content.opf'), '<?xml version="1.0"?><package xmlns="http://www.idpf.org/2007/opf" version="3.0" unique-identifier="id"><metadata xmlns:dc="http://purl.org/dc/elements/1.1/"><dc:identifier id="id">seekchat-e2e</dc:identifier><dc:title>Stadtbaeume</dc:title><dc:language>de</dc:language></metadata><manifest><item id="c1" href="c1.xhtml" media-type="application/xhtml+xml"/></manifest><spine><itemref idref="c1"/></spine></package>');
+    await IOUtils.writeUTF8(PathUtils.join(epubDir, 'c1.xhtml'), '<?xml version="1.0" encoding="utf-8"?><html xmlns="http://www.w3.org/1999/xhtml"><head><title>Kapitel 1</title></head><body><h1>Kapitel 1</h1><p>Stadtbäume spenden Schatten und senken die gefühlte Temperatur deutlich.</p></body></html>');
+    const epubPath = PathUtils.join(dir, 'baeume.epub');
+    await Zotero.File.zipDirectory(epubDir, epubPath);
+
+    const make = async (title: string, file: string, contentType: string) => {
+      const parent = new Zotero.Item('webpage');
+      parent.setField('title', title);
+      await parent.saveTx();
+      const att = await Zotero.Attachments.importFromFile({ file: PathUtils.join(dir, file), parentItemID: parent.id, contentType });
+      return { parent, att };
+    };
+    const html = await make('Hitzeschutz in Städten', 'hitze.html', 'text/html');
+    const text = await make('Workshop-Protokoll', 'notizen.txt', 'text/plain');
+    const epub = await make('Stadtbäume', 'baeume.epub', 'application/epub+zip');
+    for (const [d, kind] of [[html, 'html'], [text, 'text'], [epub, 'epub']] as const) {
+      assert(docKind(d.att) === kind, `${kind}: kind ${docKind(d.att)} (${d.att.attachmentContentType})`);
+      const resolved = await resolveAttachment(d.parent, 'library', win.document);
+      assert(resolved?.id === d.att.id, `${kind}: chat would use ${resolved?.id}`);
+      assert(menuState([d.parent]).file, `${kind}: no "chat with this file" entry`);
+    }
+
+    const ask = async (att: any, q: string) => {
+      const session = getSession(new PdfContextProvider(att));
+      session.clear();
+      await session.ask(q);
+      const answer = session.turns[session.turns.length - 1];
+      const req = await mockLastRequest();
+      return { answer, system: String(req.messages[0].content) };
+    };
+    const h = await ask(html.att, 'Was kühlt Quartiere?');
+    assert(!h.answer.error, `html: ${h.answer.content}`);
+    assert(h.system.includes('Begrünte Dächer kühlen Quartiere') && h.system.includes('Hitzeschutz in Städten'), `html text missing: ${h.system.slice(h.system.indexOf("Document:"), h.system.indexOf("Document:") + 500)}`);
+    assert(!h.system.includes('SKRIPT') && /saved web page without page numbers/.test(h.system) && !/\[S\. 12\]/.test(h.system), 'html prompt');
+    assert(h.answer.meta?.includes('Volltext (Webseite)'), `html meta ${h.answer.meta}`);
+
+    const e = await ask(epub.att, 'Was leisten Stadtbäume?');
+    assert(!e.answer.error && e.system.includes('Stadtbäume spenden Schatten') && /e-book \(EPUB\)/.test(e.system), `epub: ${e.answer.content} / ${e.system.slice(0, 400)}`);
+
+    // Long text file: excerpts of sections, the one with the question's words among them.
+    const x = await ask(text.att, 'Welche Maßnahme nannten die Teilnehmenden im Workshop als wichtigste? Trinkbrunnen?');
+    assert(!x.answer.error && x.system.includes('Trinkbrunnen als wichtigste Maßnahme') && /text file without page numbers/.test(x.system), `text: ${x.answer.content}`);
+    assert(/Auszüge \(Textdatei\): \d+ von \d+ Abschnitten/.test(x.answer.meta || '') || x.answer.meta?.includes('Volltext (Textdatei)'), `text meta ${x.answer.meta}`);
+
+    // Item pane section shows the web page as the chat's document.
+    const section = await openSectionInLibrary(html.parent.id);
+    await waitFor('section target', () => /Webseite: .*Hitzeschutz/.test(section.querySelector('.seekchat-target')?.textContent || ''), 10000)
+      .catch((e) => { throw new Error(`${e.message}: ${section.querySelector('.seekchat-target')?.textContent}`); });
   }],
 
   ['no model request ever sets num_ctx (Ollama would reload the model)', async () => {

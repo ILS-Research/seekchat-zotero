@@ -19,6 +19,8 @@ export interface ContextBlock {
   /** Full text handed to the model, sections marked with [Seite N]. */
   body: string;
   mode: 'full' | 'excerpt';
+  /** Document chat: kind of document; not 'pdf' = sections without page numbers, no citations. */
+  docKind?: 'pdf' | 'html' | 'epub' | 'text';
   includedPages: number[];
   totalPages: number;
   /** Excerpt mode: pages with a keyword hit, and whether nothing matched at all. */

@@ -73,7 +73,7 @@ export class LongDocPanel {
   /** Index state of the session's PDF; re-read on each call (focus, button), repaints when it changed. */
   async refreshIndex(): Promise<void> {
     const s = this.session;
-    if (!s || !(s.provider instanceof PdfContextProvider)) return;
+    if (!s || !(s.provider instanceof PdfContextProvider) || s.provider.kind !== 'pdf') return;
     try {
       const state = await indexState(s.provider.attachment);
       if (this.session !== s) return;
@@ -120,11 +120,13 @@ export class LongDocPanel {
       this.el('div', 'seekchat-longdoc-title', t('long.tooLarge')),
       this.el('div', '', t('long.tooLargeDetail', { tokens: formatCount(fit.totalTokens), pages: fit.pageCount, budget: formatCount(fit.budgetTokens) })),
     );
-    if (this.indexFor !== s) void this.refreshIndex();
+    const isPdf = s.provider instanceof PdfContextProvider && s.provider.kind === 'pdf';
+    if (isPdf && this.indexFor !== s) void this.refreshIndex();
     const list = this.el('div', 'seekchat-strategies');
     for (const st of STRATEGIES) list.append(this.renderStrategy(s, st));
     this.root.append(list);
-    this.root.append(this.renderVectorPanel(s));
+    // SeekBook and ZotSeek index PDFs only: no semantic search panel for web pages, e-books, text files.
+    if (isPdf) this.root.append(this.renderVectorPanel(s));
     if (s.strategy === 'chapters') this.root.append(this.renderChapterPanel(s));
   }
 

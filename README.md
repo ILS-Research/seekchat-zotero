@@ -26,6 +26,11 @@ Select an item with a PDF, or open it in the reader: the side pane shows **“Ch
 - **Long books:** keyword search, chapter selection, or semantic search through SeekBook (books) / ZotSeek (papers) –
   a button hands a document not yet indexed to the right index.
 
+### Web pages, e-books, text files
+The same chat works for **HTML snapshots** (saved web pages), **EPUB** e-books and **text files** (.txt, .md, .csv).
+They have no page numbers, so answers refer to the document as a whole (as a reference list would) instead of citing
+pages. Long ones are cut into sections and searched by keywords like long PDFs.
+
 ### Chat with your library
 The speech-bubble button next to ZotSeek’s toolbar button opens a chat over **the current selection, a collection
 or a whole library**. You choose where the answers come from:

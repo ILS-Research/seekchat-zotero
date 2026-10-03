@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.18.0 – 2026-10-03
+
+- **Chat with web pages, e-books and text files**, not only PDFs: HTML snapshots (e.g. the ones saved when importing
+  references), EPUB and plain text files (.txt, .md, .csv …). The chat section shows up for them in the library and in
+  the reader; an item without PDF uses its EPUB, then web page, then text file. "Chat with this file" works for them too.
+- Their text comes from Zotero's full-text index (Zotero extracts HTML and EPUB itself) or the file, cut into sections
+  of about a page; long documents get the same keyword selection as PDFs (semantic search stays PDF-only).
+- **No location citations** for these documents – as a reference list cites a web page or e-book as a whole, answers
+  refer to the document, not to pages or sections. The meta line says "Volltext (Webseite)" or
+  "Auszüge (Textdatei): 3 von 26 Abschnitten …".
+
 ## 0.17.1 – 2026-10-03
 
 - **Fix:** the check for SeekChat's item menu entries can no longer throw inside Zotero's menu building (an item whose

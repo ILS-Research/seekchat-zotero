@@ -36,7 +36,7 @@ const EN = {
   // PDF chat section
   'pdf.placeholder': 'Question about the PDF … (Enter to send, Shift+Enter for a new line)',
   'pdf.target': 'PDF: {label}',
-  'pdf.none': 'No PDF found for this item.',
+  'pdf.none': 'No PDF, web page, e-book or text file found for this item.',
   'pdf.reading': 'Reading PDF …',
   'pdf.missingFile': 'The PDF file is not on this computer (not synced/downloaded yet).',
   'pdf.noText': 'The PDF contains no text (scanned?). Please run OCR first.',
@@ -252,6 +252,17 @@ const EN = {
   'lib.tooltip': 'SeekChat: chat with the library (with ZotSeek)',
 
   // Tool chat window
+  'doc.target': '{kind}: {label}',
+  'doc.noText': 'This document contains no readable text.',
+  'doc.kind.pdf': 'PDF',
+  'doc.kind.html': 'Web page',
+  'doc.kind.epub': 'E-book',
+  'doc.kind.text': 'Text file',
+  'meta.docFull': 'Full text ({kind})',
+  'meta.docExcerpts': 'Excerpts ({kind}): {n} of {total} sections, {how}',
+  'meta.noHitsSections': 'no hits, sections spread',
+  'meta.hitSections.one': '{n} section with hits',
+  'meta.hitSections.other': '{n} sections with hits',
   'tools.windowTitle': 'SeekChat – Tools',
   'tools.buttonLabel': 'SeekChat Tools',
   'tools.tooltip': 'SeekChat: general chat that can act in Zotero (e.g. import references)',
@@ -444,7 +455,7 @@ const DE: Record<Key, string> = {
 
   'pdf.placeholder': 'Frage zum PDF … (Enter senden, Shift+Enter neue Zeile)',
   'pdf.target': 'PDF: {label}',
-  'pdf.none': 'Kein PDF zu diesem Eintrag gefunden.',
+  'pdf.none': 'Kein PDF, keine Webseite, kein E-Book und keine Textdatei zu diesem Eintrag gefunden.',
   'pdf.reading': 'Lese PDF …',
   'pdf.missingFile': 'Die PDF-Datei ist auf diesem Rechner nicht vorhanden (noch nicht synchronisiert/heruntergeladen).',
   'pdf.noText': 'Das PDF enthält keinen Text (gescannt?). Bitte zuerst OCR ausführen.',
@@ -657,6 +668,17 @@ const DE: Record<Key, string> = {
   'lib.tooltip': 'SeekChat: Chat über die Bibliothek (mit ZotSeek)',
 
   // Tool chat window
+  'doc.target': '{kind}: {label}',
+  'doc.noText': 'Dieses Dokument enthält keinen lesbaren Text.',
+  'doc.kind.pdf': 'PDF',
+  'doc.kind.html': 'Webseite',
+  'doc.kind.epub': 'E-Book',
+  'doc.kind.text': 'Textdatei',
+  'meta.docFull': 'Volltext ({kind})',
+  'meta.docExcerpts': 'Auszüge ({kind}): {n} von {total} Abschnitten, {how}',
+  'meta.noHitsSections': 'keine Treffer, verteilte Abschnitte',
+  'meta.hitSections.one': '{n} Abschnitt mit Treffern',
+  'meta.hitSections.other': '{n} Abschnitte mit Treffern',
   'tools.windowTitle': 'SeekChat – Werkzeuge',
   'tools.buttonLabel': 'SeekChat Werkzeuge',
   'tools.tooltip': 'SeekChat: allgemeiner Chat, der in Zotero handeln kann (z. B. Quellen importieren)',

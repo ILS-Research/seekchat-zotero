@@ -1,6 +1,6 @@
 import type { ChatMessage } from './llm/types';
 import type { ContextBlock } from './context/types';
-import { quoted, t, tn } from '../i18n';
+import { quoted, t, tn, type Key } from '../i18n';
 
 /** Citation marker the model is asked to use: "[p. 12]" in English, "[S. 12]" in German. */
 function pageMark(): string {
@@ -25,6 +25,31 @@ export function citationRule(): string {
 /** The user's own system prompt plus the citation rule, or the default prompt. */
 export function pdfSystemPrompt(custom?: string): string {
   return custom?.trim() ? `${custom.trim()}\n\n${citationRule()}` : defaultSystemPrompt();
+}
+
+/** What the model is told the document is (non-PDF kinds). */
+const DOC_KIND_NAMES: Record<string, string> = { html: 'a saved web page', epub: 'an e-book (EPUB)', text: 'a text file' };
+
+/**
+ * No page numbers in web pages, e-books and text files: like a reference list cites them as a whole, the
+ * answer refers to the document, not to locations in it.
+ */
+export function noCitationRule(kind: string): string {
+  return `The document is ${DOC_KIND_NAMES[kind] || 'a document'} without page numbers: do not cite pages or ` +
+    'sections and do not invent locations; refer to the document as a whole when needed.';
+}
+
+/** System prompt of the document chat for non-PDF documents (the user's own prompt, if any, plus the rule). */
+export function documentSystemPrompt(kind: string, custom?: string): string {
+  const base = custom?.trim() || 'You are a scientific assistant in Zotero. Answer questions only on the basis of the ' +
+    'provided document. If the document does not contain the answer, say so openly instead of guessing. Answer in the ' +
+    'language of the question, concisely and precisely.';
+  return `${base}\n\n${noCitationRule(kind)}`;
+}
+
+/** Sections of a non-PDF document: joined, gaps between non-adjacent sections marked "[…]". */
+export function formatSections(sections: { pageNumber: number; text: string }[]): string {
+  return sections.map((s, i) => (i && s.pageNumber !== sections[i - 1].pageNumber + 1 ? `[…]\n\n${s.text.trim()}` : s.text.trim())).join('\n\n');
 }
 
 /** Marker the model answers with when a pre-read book has nothing on the question (library chat, source "books"). */
@@ -72,6 +97,12 @@ export function describeContext(ctx: ContextBlock): string {
       : `${t('meta.originZotSeek', { n: o.zotseek })}, ${t('meta.originBooks', { n: o.books })}`;
     const head = t('meta.library', { scope: l.scope, sources: tn('meta.sources', l.sources.length), passages: tn('meta.passages', l.passagesUsed), origins });
     return extra ? `${head}; ${extra}` : head;
+  }
+  if (ctx.docKind && ctx.docKind !== 'pdf') {
+    const kind = t(`doc.kind.${ctx.docKind}` as Key);
+    return ctx.mode === 'full'
+      ? t('meta.docFull', { kind })
+      : t('meta.docExcerpts', { kind, n: ctx.includedPages.length, total: ctx.totalPages, how: ctx.noMatches ? t('meta.noHitsSections') : tn('meta.hitSections', ctx.matchedPages ?? 0) });
   }
   if (ctx.mode === 'full') return t('meta.fullText', { pages: ctx.totalPages });
   const pageLabel = t('cite.page');
@@ -125,6 +156,22 @@ export function buildMessages(opts: {
       `<sources>\n${context.body}\n</sources>`;
     return [
       { role: 'system', content: system },
+      ...opts.history.map((h) => ({ role: h.role, content: h.content })),
+      { role: 'user', content: opts.question },
+    ];
+  }
+  if (context.docKind && context.docKind !== 'pdf') {
+    const part = context.mode === 'full'
+      ? 'The full text of the document follows.'
+      : `The document is too long for the context. The parts that best match the question follow (${context.includedPages.length} ` +
+        `of ${context.totalPages} sections, gaps marked […]). If the answer could be in other parts, point that out.`;
+    const notesBlock = context.notes?.length
+      ? '\n\nThe user added their own notes on this document as context. Use them as background; when a statement comes ' +
+        'from a note, say so (e.g. "(note „Title“)").\n<notes>\n' +
+        context.notes.map((n) => `[Note „${n.title}“]\n${n.text}`).join('\n\n') + '\n</notes>'
+      : '';
+    return [
+      { role: 'system', content: `${documentSystemPrompt(context.docKind, opts.systemPrompt)}\n\nDocument: ${context.title}\n${part}\n\n<document>\n${context.body}\n</document>${notesBlock}` },
       ...opts.history.map((h) => ({ role: h.role, content: h.content })),
       { role: 'user', content: opts.question },
     ];

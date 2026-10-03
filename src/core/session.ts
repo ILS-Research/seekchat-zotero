@@ -252,7 +252,7 @@ export class ChatSession {
       if (needKeywords) notes.push(t('meta.chaptersOver'));
     }
     let rankedPages: { page: number; pageEnd?: number }[] | undefined;
-    if (!fit.fits && this.strategy === 'vector' && provider instanceof PdfContextProvider) {
+    if (!fit.fits && this.strategy === 'vector' && provider instanceof PdfContextProvider && provider.kind === 'pdf') {
       // Semantic search in SeekBook (books) or ZotSeek (other PDFs); keywords when that is not possible.
       const state = await indexState(provider.attachment);
       const where = state.kind === 'seekbook' ? 'SeekBook' : 'ZotSeek';
@@ -289,7 +289,7 @@ export class ChatSession {
     purpose = t('purpose.answer');
     const notesCtx = contextNotesText(Array.from(this.contextNotes), prefs.contextChars);
     if (notesCtx.length) notes.push(tn('meta.notesContext', notesCtx.length, { titles: notesCtx.map((n) => `„${n.title}“`).join(', ') }));
-    const currentPage = provider instanceof PdfContextProvider ? currentReaderPage(provider.attachment) ?? undefined : undefined;
+    const currentPage = provider instanceof PdfContextProvider && provider.kind === 'pdf' ? currentReaderPage(provider.attachment) ?? undefined : undefined;
     const context = await provider.build(`${question}\n${lastQuestion}`, prefs.contextChars, { keywords, chapters, rankedPages, notes: notesCtx, currentPage });
     if (context.aroundPages?.length && context.mode === 'excerpt') {
       notes.push(t('meta.currentPage', { page: currentPage!, pages: compressRanges(context.aroundPages) }));

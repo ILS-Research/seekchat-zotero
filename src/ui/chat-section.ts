@@ -1,7 +1,7 @@
 /**
  * The "Chat mit PDF" section in Zotero's item pane. It shows up in the library
- * (for a selected item with a PDF, or the PDF itself) and in the reader's
- * context pane (for the open PDF).
+ * (for a selected item with a PDF, web page snapshot, EPUB or text file, or that
+ * file itself) and in the reader's context pane (for the open document).
  */
 import { t } from '../i18n';
 import { describeItem, PdfContextProvider } from '../core/context/pdf-context';
@@ -11,28 +11,33 @@ import { TurnListView } from './turn-view';
 import { saveChat, withFeedback } from './save-chat';
 import { saveAnswerAsNote, savePdfChatAsNote } from './save-note';
 import { readPrefs } from '../prefs';
+import { docKind, isChatDocument, KIND_ORDER } from '../core/context/document';
 import { logError } from '../util/log';
 
 const PANE_ID = 'seekchat-pdf-chat';
 const HTML_NS = 'http://www.w3.org/1999/xhtml';
 let registeredPaneID: string | false = false;
 
-/** The PDF the chat is about: the one open in the reader, the selected PDF, or the item's best PDF. */
+/**
+ * The document the chat is about: the one open in the reader, the selected file, or the item's best attachment –
+ * a PDF first, then an EPUB, a web page snapshot, a text file.
+ */
 export async function resolveAttachment(item: any, tabType: string, doc: Document): Promise<any | null> {
   if (tabType === 'reader') {
     const win: any = doc.defaultView;
     const reader = Zotero.Reader.getByTabID(win?.Zotero_Tabs?.selectedID);
     const att = reader && Zotero.Items.get(reader.itemID);
-    if (att?.isPDFAttachment?.()) return att;
+    if (isChatDocument(att)) return att;
   }
   if (!item) return null;
-  if (item.isPDFAttachment?.()) return item;
+  if (isChatDocument(item)) return item;
   if (item.isRegularItem?.()) {
     const best = await item.getBestAttachment();
     if (best?.isPDFAttachment?.()) return best;
-    for (const id of item.getAttachments()) {
-      const att = Zotero.Items.get(id);
-      if (att?.isPDFAttachment?.()) return att;
+    const atts = Zotero.Items.get(item.getAttachments()).filter((a: any) => isChatDocument(a));
+    for (const kind of KIND_ORDER) {
+      const att = atts.find((a: any) => docKind(a) === kind);
+      if (att) return att;
     }
   }
   return null;
@@ -180,9 +185,10 @@ class ChatView {
   private render(): void {
     const s = this.session;
     const prefs = readPrefs();
-    this.target.textContent = this.attachment
-      ? t('pdf.target', { label: describeItem(this.attachment) })
-      : t('pdf.none');
+    const kind = this.attachment ? docKind(this.attachment) : null;
+    this.target.textContent = !this.attachment ? t('pdf.none')
+      : kind === 'pdf' || !kind ? t('pdf.target', { label: describeItem(this.attachment) })
+      : t('doc.target', { kind: t(`doc.kind.${kind}`), label: describeItem(this.attachment) });
     this.input.disabled = !s;
     this.sendBtn.disabled = !s;
     this.sendBtn.textContent = s?.busy ? t('common.stop') : t('common.send');
@@ -231,7 +237,7 @@ export function registerChatSection(info: { id: string; rootURI: string }): void
       views.delete(body);
     },
     onItemChange: ({ item, tabType, setEnabled }: any) => {
-      setEnabled(tabType === 'reader' || !!item?.isRegularItem?.() || !!item?.isPDFAttachment?.());
+      setEnabled(tabType === 'reader' || !!item?.isRegularItem?.() || isChatDocument(item));
       return true;
     },
     onRender: () => {},

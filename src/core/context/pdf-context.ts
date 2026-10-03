@@ -1,5 +1,5 @@
 import { t } from '../../i18n';
-import { formatPages } from '../prompt';
+import { formatPages, formatSections } from '../prompt';
 import { analyzeFit, type FitInfo } from './fit';
 import { buildOutline, type Outline } from './outline';
 import { readPageLabels, readPdfOutline } from './pdf-outline';
@@ -9,6 +9,7 @@ import { stripRunningLines } from './clean';
 import { buildTerms, selectPagesByTerms, selectRankedPages } from './page-selection';
 import { LruMap } from '../../util/lru';
 import type { BuildOptions, ContextBlock, ContextProvider, Page } from './types';
+import { docKind, getDocumentSections, type DocKind } from './document';
 
 /**
  * Extracted pages per attachment, invalidated when the attachment item changes. The 100 most recently used PDFs
@@ -45,6 +46,18 @@ export async function getPdfPages(attachment: any): Promise<Page[]> {
   return pages;
 }
 
+/** Pages of a PDF, or sections of an HTML, EPUB or text document (same cache). */
+export async function getDocPages(attachment: any, kind: DocKind = docKind(attachment) || 'pdf'): Promise<Page[]> {
+  if (kind === 'pdf') return getPdfPages(attachment);
+  const version = `${attachment.version}:${attachment.dateModified}`;
+  const cached = pageCache.get(attachment.id);
+  if (cached && cached.version === version) return cached.pages;
+  const pages = await getDocumentSections(attachment, kind);
+  L.info(`${attachment.key}: ${kind}, ${pages.length} sections`);
+  pageCache.set(attachment.id, { version, pages });
+  return pages;
+}
+
 export function clearPageCache(): void {
   pageCache.clear();
 }
@@ -61,11 +74,17 @@ export function describeItem(attachment: any): string {
   return head ? `${head} – ${title}` : title;
 }
 
+/**
+ * The document chat's source: one attachment – a PDF (pages, page citations) or an HTML snapshot, EPUB or text
+ * file (sections, no citations; see document.ts).
+ */
 export class PdfContextProvider implements ContextProvider {
   readonly key: string;
+  readonly kind: DocKind;
 
   constructor(readonly attachment: any) {
     this.key = `pdf:${attachment.id}`;
+    this.kind = docKind(attachment) || 'pdf';
   }
 
   describe(): string {
@@ -83,20 +102,21 @@ export class PdfContextProvider implements ContextProvider {
   }
 
   async sampleText(maxChars: number): Promise<string> {
-    const pages = (await getPdfPages(this.attachment)).filter((p) => p.text).slice(0, 3);
+    const pages = (await getDocPages(this.attachment, this.kind)).filter((p) => p.text).slice(0, 3);
     const perPage = Math.floor(maxChars / Math.max(1, pages.length));
     return pages.map((p) => p.text.slice(0, perPage)).join('\n\n');
   }
 
   async analyze(budgetChars: number): Promise<FitInfo> {
-    return analyzeFit(await getPdfPages(this.attachment), budgetChars);
+    return analyzeFit(await getDocPages(this.attachment, this.kind), budgetChars);
   }
 
   async outline(): Promise<Outline> {
-    const pages = await getPdfPages(this.attachment);
+    const pages = await getDocPages(this.attachment, this.kind);
     let bookmarks = null;
     try {
-      bookmarks = await readPdfOutline(this.attachment);
+      // Other documents: headings found in the text (or blocks of sections).
+      if (this.kind === 'pdf') bookmarks = await readPdfOutline(this.attachment);
     } catch (e) {
       // Fall back to headings / page blocks; the tree says which source it used.
       logError(e);
@@ -105,7 +125,7 @@ export class PdfContextProvider implements ContextProvider {
   }
 
   async build(query: string, budgetChars: number, opts: BuildOptions = {}): Promise<ContextBlock> {
-    const pages = await getPdfPages(this.attachment);
+    const pages = await getDocPages(this.attachment, this.kind);
     const allowed = opts.chapters && new Set(opts.chapters.pages);
     const pool = allowed ? pages.filter((p) => allowed.has(p.pageNumber)) : pages;
     // Budget left for the pages after the notes the user added as context.
@@ -128,7 +148,8 @@ export class PdfContextProvider implements ContextProvider {
     }
     return {
       title: this.describe(),
-      body: formatPages(selection.pages, await pageLabelsOf(this.attachment)),
+      body: this.kind === 'pdf' ? formatPages(selection.pages, await pageLabelsOf(this.attachment)) : formatSections(selection.pages),
+      docKind: this.kind,
       notes: notes.length ? notes : undefined,
       currentPage: opts.currentPage,
       aroundPages: around.map((p) => p.pageNumber),
