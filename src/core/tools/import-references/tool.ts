@@ -9,7 +9,9 @@ import type { ToolRunItem } from '../../turn';
 import type { Tool, ToolTarget } from '../types';
 import { itemLabel, referencesFromArgs, type ReferenceInput } from './reference';
 import { resolveWithChain, type ReferenceResolver, type ResolvedReference } from './resolvers';
-import { findDuplicate, saveItem, zoteroResolvers } from './zotero-resolvers';
+import { findDuplicate, identifierResolver, saveItem, zoteroResolvers } from './zotero-resolvers';
+import { findRefsResolver } from './findrefs-resolver';
+import { getFindRefsApi } from '../../findrefs/client';
 
 const L = logger('Import');
 /** More references in one call are refused (the model is asked to split them). */
@@ -78,30 +80,48 @@ function viaText(c: Candidate): string {
   const base = via === 'identifier' ? t('import.via.identifier', { what: c.resolved.detail || '' })
     : via === 'url' ? t('import.via.url')
     : via === 'text' ? t('import.via.text')
-    : t('import.via.other', { source: via });
+    : t('import.via.other', { source: c.resolved.detail || via });
   return c.failures.length ? `${base} · ${t('import.lookupFailed', { reasons: c.failures.join('; ') })}` : base;
 }
 
 /** What the tool needs from Zotero; tests and later sources pass their own. */
 export interface ImportDeps {
-  /** The resolver chain, asked in order (built per call, so a source switched on meanwhile counts). */
-  resolvers(): ReferenceResolver[];
+  /** The resolver chain for the tool's options, asked in order (built per call). */
+  resolvers(options: Record<string, string>): ReferenceResolver[];
   findDuplicate(item: ResolvedReference['item'], libraryID: number): Promise<{ id: number } | null>;
   save(resolved: ResolvedReference, target: ToolTarget): Promise<{ id: number; getField(f: string): string }>;
 }
 
-export const ZOTERO_DEPS: ImportDeps = { resolvers: zoteroResolvers, findDuplicate, save: saveItem };
+/** Option "parser": Zotero's own chain, or Find Online References (zotero-reference) in front of it. */
+export const ZOTERO_DEPS: ImportDeps = {
+  resolvers: (options) => (options.parser === 'zotero-reference' && getFindRefsApi()
+    ? [findRefsResolver(identifierResolver), ...zoteroResolvers()]
+    : zoteroResolvers()),
+  findDuplicate,
+  save: saveItem,
+};
 
 export function importReferencesTool(deps: ImportDeps = ZOTERO_DEPS): Tool {
   return {
     spec: IMPORT_REFERENCES_SPEC,
+    label: () => t('import.label'),
+    description: () => t('import.description'),
+    options: [{
+      key: 'parser',
+      label: t('import.option.parser'),
+      default: 'zotero',
+      choices: [
+        { value: 'zotero', label: t('import.parser.zotero') },
+        { value: 'zotero-reference', label: t('import.parser.findrefs'), available: () => !!getFindRefsApi(), unavailableHint: t('import.parser.findrefsMissing') },
+      ],
+    }],
     title: (args) => tn('import.title', referencesFromArgs(args).length),
     async run(args, ctx) {
       const refs = referencesFromArgs(args);
       if (!refs.length) return 'Error: no references given. Pass {"references": [{"text": "...", ...}]}.';
       if (refs.length > MAX_REFERENCES) return `Error: at most ${MAX_REFERENCES} references per call; split them into several calls.`;
       const { run, target, signal } = ctx;
-      const chain = deps.resolvers();
+      const chain = deps.resolvers(ctx.options);
       const candidates: Candidate[] = [];
       run.items = refs.map((r) => ({ label: r.title || r.text || '?', badge: '…' }));
       for (const [i, ref] of refs.entries()) {

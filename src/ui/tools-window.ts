@@ -10,6 +10,7 @@ import { logError } from '../util/log';
 import { TurnListView } from './turn-view';
 import { t } from '../i18n';
 import { getPrefsPaneID } from './library-window';
+import { choiceAvailable, isToolEnabled, setToolEnabled, setToolOption, storedOption } from '../core/tools/settings';
 
 const HTML_NS = 'http://www.w3.org/1999/xhtml';
 const WINDOW_URL = 'chrome://seekchat/content/toolsChat.xhtml';
@@ -88,6 +89,9 @@ export class ToolsChatView {
   private targets: ToolTarget[] = [];
   target: ToolTarget | null = null;
   private modelEl: HTMLElement;
+  /** Collapsible list of all tools with on/off switch and settings. */
+  private toolsBox: HTMLDetailsElement;
+  private onFocus = () => this.renderTools();
   private messages: HTMLElement;
   readonly input: HTMLTextAreaElement;
   private sendBtn: HTMLButtonElement;
@@ -109,6 +113,9 @@ export class ToolsChatView {
     });
     this.targetEl.addEventListener('focus', () => this.refreshTargets());
     this.modelEl = this.el('span', 'seekchat-library-status');
+    this.toolsBox = this.el('details', 'seekchat-tools-list') as HTMLDetailsElement;
+    // Plugins (zotero-reference) may be switched on or off while the window is open.
+    this.win.addEventListener('focus', this.onFocus, false, true);
     this.messages = this.el('div', 'seekchat-messages');
     this.input = this.el('textarea', 'seekchat-input') as HTMLTextAreaElement;
     this.input.placeholder = t('tools.placeholder');
@@ -126,6 +133,7 @@ export class ToolsChatView {
     root.replaceChildren(
       row(t('tools.target'), this.targetEl),
       row(t('lib.model'), this.modelEl),
+      this.toolsBox,
       this.messages,
       inputRow,
       footer,
@@ -139,7 +147,61 @@ export class ToolsChatView {
     this.win.document.title = t('tools.windowTitle');
     this.unsubscribe = this.session.subscribe(() => this.scheduleRender());
     this.refreshTargets();
+    this.renderTools();
     this.render();
+  }
+
+  /** The tool list: a checkbox per tool, its description and settings (unavailable choices disabled). */
+  renderTools(): void {
+    const tools = this.session.registry.all();
+    const on = tools.filter((x) => isToolEnabled(x.spec.name)).length;
+    const summary = this.el('summary', '', t('tools.available', { on, n: tools.length }));
+    const list = this.el('div', 'seekchat-tools-items');
+    for (const tool of tools) {
+      const name = tool.spec.name;
+      const item = this.el('div', 'seekchat-tools-item');
+      item.dataset.tool = name;
+      const label = this.el('label', 'seekchat-library-source');
+      const box = this.el('input') as HTMLInputElement;
+      box.type = 'checkbox';
+      box.checked = isToolEnabled(name);
+      box.addEventListener('change', () => {
+        setToolEnabled(name, box.checked);
+        this.renderTools();
+        this.render();
+      });
+      label.append(box, this.doc.createTextNode(` ${tool.label()}`));
+      item.append(label, this.el('div', 'seekchat-library-note', tool.description()));
+      for (const option of tool.options || []) {
+        const select = this.el('select', 'seekchat-tools-option') as HTMLSelectElement;
+        select.dataset.option = option.key;
+        select.disabled = !box.checked;
+        const stored = storedOption(tool, option);
+        for (const choice of option.choices) {
+          const usable = choiceAvailable(option, choice.value);
+          const o = this.el('option', '', usable ? choice.label : `${choice.label} – ${choice.unavailableHint || t('tools.optionUnavailable')}`) as HTMLOptionElement;
+          o.value = choice.value;
+          o.disabled = !usable;
+          select.append(o);
+        }
+        select.value = stored;
+        select.addEventListener('change', () => {
+          setToolOption(tool, option.key, select.value);
+          this.renderTools();
+        });
+        const optRow = this.el('div', 'seekchat-library-row seekchat-tools-option-row');
+        optRow.append(this.el('span', 'seekchat-library-label', option.label), select);
+        // A stored choice that is not available (plugin missing): the default is used meanwhile.
+        if (!choiceAvailable(option, stored)) {
+          optRow.append(this.el('span', 'seekchat-library-note seekchat-library-coverage', t('tools.optionFallback', {
+            choice: option.choices.find((c) => c.value === option.default)?.label || option.default,
+          })));
+        }
+        item.append(optRow);
+      }
+      list.append(item);
+    }
+    this.toolsBox.replaceChildren(summary, list);
   }
 
   private el(tag: string, cls?: string, text?: string): HTMLElement {
@@ -199,7 +261,8 @@ export class ToolsChatView {
     const atBottom = this.messages.scrollHeight - this.messages.scrollTop - this.messages.clientHeight < 40;
     if (!s.turns.length) {
       this.turnList.reset();
-      this.messages.replaceChildren(this.el('div', 'seekchat-library-empty', t('tools.intro')));
+      const none = !s.registry.all().some((x) => isToolEnabled(x.spec.name));
+      this.messages.replaceChildren(this.el('div', 'seekchat-library-empty', t(none ? 'tools.introNone' : 'tools.intro')));
       return;
     }
     this.turnList.update(this.messages, s.turns, {
@@ -215,6 +278,7 @@ export class ToolsChatView {
   }
 
   dispose(): void {
+    this.win.removeEventListener('focus', this.onFocus);
     this.unsubscribe();
     if (this.renderTimer) this.win.clearTimeout(this.renderTimer);
   }

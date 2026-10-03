@@ -13,7 +13,8 @@ import { readPrefs } from '../../prefs';
 import { newAbortController } from '../../util/env';
 import { content, logError, logger } from '../../util/log';
 import { runToolLoop } from './loop';
-import type { ToolRegistry } from './registry';
+import { ToolRegistry } from './registry';
+import { effectiveOptions, isToolEnabled } from './settings';
 import type { ToolTarget } from './types';
 import { defaultRegistry } from './index';
 
@@ -34,14 +35,20 @@ export class ToolChatSession {
   /** Runs waiting for the user's confirmation and how to continue them. */
   private waiting = new Map<ToolRun, (ok: boolean) => void>();
 
-  constructor(private registry: ToolRegistry = defaultRegistry()) {}
+  constructor(private tools: ToolRegistry = defaultRegistry()) {}
 
   get busy(): boolean {
     return this.abortCtrl !== null;
   }
 
-  get tools(): string[] {
-    return this.registry.specs().map((s) => s.name);
+  /** All tools, switched on or not (the window lists them). */
+  get registry(): ToolRegistry {
+    return this.tools;
+  }
+
+  /** The tools switched on, for one question. */
+  enabledTools(): ToolRegistry {
+    return new ToolRegistry(this.tools.all().filter((tool) => isToolEnabled(tool.spec.name)));
   }
 
   subscribe(fn: () => void): () => void {
@@ -97,7 +104,9 @@ export class ToolChatSession {
     try {
       if (!prefs.model) throw new UserFacingError(t('error.noModel'));
       const limits = await resolveLimits(prefs);
+      const registry = this.enabledTools();
       const messages: ChatMessage[] = [{ role: 'system', content: TOOL_SYSTEM_PROMPT }, ...history, { role: 'user', content: q }];
+      L.info(`tools: ${registry.specs().map((x) => x.name).join(', ') || 'none'}`);
       await runToolLoop({
         client: createClient(prefs),
         request: {
@@ -109,11 +118,12 @@ export class ToolChatSession {
           signal: ctrl.signal,
         },
         messages,
-        registry: this.registry,
+        registry,
         answer,
         notify: () => this.notify(),
         context: (run) => ({
           target,
+          options: effectiveOptions(registry.get(run.name)!),
           signal: ctrl.signal,
           run,
           update: () => this.notify(),

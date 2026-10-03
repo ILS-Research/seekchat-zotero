@@ -16,6 +16,8 @@ export interface ToolTarget {
 
 export interface ToolContext {
   target: ToolTarget;
+  /** The tool's settings (option key -> chosen value, see settings.ts). */
+  options: Record<string, string>;
   signal: AbortSignal;
   /** This call's entry in the answer; change it and call update() to redraw. */
   run: ToolRun;
@@ -27,8 +29,28 @@ export interface ToolContext {
   confirm(): Promise<boolean>;
 }
 
+/** One choice of a tool setting; `available` false: shown disabled with `unavailableHint`. */
+export interface ToolOptionChoice {
+  value: string;
+  label: string;
+  available?: () => boolean;
+  unavailableHint?: string;
+}
+
+/** A setting of a tool, chosen in the tool list of the window (stored as pref). */
+export interface ToolOption {
+  key: string;
+  label: string;
+  choices: ToolOptionChoice[];
+  default: string;
+}
+
 export interface Tool {
   spec: ToolSpec;
+  /** Name and one-line description in the tool list, in the UI language. */
+  label(): string;
+  description(): string;
+  options?: ToolOption[];
   /** Title of a run with these arguments, in the UI language. */
   title(args: Record<string, any>): string;
   /** Does the work; the returned text is the tool result the model reads (JSON or a short sentence). */

@@ -18,6 +18,10 @@ export class ToolRegistry {
     return this.tools.get(name);
   }
 
+  all(): Tool[] {
+    return [...this.tools.values()];
+  }
+
   specs(): ToolSpec[] {
     return [...this.tools.values()].map((t) => t.spec);
   }

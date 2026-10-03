@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.15.0 – 2026-10-03
+
+- **Tool list in the tool chat:** a collapsible section at the top lists all tools; each can be switched off (the model
+  then is not offered it) and has its settings there. Stored as prefs (`seekchat.tools.*`).
+- **Import references: choice of lookup** – Zotero's own translators, or **Find Online References (zotero-reference)**
+  first (its parser and plausibility-checked title search via Crossref, OpenAlex …), then Zotero. Used through the
+  plugin's public API at runtime; offered only while the plugin (0.7.33+) is installed, otherwise Zotero's lookup is used.
+
 ## 0.14.0 – 2026-10-03
 
 - **New: tool chat** – a third chat next to the PDF and library chat, in its own window (button in the items

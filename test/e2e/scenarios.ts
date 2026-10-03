@@ -1385,6 +1385,74 @@ export const scenarios: Scenario[] = [
     assert(run2.state === 'cancelled' && col.getChildItems(true).length === 2, `after cancel: ${run2.state}, ${col.getChildItems(true).length} items`);
     await screenshot(ctx, 'tool-chat', toolsWin);
     toolsWin.close();
+    await waitFor('tool chat window closed', () => !getToolsChatView(), 5000);
+  }],
+
+  ['tool chat: tool list switches tools off; parser option uses zotero-reference only when installed', async (ctx) => {
+    setPref('provider', 'ollama');
+    setPref('baseUrl', MOCK);
+    setPref('model', 'mock-model');
+    openToolsChat();
+    const toolsWin = await waitFor('tool chat window', () => getToolsChatWindow(), 10000);
+    const view = await waitFor('tool chat view', () => getToolsChatView(), 10000);
+    const doc = toolsWin.document;
+    const session = getToolSession();
+    session.clear();
+    const list = doc.querySelector('.seekchat-tools-list') as HTMLDetailsElement;
+    assert(list && /1 von 1/.test(list.querySelector('summary')!.textContent!), `summary ${list?.querySelector('summary')?.textContent}`);
+    list.open = true;
+    const item = () => doc.querySelector('.seekchat-tools-item[data-tool="import_references"]') as HTMLElement;
+    const select = () => item().querySelector('select[data-option="parser"]') as HTMLSelectElement;
+    const findrefsOption = () => Array.from(select().options).find((o) => o.value === 'zotero-reference')!;
+    assert(findrefsOption().disabled, 'zotero-reference offered without the plugin');
+
+    // Off: no tools sent, the model just answers.
+    const box = item().querySelector('input[type=checkbox]') as HTMLInputElement;
+    box.click();
+    assert(Zotero.Prefs.get('seekchat.tools.disabled') === 'import_references', `pref ${Zotero.Prefs.get('seekchat.tools.disabled')}`);
+    assert(/0 von 1/.test(doc.querySelector('.seekchat-tools-list summary')!.textContent!), 'summary not updated');
+    view.input.value = 'Bitte importiere das';
+    await view.send();
+    const req = await mockLastRequest();
+    assert(!req.tools && !session.turns[1].toolRuns?.length, `tools sent while off: ${JSON.stringify(req.tools)}`);
+    (item().querySelector('input[type=checkbox]') as HTMLInputElement).click();
+    assert(!Zotero.Prefs.get('seekchat.tools.disabled'), 'tool not switched on again');
+
+    // Stand-in for Find Online References: its lookup finds the article, the report stays unknown.
+    const lookups: any[] = [];
+    (Zotero as any).FindOnlineReferences = { api: {
+      version: 1,
+      parseReference: (text: string) => ({ text, title: text.split('. ')[0], authors: [], identifiers: {} }),
+      lookup: async (ref: any) => {
+        lookups.push(ref);
+        return /Klimawandel/.test(ref.title) ? { title: 'Klimawandel im urbanen Bereich (OpenAlex)', authors: ['Kuttler, Wilhelm'], year: '2011', identifiers: {}, type: 'journalArticle', venue: 'ESEU', source: 'openalex' } : undefined;
+      },
+    } };
+    try {
+      toolsWin.dispatchEvent(new toolsWin.Event('focus'));
+      await waitFor('zotero-reference offered', () => !findrefsOption().disabled, 5000);
+      select().value = 'zotero-reference';
+      select().dispatchEvent(new toolsWin.Event('change'));
+      assert(Zotero.Prefs.get('seekchat.tools.import_references.parser') === 'zotero-reference', 'option not stored');
+      session.clear();
+      view.input.value = 'Bitte importiere diese Quellen';
+      const asked = view.send();
+      const run = await waitFor('preview', () => session.turns[1]?.toolRuns?.find((r) => r.state === 'confirm'), 15000);
+      assert(lookups.length === 2, `${lookups.length} lookups`);
+      assert(run.items![0].label.includes('(OpenAlex)') && /openalex/.test(run.items![0].detail || ''), `first ${JSON.stringify(run.items![0])}`);
+      assert(/Quellentext/.test(run.items![1].detail || ''), `second falls back to text: ${run.items![1].detail}`);
+      session.confirm(run, false);
+      await asked;
+    } finally {
+      delete (Zotero as any).FindOnlineReferences;
+      Zotero.Prefs.set('seekchat.tools.import_references.parser', 'zotero');
+    }
+    // Plugin gone: the stored choice would fall back; the option is offered disabled again.
+    toolsWin.dispatchEvent(new toolsWin.Event('focus'));
+    await waitFor('zotero-reference disabled again', () => findrefsOption().disabled, 5000);
+    await screenshot(ctx, 'tool-list', toolsWin);
+    toolsWin.close();
+    await waitFor('tool chat window closed', () => !getToolsChatView(), 5000);
   }],
 
   ['portal: Zotero accepts the certificate and serves updates.json', async () => {

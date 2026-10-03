@@ -17,6 +17,9 @@ import { ToolRegistry } from '../src/core/tools/registry';
 import type { Tool, ToolContext } from '../src/core/tools/types';
 import type { ToolRun, Turn } from '../src/core/turn';
 import { toolErrorMessage } from '../src/core/tools/session';
+import { effectiveOptions, isToolEnabled, setToolEnabled, setToolOption, storedOption } from '../src/core/tools/settings';
+import { findRefsResolver, mergeParsed } from '../src/core/tools/import-references/findrefs-resolver';
+import { ZOTERO_DEPS } from '../src/core/tools/import-references/tool';
 
 setLocale('de');
 
@@ -210,12 +213,12 @@ function scriptedClient(replies: ChatResult[]): LlmClient & { requests: ChatRequ
 
 function loopContext(answer: Turn) {
   return (run: ToolRun): ToolContext => ({
-    target: { libraryID: 1, label: 'Meine Bibliothek' }, signal: new AbortController().signal, run, update: () => {}, confirm: async () => true,
+    target: { libraryID: 1, label: 'Meine Bibliothek' }, options: {}, signal: new AbortController().signal, run, update: () => {}, confirm: async () => true,
   });
 }
 
 test('loop: tool call, result back to the model, final answer', async () => {
-  const echo: Tool = { spec: TOOL, title: () => 'Echo', run: async (args) => `got ${args.a}` };
+  const echo: Tool = { spec: TOOL, label: () => 'Echo', description: () => '', title: () => 'Echo', run: async (args) => `got ${args.a}` };
   const client = scriptedClient([
     { text: '<think>hm</think>Moment.', toolCalls: [{ id: 'c1', name: 't', arguments: { a: 7 } }] },
     { text: 'Fertig.', toolCalls: [] },
@@ -236,7 +239,7 @@ test('loop: unknown tool and broken arguments go back as errors; rounds are limi
     { text: 'last', toolCalls: [{ id: 'c3', name: 't', arguments: {} }] },
   ]);
   const answer: Turn = { role: 'assistant', content: '', pending: true };
-  const tool: Tool = { spec: TOOL, title: () => 'T', run: async () => 'ok' };
+  const tool: Tool = { spec: TOOL, label: () => 'T', description: () => '', title: () => 'T', run: async () => 'ok' };
   await runToolLoop({ client, request: { model: 'm', temperature: 0, maxTokens: 10 }, messages: [], registry: new ToolRegistry([tool]), answer, notify: () => {}, context: loopContext(answer), maxRounds: 2 });
   assert.deepEqual(answer.toolRuns!.map((r) => r.state), ['error', 'error']);
   assert.match(client.requests[1].messages.at(-1)!.content, /no tool named "nope"/);
@@ -271,7 +274,7 @@ function fakeDeps(opts: { duplicateTitle?: string } = {}) {
 function toolContext(confirm: (run: ToolRun) => boolean) {
   const run: ToolRun = { id: 'c1', name: 'import_references', title: '', state: 'running' };
   const ctx: ToolContext = {
-    target: { libraryID: 1, collectionID: 5, label: 'Sammlung „Klima“' }, signal: new AbortController().signal, run, update: () => {},
+    target: { libraryID: 1, collectionID: 5, label: 'Sammlung „Klima“' }, options: {}, signal: new AbortController().signal, run, update: () => {},
     confirm: async () => { run.state = 'confirm'; const ok = confirm(run); run.state = 'running'; return ok; },
   };
   return { run, ctx };
@@ -310,4 +313,55 @@ test('import: no references is an error for the model', async () => {
   const { deps } = fakeDeps();
   const { ctx } = toolContext(() => true);
   assert.match(await importReferencesTool(deps).run({ references: [] }, ctx), /^Error: no references/);
+});
+
+// --- settings and the zotero-reference resolver (Zotero stubbed) ---
+
+function stubZotero(api?: any): Map<string, any> {
+  const prefs = new Map<string, any>();
+  (globalThis as any).Zotero = {
+    Prefs: { get: (k: string) => prefs.get(k), set: (k: string, v: any) => prefs.set(k, v) },
+    debug: () => {},
+    ...(api ? { FindOnlineReferences: { api } } : {}),
+  };
+  return prefs;
+}
+
+test('settings: tools on by default, switched off by pref; unavailable choice falls back to the default', () => {
+  stubZotero();
+  const tool = importReferencesTool(fakeDeps().deps);
+  assert.ok(isToolEnabled('import_references'));
+  setToolEnabled('import_references', false);
+  assert.ok(!isToolEnabled('import_references'));
+  setToolEnabled('import_references', true);
+  assert.ok(isToolEnabled('import_references'));
+  setToolOption(tool, 'parser', 'zotero-reference');
+  assert.equal(storedOption(tool, tool.options![0]), 'zotero-reference');
+  assert.deepEqual(effectiveOptions(tool), { parser: 'zotero' }, 'plugin missing');
+  stubZotero({ version: 1, parseReference: () => ({}), lookup: async () => undefined }).set('seekchat.tools.import_references.parser', 'zotero-reference');
+  assert.deepEqual(effectiveOptions(tool), { parser: 'zotero-reference' });
+  assert.deepEqual(ZOTERO_DEPS.resolvers({ parser: 'zotero-reference' }).map((r) => r.id), ['zotero-reference', 'identifier', 'url', 'text']);
+  assert.deepEqual(ZOTERO_DEPS.resolvers({ parser: 'zotero' }).map((r) => r.id), ['identifier', 'url', 'text']);
+  delete (globalThis as any).Zotero;
+});
+
+test('zotero-reference resolver: model fields win, DOI found -> Zotero lookup, else item from the record', async () => {
+  const parsed = { text: 't', title: 'Parsed title', authors: ['P'], year: '1999', identifiers: {} };
+  assert.deepEqual(mergeParsed(parsed, { title: 'Model title', DOI: 'doi:10.1000/a' }).identifiers, { DOI: '10.1000/a' });
+  assert.equal(mergeParsed(parsed, {}).title, 'Parsed title');
+  let looked: any = null;
+  const identifier: ReferenceResolver = { id: 'identifier', resolve: async (r) => (r.DOI ? { item: { itemType: 'journalArticle', title: 'Full' }, via: 'identifier', detail: `DOI ${r.DOI}` } : null) };
+  stubZotero({
+    version: 1,
+    parseReference: (text: string) => ({ ...parsed, text }),
+    lookup: async (ref: any) => { looked = ref; return ref.title === 'With DOI' ? { title: 'X', authors: [], identifiers: { DOI: '10.2/b' }, source: 'crossref' } : { title: 'Record', authors: ['Doe, Jane'], year: '2001', identifiers: {}, venue: 'J', type: 'journalArticle', source: 'openalex' }; },
+  });
+  const r = findRefsResolver(identifier);
+  const a = await r.resolve({ text: 'x', title: 'With DOI' }, new AbortController().signal);
+  assert.deepEqual([a?.via, a?.item.title, a?.detail], ['zotero-reference', 'Full', 'Find Online References (crossref): DOI 10.2/b']);
+  const b = await r.resolve({ text: 'y' }, new AbortController().signal);
+  assert.equal(looked.title, 'Parsed title');
+  assert.deepEqual([b?.item.title, b?.item.date, b?.item.publicationTitle, b?.detail], ['Record', '2001', 'J', 'Find Online References (openalex)']);
+  delete (globalThis as any).Zotero;
+  await assert.rejects(r.resolve({ text: 'z' }, new AbortController().signal), /not installed/);
 });
