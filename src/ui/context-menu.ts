@@ -30,12 +30,22 @@ function hasPdf(item: any): boolean {
   return Zotero.Items.get(item.getAttachments()).some((a: any) => a?.isPDFAttachment?.());
 }
 
-export function menuState(items = selectedItems()): { file: boolean; selection: boolean; selectionEnabled: boolean } {
-  return {
-    file: items.length === 1 && hasPdf(items[0]),
-    selection: items.length > 1,
-    selectionEnabled: !!(Zotero as any).ZotSeek,
-  };
+/**
+ * What the menu shows. Runs inside Zotero's menu building: it must never throw (an item whose children are not
+ * loaded yet makes getAttachments() throw) – then our entries just stay hidden.
+ */
+export function menuState(items?: any[]): { file: boolean; selection: boolean; selectionEnabled: boolean } {
+  try {
+    const list = items ?? selectedItems();
+    return {
+      file: list.length === 1 && hasPdf(list[0]),
+      selection: list.length > 1,
+      selectionEnabled: !!(Zotero as any).ZotSeek,
+    };
+  } catch (e) {
+    logError(e);
+    return { file: false, selection: false, selectionEnabled: false };
+  }
 }
 
 /** Opens the item's PDF in the reader and brings the chat section into view. */

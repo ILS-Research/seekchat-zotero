@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.17.1 – 2026-10-03
+
+- **Fix:** the check for SeekChat's item menu entries can no longer throw inside Zotero's menu building (an item whose
+  attachments are not loaded yet); our entries then just stay hidden. E2E: the item context menu opens right after an
+  import with PDF download.
+- Tests: the full E2E suite passes on Zotero 7.0.32, 8.0.4, 9.0.4 and 10.0.3.
+
 ## 0.17.0 – 2026-10-03
 
 - **SeekChat never sets the context window (`num_ctx`) any more:** Ollama reloaded the model whenever it differed

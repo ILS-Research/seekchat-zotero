@@ -942,7 +942,8 @@ export const scenarios: Scenario[] = [
       popup.hidePopup();
     } finally {
       removeLegacyMenu(win);
-      registerMenus(Zotero.SeekChat.info.id, `${Zotero.SeekChat.info.rootURI}content/icons/seekchat.svg`);
+      // As on startup: MenuManager (Zotero 8+), else the DOM entries again (Zotero 7).
+      if (!registerMenus(Zotero.SeekChat.info.id, `${Zotero.SeekChat.info.rootURI}content/icons/seekchat.svg`)) addLegacyMenu(win);
     }
   }],
 
@@ -1390,6 +1391,23 @@ export const scenarios: Scenario[] = [
     assert(!article.getAttachments().length, 'article got an attachment');
     assert(/PDF angehängt/.test(run.items![1].detail || '') && /keine PDF-Suche/.test(run.items![0].detail || ''), `details ${run.items!.map((i) => i.detail).join(' | ')}`);
     assert(/1 PDF angehängt/.test(run.status || ''), `status ${run.status}`);
+    // Right after the import (new items, PDF just attached and being indexed) the item context menu still opens.
+    await win.ZoteroPane.selectItems([article.id, report.id]);
+    const built = await Promise.race([win.ZoteroPane.buildItemContextMenu().then(() => 'built'), delay(10000).then(() => 'timeout')]);
+    assert(built === 'built', 'item context menu not built within 10 s after the import');
+    await win.ZoteroPane.selectItems([report.id]);
+    await win.ZoteroPane.buildItemContextMenu();
+    const menu = win.document.getElementById('zotero-itemmenu');
+    menu.openPopup(null, 'overlap', 0, 0, true, false);
+    await waitFor('item menu open', () => menu.state === 'open', 5000);
+    const entry = await waitFor('SeekChat entry for the new PDF', () => menu.querySelector('[data-l10n-id="seekchat-menu-chat-file"]:not([hidden])'), 5000)
+      .catch((e) => {
+        const ours = Array.from(menu.querySelectorAll('[data-l10n-id^="seekchat"], [id^="seekchat"]')) as Element[];
+        throw new Error(`${e.message}; state ${JSON.stringify(menuState([report]))}, attachments ${JSON.stringify(Zotero.Items.get(report.getAttachments()).map((a: any) => a.attachmentContentType))}, `
+          + `entries ${JSON.stringify(ours.map((x) => [x.id, x.getAttribute('data-l10n-id'), x.hasAttribute('hidden')]))}`);
+      });
+    assert(entry, 'no SeekChat entry for the imported item with PDF');
+    menu.hidePopup();
     const toolMsg = (await mockLastRequest()).messages.find((m: any) => m.role === 'tool');
     assert(toolMsg && JSON.parse(toolMsg.content).saved === 2, `tool result to model: ${toolMsg?.content}`);
     const link = Array.from(doc.querySelectorAll('.seekchat-tool-run .seekchat-cite')) as HTMLElement[];
