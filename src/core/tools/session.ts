@@ -25,6 +25,7 @@ export const TOOL_SYSTEM_PROMPT = [
   'Use a tool when the user asks for something it does; otherwise answer directly and briefly.',
   'To answer questions about the user\'s library ("do I have …", "what is in collection …"), search it with search_library '
   + 'and read items with get_item; for "these items", "this collection" or a marked passage use get_selection first.',
+  'To put found items into a collection (also a new one), call save_to_collection with their keys; the user confirms it.',
   'Name only items a tool returned; refer to them by author, year and title (the user sees them linked in the tool results).',
   'When the user gives literature references to add (citations, a bibliography, DOIs, ISBNs, URLs), call import_references once with all of them.',
   'Never claim that something was done unless a tool result says so. After a tool result, tell the user in a few words what happened.',

@@ -106,8 +106,8 @@ function toolRunBox(doc: Document, run: ToolRun, handlers: CitationHandlers): HT
   }
   if (run.state === 'confirm' && handlers.onToolConfirm) {
     const row = el(doc, 'div', 'seekchat-tool-buttons');
-    const ok = el(doc, 'button', 'seekchat-tool-ok', t('tools.confirm')) as HTMLButtonElement;
-    ok.disabled = !run.items?.some((x) => x.selectable && x.checked);
+    const ok = el(doc, 'button', 'seekchat-tool-ok', run.confirmLabel || t('tools.confirm')) as HTMLButtonElement;
+    ok.disabled = !run.confirmEmpty && !run.items?.some((x) => x.selectable && x.checked);
     ok.addEventListener('click', () => handlers.onToolConfirm!(run, true));
     const cancel = el(doc, 'button', 'seekchat-tool-cancel', t('tools.cancel')) as HTMLButtonElement;
     cancel.addEventListener('click', () => handlers.onToolConfirm!(run, false));

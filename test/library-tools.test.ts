@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  clampLimit, collectionPaths, countTags, cut, findCollection, inYearRange, itemLabel, mergeHits, sourceStatusText, stringArg, yearOf,
+  clampLimit, collectionPaths, planCollectionPath, countTags, cut, findCollection, inYearRange, itemLabel, mergeHits, sourceStatusText, stringArg, yearOf,
 } from '../src/core/tools/library/summary';
 import { toolSystemPrompt } from '../src/core/tools/session';
 import { effectiveOption } from '../src/core/tools/settings';
@@ -49,6 +49,17 @@ test('collections: paths, lookup by key, path or unique name; ambiguous names fa
   assert.equal(findCollection(paths, 'hitze').key, 'H');
   assert.throws(() => findCollection(paths, 'Stadtklima'), /several collections.*Projekt A \/ Stadtklima.*Projekt B \/ Stadtklima/);
   assert.throws(() => findCollection(paths, 'Nichts'), /no collection "Nichts"/);
+});
+
+test('saving into a collection path: existing part found, the rest to create', () => {
+  const paths = [{ key: 'P1', path: 'Projekt A' }, { key: 'S1', path: 'Projekt A / Stadtklima' }, { key: 'X', path: 'Hitze' }];
+  assert.deepEqual(planCollectionPath(paths, 'Projekt A / Stadtklima'), { existing: paths[1], create: [] });
+  assert.deepEqual(planCollectionPath(paths, 'projekt a / Stadtklima / Neu / Tiefer'), { existing: paths[1], create: ['Neu', 'Tiefer'] });
+  assert.deepEqual(planCollectionPath(paths, 'Stadtklima'), { existing: paths[1], create: [] }, 'unique name anywhere');
+  assert.deepEqual(planCollectionPath(paths, 'Ganz neu'), { existing: undefined, create: ['Ganz neu'] });
+  assert.deepEqual(planCollectionPath(paths, 'X'), { existing: paths[2], create: [] }, 'key');
+  assert.throws(() => planCollectionPath(paths, ' / '), /no collection name/);
+  assert.throws(() => planCollectionPath([...paths, { key: 'S2', path: 'B / Stadtklima' }], 'Stadtklima'), /several collections/);
 });
 
 test('tags counted per item, most used first, filtered', () => {

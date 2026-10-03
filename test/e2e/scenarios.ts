@@ -1440,7 +1440,7 @@ export const scenarios: Scenario[] = [
     const session = getToolSession();
     session.clear();
     const list = doc.querySelector('.seekchat-tools-list') as HTMLDetailsElement;
-    assert(list && /6 von 6/.test(list.querySelector('summary')!.textContent!), `summary ${list?.querySelector('summary')?.textContent}`);
+    assert(list && /7 von 7/.test(list.querySelector('summary')!.textContent!), `summary ${list?.querySelector('summary')?.textContent}`);
     list.open = true;
     const item = () => doc.querySelector('.seekchat-tools-item[data-tool="import_references"]') as HTMLElement;
     const select = () => item().querySelector('select[data-option="parser"]') as HTMLSelectElement;
@@ -1451,7 +1451,7 @@ export const scenarios: Scenario[] = [
     const box = item().querySelector('input[type=checkbox]') as HTMLInputElement;
     box.click();
     assert(Zotero.Prefs.get('seekchat.tools.disabled') === 'import_references', `pref ${Zotero.Prefs.get('seekchat.tools.disabled')}`);
-    assert(/5 von 6/.test(doc.querySelector('.seekchat-tools-list summary')!.textContent!), 'summary not updated');
+    assert(/6 von 7/.test(doc.querySelector('.seekchat-tools-list summary')!.textContent!), 'summary not updated');
     view.input.value = 'Bitte importiere das';
     await view.send();
     const req = await mockLastRequest();
@@ -1677,6 +1677,33 @@ export const scenarios: Scenario[] = [
       await win.ZoteroPane.selectItems([a.id, b.id]);
       const sel = await call('get_selection', {});
       assert(sel.result.selectedItems.map((x: any) => x.key).sort().join() === [a.key, b.key].sort().join(), `selection ${JSON.stringify(sel.result)}`);
+
+      // Save found items into a new nested collection: preview, confirm, created and filled; unknown keys reported.
+      const doc2 = toolsWin.document;
+      view.input.value = `TOOL save_to_collection ${JSON.stringify({ collection: 'E2E Suche / Ergebnisse Hitze', keys: [a.key, c.key, 'NOSUCHKY'] })}`;
+      const saving = view.send();
+      const run = await waitFor('collection preview', () => session.turns[session.turns.length - 1]?.toolRuns?.find((r) => r.state === 'confirm'), 10000);
+      assert(run.items!.length === 3 && run.items![0].checked && run.items![1].checked && !run.items![2].selectable, `preview ${JSON.stringify(run.items)}`);
+      assert(/Neue Sammlung „E2E Suche \/ Ergebnisse Hitze“/.test(run.status || ''), `status ${run.status}`);
+      const ok = await waitFor('confirm button', () => doc2.querySelector('.seekchat-tool-ok') as HTMLButtonElement, 5000);
+      assert(ok.textContent === 'Anlegen und speichern', `button ${ok.textContent}`);
+      ok.click();
+      await saving;
+      const made = Zotero.Collections.getByLibrary(lib, true).find((x: any) => x.name === 'Ergebnisse Hitze');
+      assert(made && made.parentID === parent.id, 'collection not created below "E2E Suche"');
+      assert(made.getChildItems(true).sort().join() === [a.id, c.id].sort().join(), `items in collection: ${made.getChildItems(true)}`);
+      const saved = JSON.parse([...(await mockLastRequest()).messages].reverse().find((m: any) => m.role === 'tool').content);
+      assert(saved.added === 2 && saved.created.join() === 'Ergebnisse Hitze' && saved.notFound.join() === 'NOSUCHKY', `result ${JSON.stringify(saved)}`);
+
+      // Again into the same collection: both already inside (unchecked), nothing to confirm; cancel.
+      view.input.value = `TOOL save_to_collection ${JSON.stringify({ collection: 'Ergebnisse Hitze', keys: [a.key, c.key] })}`;
+      const again = view.send();
+      const run2 = await waitFor('second preview', () => session.turns[session.turns.length - 1]?.toolRuns?.find((r) => r.state === 'confirm'), 10000);
+      assert(run2.items!.every((i) => !i.checked && i.badge === 'schon enthalten'), `again ${JSON.stringify(run2.items)}`);
+      assert((await waitFor('ok', () => doc2.querySelector('.seekchat-tool-ok') as HTMLButtonElement, 5000)).disabled, 'confirm enabled with nothing to add');
+      (doc2.querySelector('.seekchat-tool-cancel') as HTMLButtonElement).click();
+      await again;
+      assert(run2.state === 'cancelled' && made.getChildItems(true).length === 2, `after cancel ${run2.state}`);
 
       // The system prompt names today's date.
       const req = await mockLastRequest();

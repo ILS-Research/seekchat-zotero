@@ -65,6 +65,8 @@ Zotero tools**. The first tool imports references:
 - **Ask about your library:** "Which papers on heat islands do I have since 2020?", "What do my notes on the selected
   item say?", "Which tags do I use for methods?" – the chat searches with Zotero's search and, if installed, ZotSeek
   and SeekBook (switchable per tool), reads items, collections, tags and your current selection, and links what it finds.
+- **Collect what you found:** "Put these papers into a new collection Projekt A / Hitze" – the chat shows a preview
+  and creates the collection and adds the items once you confirm.
 - The **Tools** section at the top lists all tools: switch single ones off, and choose the lookup for imports –
   Zotero's own, or [Find Online References](../zotero-reference_src) first (better title search for references
   without DOI), when that plugin is installed.

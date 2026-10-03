@@ -41,6 +41,10 @@ export interface ToolRun {
   /** Progress or result line. */
   status?: string;
   items?: ToolRunItem[];
+  /** Label of the confirm button (default "Import selected"). */
+  confirmLabel?: string;
+  /** The confirm button works without a checked item (e.g. only creating a collection). */
+  confirmEmpty?: boolean;
 }
 
 export interface ToolRunItem {

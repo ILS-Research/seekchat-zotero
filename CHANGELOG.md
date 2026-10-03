@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.20.0 – 2026-10-03
+
+- **New tool: save to a collection.** Items found in the chat go into a collection – an existing one, or a new one
+  that is created, also nested ("Projekt A / Hitze": missing parts are created). Like the import it shows a preview
+  first (target, items with checkboxes; items already inside unchecked, unknown keys marked) and changes nothing
+  before you confirm ("Anlegen und speichern" / "In Sammlung speichern"). Without items it only creates the collection.
+- Full E2E suite on Zotero 7.0.32, 8.0.4, 9.0.4 and 10.0.3 (also covers 0.19.0, which was tested on 7 and 10 only).
+
 ## 0.19.0 – 2026-10-03
 
 - **Tool chat can search and read the library** – five new read-only tools, each in the tool list (switchable):

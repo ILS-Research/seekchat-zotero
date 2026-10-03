@@ -182,3 +182,30 @@ export function stringArg(v: unknown): string[] {
   if (typeof v === 'string' && v.trim()) return v.split(/\s*[,;]\s*/).filter(Boolean);
   return [];
 }
+
+/**
+ * What saving into the collection `path` ("A / B / C") needs: the deepest existing collection on that path and the
+ * names still to create below it (in order). Matching is case-insensitive per segment; a key names an existing one.
+ */
+export function planCollectionPath(paths: { key: string; path: string }[], path: string): { existing?: { key: string; path: string }; create: string[] } {
+  const ref = String(path || '').trim();
+  const byKey = paths.find((p) => p.key === ref);
+  if (byKey) return { existing: byKey, create: [] };
+  const segments = ref.split('/').map((s) => s.trim()).filter(Boolean);
+  if (!segments.length) throw new Error('no collection name given');
+  // A single name that exists once somewhere (not only at the top) means that collection.
+  if (segments.length === 1) {
+    const named = paths.filter((p) => p.path.split(' / ').pop()!.toLowerCase() === segments[0].toLowerCase());
+    if (named.length === 1) return { existing: named[0], create: [] };
+    if (named.length > 1) throw new Error(`several collections are named "${segments[0]}": ${named.map((p) => `"${p.path}" (${p.key})`).join(', ')}`);
+  }
+  let existing: { key: string; path: string } | undefined;
+  let i = 0;
+  for (; i < segments.length; i++) {
+    const want = segments.slice(0, i + 1).join(' / ').toLowerCase();
+    const hit = paths.find((p) => p.path.toLowerCase() === want);
+    if (!hit) break;
+    existing = hit;
+  }
+  return { existing, create: segments.slice(i) };
+}
