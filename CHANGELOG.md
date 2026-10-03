@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.16.1 – 2026-10-03
+
+- **Fix (tool chat):** ticking or unticking a reference in the import preview no longer jumps to the end of the chat.
+  The window follows a running answer only while no tool waits for confirmation.
+
 ## 0.16.0 – 2026-10-03
 
 - **Import references now fetches the PDF:** after saving, Zotero's "Find Full Text" runs for each new item (DOI

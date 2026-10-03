@@ -274,7 +274,10 @@ export class ToolsChatView {
         main?.focus();
       },
     }, s, t('tools.thinking'));
-    if (atBottom || s.busy) this.messages.scrollTop = this.messages.scrollHeight;
+    // Follow a running answer to the end – but not while a tool waits for the user: ticking an item in its preview
+    // would otherwise jump to the end of the chat each time.
+    const waiting = s.turns.some((turn) => turn.toolRuns?.some((run) => run.state === 'confirm'));
+    if (atBottom || (s.busy && !waiting)) this.messages.scrollTop = this.messages.scrollHeight;
   }
 
   dispose(): void {

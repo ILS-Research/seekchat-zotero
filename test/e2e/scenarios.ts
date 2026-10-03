@@ -26,7 +26,7 @@ import { addLegacyMenu, chatWithFile, chatWithSelection, menuState, registerMenu
 import { splitSourceCitations } from '../../src/core/citations';
 import { buildSources } from '../../src/core/library/sources';
 import { renderTurn } from '../../src/ui/turn-view';
-import { assert, screenshot, SkipError, waitFor, type E2EContext } from './harness';
+import { assert, delay, screenshot, SkipError, waitFor, type E2EContext } from './harness';
 
 type Scenario = [string, (ctx: E2EContext) => Promise<void>];
 
@@ -1354,6 +1354,20 @@ export const scenarios: Scenario[] = [
     const asked = view.send();
     const run = await waitFor('import preview', () => session.turns[3]?.toolRuns?.find((r) => r.state === 'confirm'), 15000);
     assert(run.items?.length === 2 && run.items.every((i) => i.selectable && i.checked && i.badge === 'Text'), `preview ${JSON.stringify(run.items)}`);
+    // Ticking an item keeps the scroll position (no jump to the end while the preview waits).
+    toolsWin.resizeTo(900, 380);
+    const messages = doc.querySelector('.seekchat-messages') as HTMLElement;
+    await waitFor('chat scrollable', () => messages.scrollHeight > messages.clientHeight + 60, 5000);
+    messages.scrollTop = 0;
+    const tick = await waitFor('preview checkbox', () => doc.querySelector('.seekchat-tool-items input[type=checkbox]') as HTMLInputElement, 5000);
+    tick.click();
+    await delay(300);
+    assert(messages.scrollTop === 0, `scrolled to ${messages.scrollTop} after unticking`);
+    assert(!run.items![0].checked, 'untick not taken over');
+    (doc.querySelector('.seekchat-tool-items input[type=checkbox]') as HTMLInputElement).click();
+    await delay(300);
+    assert(messages.scrollTop === 0 && run.items![0].checked, `after ticking again: ${messages.scrollTop}`);
+    toolsWin.resizeTo(900, 600);
     const ok = await waitFor('confirm button', () => doc.querySelector('.seekchat-tool-ok') as HTMLButtonElement, 5000);
     ok.click();
     await asked;
