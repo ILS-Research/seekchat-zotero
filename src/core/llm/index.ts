@@ -24,16 +24,19 @@ function logged(client: LlmClient): LlmClient {
     listModels: (signal) => client.listModels(signal),
     modelInfo: (model, signal) => client.modelInfo(model, signal),
     async streamChat(req, onDelta) {
+      return (await this.streamTurn(req, onDelta)).text;
+    },
+    async streamTurn(req, onDelta) {
       const chars = req.messages.reduce((n, m) => n + m.content.length, 0);
       const t0 = Date.now();
       let first = 0;
-      L.info(`→ ${req.model}: ${req.messages.length} messages, ${chars} chars, numCtx ${req.numCtx ?? "-"}, maxTokens ${req.maxTokens}, think ${req.think ?? "default"}`);
+      L.info(`→ ${req.model}: ${req.messages.length} messages, ${chars} chars, numCtx ${req.numCtx ?? "-"}, maxTokens ${req.maxTokens}, think ${req.think ?? "default"}${req.tools?.length ? `, tools ${req.tools.map((x) => x.name).join(',')}` : ''}`);
       try {
-        const out = await client.streamChat(req, (d) => {
+        const out = await client.streamTurn(req, (d) => {
           if (!first) first = Date.now() - t0;
           onDelta(d);
         });
-        L.info(`← ${req.model}: ${out.length} chars, first token after ${first} ms, done in ${Date.now() - t0} ms`);
+        L.info(`← ${req.model}: ${out.text.length} chars${out.toolCalls.length ? `, tool calls ${out.toolCalls.map((c) => c.name).join(',')}` : ''}, first token after ${first} ms, done in ${Date.now() - t0} ms`);
         return out;
       } catch (e: any) {
         L.warn(`✗ ${req.model} after ${Date.now() - t0} ms: ${e?.message || e}`);
@@ -43,4 +46,4 @@ function logged(client: LlmClient): LlmClient {
   };
 }
 
-export type { ChatMessage, LlmClient } from './types';
+export type { ChatMessage, ChatResult, LlmClient, ToolCall, ToolSpec } from './types';

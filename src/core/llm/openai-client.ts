@@ -1,6 +1,6 @@
 import { readLines, request } from './http';
-import { parseSseLine } from './stream-parsers';
-import type { ChatRequest, ClientConfig, LlmClient, ModelInfo } from './types';
+import { openAiMessages, parseSseLine, ToolCallAccumulator, toolsPayload } from './stream-parsers';
+import type { ChatRequest, ChatResult, ClientConfig, LlmClient, ModelInfo } from './types';
 
 /** Any OpenAI-compatible server (vLLM, llama.cpp, LM Studio, LiteLLM, Ollama /v1, own FastAPI). */
 export class OpenAiClient implements LlmClient {
@@ -21,18 +21,24 @@ export class OpenAiClient implements LlmClient {
   }
 
   async streamChat(req: ChatRequest, onDelta: (text: string) => void): Promise<string> {
+    return (await this.streamTurn(req, onDelta)).text;
+  }
+
+  async streamTurn(req: ChatRequest, onDelta: (text: string) => void): Promise<ChatResult> {
     const resp = await request(this.cfg, '/chat/completions', {
       method: 'POST',
       signal: req.signal,
       body: {
         model: req.model,
-        messages: req.messages,
+        messages: openAiMessages(req.messages),
+        ...toolsPayload(req.tools),
         stream: true,
         temperature: req.temperature,
         max_tokens: req.maxTokens,
       },
     });
     let full = '';
+    const calls = new ToolCallAccumulator();
     await readLines(resp, (line) => {
       const ev = parseSseLine(line);
       if (!ev) return;
@@ -41,8 +47,9 @@ export class OpenAiClient implements LlmClient {
         full += ev.delta;
         onDelta(ev.delta);
       }
+      if (ev.toolDeltas) calls.push(ev.toolDeltas);
       if (ev.done) return false;
     });
-    return full;
+    return { text: full, toolCalls: calls.result() };
   }
 }

@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?xml-stylesheet href="chrome://global/skin/" type="text/css"?>
+<?xml-stylesheet href="chrome://zotero/skin/zotero.css" type="text/css"?>
+<?xml-stylesheet href="chrome://zotero-platform/content/zotero.css" type="text/css"?>
+<?xml-stylesheet href="chrome://seekchat/content/chat.css" type="text/css"?>
+<?xml-stylesheet href="chrome://seekchat/content/libraryChat.css" type="text/css"?>
+<!DOCTYPE window>
+<!-- Tool chat window: a general chat whose model can act in Zotero through tools
+     (first: import references). Built by the plugin (Zotero.SeekChat.onToolsWindowLoad),
+     laid out like the library chat window. -->
+<window
+  xmlns="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul"
+  xmlns:html="http://www.w3.org/1999/xhtml"
+  id="seekchat-tools-window"
+  windowtype="seekchat:tools"
+  title="SeekChat"
+  width="900"
+  height="600"
+  persist="width,height,screenX,screenY">
+
+  <script src="chrome://zotero/content/include.js"></script>
+  <script>
+    window.addEventListener('load', () => Zotero.SeekChat.onToolsWindowLoad(window), { once: true });
+    window.addEventListener('unload', () => Zotero.SeekChat?.onToolsWindowUnload(window), { once: true });
+  </script>
+
+  <html:div id="seekchat-tools-root" class="seekchat-library"/>
+</window>

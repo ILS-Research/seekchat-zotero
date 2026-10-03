@@ -7,7 +7,7 @@
 import { t, tn, type Key } from '../i18n';
 import { citedSourceNumbers, splitCitations, splitSourceCitations } from '../core/citations';
 import { pageGroups, type LibrarySource } from '../core/library/sources';
-import { SKIPPABLE, type BookProgress, type Turn } from '../core/turn';
+import { SKIPPABLE, type BookProgress, type ToolRun, type Turn } from '../core/turn';
 import { renderMarkdown, type CitationSplitter } from './markdown';
 import { compressRanges } from '../core/prompt';
 import { bookDetails, bookStateText } from '../core/book-report';
@@ -23,6 +23,12 @@ export interface CitationHandlers {
   onSkipBook?: (turn: Turn, index: number) => void;
   /** Save one finished answer (with its question) as a Zotero note. */
   onSaveAnswer?: (turn: Turn, button: HTMLButtonElement) => void;
+  /** Tool chat: the user's answer to a run waiting for confirmation. */
+  onToolConfirm?: (run: ToolRun, ok: boolean) => void;
+  /** Tool chat: an item of a run waiting for confirmation was checked or unchecked. */
+  onToolToggle?: (run: ToolRun, index: number, checked: boolean) => void;
+  /** Tool chat: show a Zotero item (saved or already present). */
+  onShowItem?: (itemID: number) => void;
 }
 
 function el(doc: Document, tag: string, cls?: string, text?: string): HTMLElement {
@@ -68,6 +74,46 @@ function bookList(doc: Document, turn: Turn, handlers: CitationHandlers): HTMLEl
     list.append(li);
   });
   box.append(list);
+  return box;
+}
+
+/** One tool call: title and state, its items (checkboxes while it waits for confirmation), the buttons. */
+function toolRunBox(doc: Document, run: ToolRun, handlers: CitationHandlers): HTMLElement {
+  const box = el(doc, 'div', `seekchat-tool-run state-${run.state}`);
+  const head = el(doc, 'div', 'seekchat-tool-head');
+  head.append(el(doc, 'span', 'seekchat-tool-title', `🛠 ${run.title}`), doc.createTextNode(' – '), el(doc, 'span', 'seekchat-tool-state', t(`tools.state.${run.state}` as Key)));
+  box.append(head);
+  if (run.status) box.append(el(doc, 'div', 'seekchat-tool-status', run.status));
+  if (run.items?.length) {
+    const list = el(doc, 'ul', 'seekchat-tool-items');
+    run.items.forEach((item, i) => {
+      const li = el(doc, 'li');
+      if (run.state === 'confirm' && item.selectable) {
+        const box = el(doc, 'input') as HTMLInputElement;
+        box.type = 'checkbox';
+        box.checked = !!item.checked;
+        box.addEventListener('change', () => handlers.onToolToggle?.(run, i, box.checked));
+        li.append(box, doc.createTextNode(' '));
+      }
+      if (item.badge) li.append(el(doc, 'span', 'seekchat-tool-badge', item.badge), doc.createTextNode(' '));
+      li.append(item.itemID && handlers.onShowItem
+        ? cite(doc, item.label, t('lib.showInLibrary'), () => handlers.onShowItem!(item.itemID!))
+        : el(doc, 'span', 'seekchat-tool-label', item.label));
+      if (item.detail) li.append(el(doc, 'div', 'seekchat-tool-detail', item.detail));
+      list.append(li);
+    });
+    box.append(list);
+  }
+  if (run.state === 'confirm' && handlers.onToolConfirm) {
+    const row = el(doc, 'div', 'seekchat-tool-buttons');
+    const ok = el(doc, 'button', 'seekchat-tool-ok', t('tools.confirm')) as HTMLButtonElement;
+    ok.disabled = !run.items?.some((x) => x.selectable && x.checked);
+    ok.addEventListener('click', () => handlers.onToolConfirm!(run, true));
+    const cancel = el(doc, 'button', 'seekchat-tool-cancel', t('tools.cancel')) as HTMLButtonElement;
+    cancel.addEventListener('click', () => handlers.onToolConfirm!(run, false));
+    row.append(ok, cancel);
+    box.append(row);
+  }
   return box;
 }
 
@@ -117,13 +163,14 @@ function renderMessage(doc: Document, turn: Turn, handlers: CitationHandlers, pe
     return box;
   }
   if (turn.bookProgress?.length) box.append(bookList(doc, turn, handlers));
+  for (const run of turn.toolRuns || []) box.append(toolRunBox(doc, run, handlers));
   if (turn.error) {
     box.append(doc.createTextNode(turn.content));
     return box;
   }
   if (turn.meta) box.append(el(doc, 'span', 'seekchat-meta', turn.meta));
   if (turn.pending && !turn.content) {
-    box.append(doc.createTextNode(turn.meta ? '…' : pendingText));
+    if (!turn.toolRuns?.length) box.append(doc.createTextNode(turn.meta ? '…' : pendingText));
     return box;
   }
   const sources = turn.sources;
@@ -158,7 +205,7 @@ function renderMessage(doc: Document, turn: Turn, handlers: CitationHandlers, pe
 export function turnSignature(turn: Turn): string {
   return JSON.stringify([
     turn.role, turn.content, turn.notice, turn.meta, !!turn.error, !!turn.pending, !!turn.noteSaved,
-    turn.sources?.map((s) => s.n), turn.bookProgress,
+    turn.sources?.map((s) => s.n), turn.bookProgress, turn.toolRuns,
   ]);
 }
 

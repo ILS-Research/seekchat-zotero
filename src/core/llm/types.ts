@@ -1,6 +1,31 @@
 export interface ChatMessage {
-  role: 'system' | 'user' | 'assistant';
+  role: 'system' | 'user' | 'assistant' | 'tool';
   content: string;
+  /** Assistant: the tools the model asked for in this message. */
+  toolCalls?: ToolCall[];
+  /** Tool: answer to this call (id and name of the call). */
+  toolCallId?: string;
+  toolName?: string;
+}
+
+/** A tool the model may call (function calling); `parameters` is a JSON schema. */
+export interface ToolSpec {
+  name: string;
+  description: string;
+  parameters: Record<string, unknown>;
+}
+
+/** One call the model made; `arguments` already parsed (unparseable JSON: `{ _raw: text }`). */
+export interface ToolCall {
+  id: string;
+  name: string;
+  arguments: Record<string, any>;
+}
+
+/** Result of one model call: the text and the tool calls (empty without tools). */
+export interface ChatResult {
+  text: string;
+  toolCalls: ToolCall[];
 }
 
 export interface ChatRequest {
@@ -15,6 +40,8 @@ export interface ChatRequest {
    * on, and the reasoning is hidden from us, so the answer starts late). SeekChat sends false for helper calls.
    */
   think?: boolean;
+  /** Tools offered to the model; it answers with text, tool calls or both. */
+  tools?: ToolSpec[];
   signal?: AbortSignal;
 }
 
@@ -33,6 +60,8 @@ export interface LlmClient {
   modelInfo(model: string, signal?: AbortSignal): Promise<ModelInfo>;
   /** Streams the answer; calls onDelta per text fragment and resolves with the full text. */
   streamChat(req: ChatRequest, onDelta: (text: string) => void): Promise<string>;
+  /** Like streamChat, but also returns the tool calls of the answer (req.tools). */
+  streamTurn(req: ChatRequest, onDelta: (text: string) => void): Promise<ChatResult>;
 }
 
 export interface ClientConfig {

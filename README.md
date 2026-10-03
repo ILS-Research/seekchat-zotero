@@ -44,6 +44,18 @@ or a whole library**. You choose where the answers come from:
   *“What exactly is on page 45 of [2]?”*, *“search also for …”*; for a new topic start a new chat.
 - Save a chat as Markdown or as a Zotero note.
 
+### Tool chat: let SeekChat act in Zotero
+The speech bubble with a plus in the items toolbar (no ZotSeek needed) opens a **general chat whose model can use
+Zotero tools**. The first tool imports references:
+
+- Paste one reference or a whole bibliography and ask to import it ("Importiere diese Quellen …").
+- The model splits the text into references; Zotero looks up DOIs, ISBNs, labelled PMIDs, arXiv ids and web pages
+  itself (like *Add Item by Identifier*). What cannot be looked up is created from the reference text.
+- A **preview** shows every reference (found / text only / already in the library); items already in the library are
+  unchecked. Nothing is saved before you click **Import selected**.
+- Items go to the target chosen at the top: the collection selected in Zotero or a library.
+- Needs a model with tool calling (e.g. Qwen 3, Llama 3.1+, Mistral).
+
 ---
 
 ## Install

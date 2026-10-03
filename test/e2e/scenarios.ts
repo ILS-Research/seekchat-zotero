@@ -18,7 +18,9 @@ import { logger } from '../../src/util/log';
 import { collectionScope, itemsScope, libraryScope, LibraryContextProvider } from '../../src/core/library/library-context';
 import { openSourceCitation } from '../../src/core/library/zotero-items';
 import { getLibraryChatWindow, getPrefsPaneID, openLibraryChat } from '../../src/ui/library-window';
-import { getToolbarButton } from '../../src/ui/toolbar-button';
+import { getToolbarButton, getToolsToolbarButton } from '../../src/ui/toolbar-button';
+import { getToolsChatView, getToolsChatWindow, openToolsChat } from '../../src/ui/tools-window';
+import { getToolSession } from '../../src/core/tools/session';
 import { setSaveChatTestPath } from '../../src/ui/save-chat';
 import { addLegacyMenu, chatWithFile, chatWithSelection, menuState, registerMenus, removeLegacyMenu, unregisterMenus } from '../../src/ui/context-menu';
 import { splitSourceCitations } from '../../src/core/citations';
@@ -1319,6 +1321,72 @@ export const scenarios: Scenario[] = [
 
   // Zotero's own connection (NSS store of the profile) must accept the portal's certificate, signed by the in-house CA:
   // otherwise the plugin's automatic update check fails.
+  ['tool chat: button without ZotSeek, references imported after confirmation, duplicates offered unchecked', async (ctx) => {
+    const win = Zotero.getMainWindow();
+    setPref('provider', 'ollama');
+    setPref('baseUrl', MOCK);
+    setPref('model', 'mock-model');
+    const button = await waitFor('tools button', () => getToolsToolbarButton(), 5000);
+    assert(!getToolbarButton(), 'library chat button without ZotSeek');
+    assert(button.previousElementSibling?.id === 'zotero-tb-lookup', `tools button after ${button.previousElementSibling?.id}`);
+    const col = new Zotero.Collection();
+    col.libraryID = Zotero.Libraries.userLibraryID;
+    col.name = 'SeekChat Import E2E';
+    await col.saveTx();
+    await win.ZoteroPane.collectionsView.selectByID(`C${col.id}`);
+    await waitFor('collection selected', () => win.ZoteroPane.getSelectedCollection()?.id === col.id, 5000);
+    button.doCommand();
+    const toolsWin = await waitFor('tool chat window', () => getToolsChatWindow(), 10000);
+    const view = await waitFor('tool chat view', () => getToolsChatView(), 10000);
+    assert(view.target?.collectionID === col.id, `target ${JSON.stringify(view.target)}`);
+    const doc = toolsWin.document;
+    const session = getToolSession();
+    session.clear();
+
+    // Plain question: answer without tools run.
+    view.input.value = 'Hallo?';
+    await view.send();
+    const hello = session.turns[1];
+    assert(hello.content === 'Hallo aus dem Werkzeug-Chat.' && !hello.toolRuns?.length, `hello: ${hello.content}`);
+
+    // Import: preview, confirm in the window, items in the collection.
+    view.input.value = 'Bitte importiere diese Quellen: …';
+    const asked = view.send();
+    const run = await waitFor('import preview', () => session.turns[3]?.toolRuns?.find((r) => r.state === 'confirm'), 15000);
+    assert(run.items?.length === 2 && run.items.every((i) => i.selectable && i.checked && i.badge === 'Text'), `preview ${JSON.stringify(run.items)}`);
+    const ok = await waitFor('confirm button', () => doc.querySelector('.seekchat-tool-ok') as HTMLButtonElement, 5000);
+    ok.click();
+    await asked;
+    const answer = session.turns[3];
+    assert(run.state === 'done' && run.items!.every((i) => i.itemID), `run ${run.state}: ${JSON.stringify(run.items)}`);
+    assert(/Erledigt: 2 gespeichert/.test(answer.content), `answer: ${answer.content}`);
+    const items = Zotero.Items.get(col.getChildItems(true));
+    const byTitle = (title: string) => (items as any[]).find((i) => i.getField('title').startsWith(title));
+    assert(items.length === 2, `${items.length} items in collection`);
+    const article = byTitle('Klimawandel im urbanen');
+    assert(article?.itemType === 'journalArticle' && article.getField('publicationTitle') === 'Environmental Sciences Europe' && article.getCreators()[0]?.lastName === 'Kuttler',
+      `article ${article?.itemType} ${article?.getField('publicationTitle')}`);
+    const report = byTitle('Hitze in der Stadt');
+    assert(report?.itemType === 'report' && report.getField('institution') === 'Umweltbundesamt' && report.getCreators()[0]?.fieldMode === 1,
+      `report ${report?.itemType} ${report?.getField('institution')} ${JSON.stringify(report?.getCreators())}`);
+    const toolMsg = (await mockLastRequest()).messages.find((m: any) => m.role === 'tool');
+    assert(toolMsg && JSON.parse(toolMsg.content).saved === 2, `tool result to model: ${toolMsg?.content}`);
+    const link = Array.from(doc.querySelectorAll('.seekchat-tool-run .seekchat-cite')) as HTMLElement[];
+    assert(link.length === 2, `${link.length} item links`);
+
+    // Same references again: both already there, unchecked; cancel saves nothing.
+    view.input.value = 'Importiere sie nochmal';
+    const again = view.send();
+    const run2 = await waitFor('second preview', () => session.turns[5]?.toolRuns?.find((r) => r.state === 'confirm'), 15000);
+    assert(run2.items!.every((i) => !i.checked && i.itemID), `duplicates ${JSON.stringify(run2.items)}`);
+    assert((doc.querySelector('.seekchat-tool-ok') as HTMLButtonElement)?.disabled, 'import button enabled without selection');
+    (doc.querySelector('.seekchat-tool-cancel') as HTMLButtonElement).click();
+    await again;
+    assert(run2.state === 'cancelled' && col.getChildItems(true).length === 2, `after cancel: ${run2.state}, ${col.getChildItems(true).length} items`);
+    await screenshot(ctx, 'tool-chat', toolsWin);
+    toolsWin.close();
+  }],
+
   ['portal: Zotero accepts the certificate and serves updates.json', async () => {
     let json: any;
     try {

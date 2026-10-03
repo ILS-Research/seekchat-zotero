@@ -1,6 +1,6 @@
 /* Library chat window, laid out like ZotSeek's search window: label rows on top,
    a framed main area, input below it, settings left and actions right at the bottom. */
-#seekchat-library-window { background: var(--material-background, -moz-dialog); }
+#seekchat-library-window, #seekchat-tools-window { background: var(--material-background, -moz-dialog); }
 .seekchat-library {
   display: flex; flex-direction: column; gap: 8px; flex: 1;
   height: 100vh; box-sizing: border-box; padding: 10px; font-size: 13px;
@@ -26,3 +26,16 @@
 .seekchat-library-coverage { color: var(--accent-orange, #b36b00); }
 
 .seekchat-answer-note { display: block; margin-top: 4px; margin-left: auto; font-size: 11px; padding: 1px 6px; min-height: 0; }
+
+/* Tool chat: one box per tool call, items with checkboxes while waiting for confirmation. */
+.seekchat-tool-run { border: 1px solid var(--fill-quinary); border-radius: 4px; padding: 4px 8px; margin: 4px 0 6px; font-size: 12px; }
+.seekchat-tool-run.state-confirm { border-color: var(--accent-blue, #1a73e8); }
+.seekchat-tool-run.state-error { border-color: var(--accent-red, #c62828); }
+.seekchat-tool-title { font-weight: 600; }
+.seekchat-tool-state, .seekchat-tool-status, .seekchat-tool-detail { color: var(--fill-secondary); }
+.seekchat-tool-status { margin-top: 2px; }
+.seekchat-tool-items { list-style: none; padding-left: 0; margin: 4px 0; }
+.seekchat-tool-items li { margin: 3px 0; }
+.seekchat-tool-detail { font-size: 11px; margin-left: 22px; }
+.seekchat-tool-badge { display: inline-block; font-size: 10px; padding: 0 4px; border-radius: 3px; background: var(--fill-quinary); }
+.seekchat-tool-buttons { display: flex; gap: 8px; margin-top: 4px; }

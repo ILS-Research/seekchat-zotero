@@ -10,6 +10,8 @@ import {
   closeLibraryChat, onLibraryWindowLoad, onLibraryWindowUnload, openLibraryChat, setPrefsPaneID,
 } from './ui/library-window';
 import { addToolbarButton, removeToolbarButton } from './ui/toolbar-button';
+import { closeToolsChat, onToolsWindowLoad, onToolsWindowUnload, openToolsChat } from './ui/tools-window';
+import { stopToolSession } from './core/tools/session';
 import { addLegacyMenu, registerMenus, removeLegacyMenu, unregisterMenus } from './ui/context-menu';
 import { log, logError } from './util/log';
 
@@ -22,6 +24,9 @@ class SeekChatPlugin {
   onLibraryWindowLoad = onLibraryWindowLoad;
   onLibraryWindowUnload = onLibraryWindowUnload;
   openLibraryChat = openLibraryChat;
+  onToolsWindowLoad = onToolsWindowLoad;
+  onToolsWindowUnload = onToolsWindowUnload;
+  openToolsChat = openToolsChat;
 
   async startup(info: { id: string; version: string; rootURI: string }): Promise<void> {
     this.info = info;
@@ -66,7 +71,9 @@ class SeekChatPlugin {
   shutdown(): void {
     unregisterMenus();
     closeLibraryChat();
+    closeToolsChat();
     stopAllSessions();
+    stopToolSession();
     unregisterChatSection();
     clearPageCache();
     for (const win of Zotero.getMainWindows()) this.onMainWindowUnload(win);

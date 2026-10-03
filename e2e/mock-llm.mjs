@@ -4,12 +4,33 @@
 // search terms -> JSON keyword list, library search plan -> JSON plan, pre-reading
 // a book -> the first page of the document as passage, library chat ("<sources>")
 // -> answer with source citations, anything else -> a fixed answer with a page citation.
+// Tool chat (request with tools): "importiere" -> tool call import_references with
+// IMPORT_REFS, after a tool result -> short answer quoting it, else a plain answer.
 import http from 'node:http';
 
 const ANSWER = 'Laut Dokument fuehren Starkregenereignisse in Staedten zu Ueberflutungen [S. 2].';
 const LIBRARY_ANSWER = 'Starkregen fuehrt zu Ueberflutungen [1, S. 2]; Waermeinseln erhoehen die Temperaturen [2, S. 27; 1].';
 const KEYWORDS = '["Waermeinseln", "Hitzeinseln", "urban heat island"]';
 const requests = [];
+export const IMPORT_REFS = [
+  {
+    text: 'Kuttler, W. (2011): Klimawandel im urbanen Bereich. Teil 1, Wirkungen. Environmental Sciences Europe 23, S. 1-12.',
+    itemType: 'journalArticle', title: 'Klimawandel im urbanen Bereich. Teil 1, Wirkungen', authors: ['Kuttler, Wilhelm'],
+    date: '2011', publicationTitle: 'Environmental Sciences Europe', volume: '23', pages: '1-12',
+  },
+  {
+    text: 'Umweltbundesamt (2019): Hitze in der Stadt – Strategien für eine klimaangepasste Stadtentwicklung. Dessau-Roßlau.',
+    itemType: 'report', title: 'Hitze in der Stadt – Strategien für eine klimaangepasste Stadtentwicklung', authors: ['Umweltbundesamt'],
+    date: '2019', publisher: 'Umweltbundesamt', place: 'Dessau-Roßlau',
+  },
+];
+
+async function toolCall(res, name, args) {
+  res.writeHead(200, { 'Content-Type': 'application/x-ndjson' });
+  res.write(JSON.stringify({ message: { role: 'assistant', content: 'Ich importiere die Quellen. ' }, done: false }) + '\n');
+  res.write(JSON.stringify({ message: { role: 'assistant', content: '', tool_calls: [{ function: { name, arguments: args } }] }, done: false }) + '\n');
+  res.end(JSON.stringify({ message: { role: 'assistant', content: '' }, done: true }) + '\n');
+}
 
 async function stream(res, text) {
   res.writeHead(200, { 'Content-Type': 'application/x-ndjson' });
@@ -38,6 +59,15 @@ const server = http.createServer(async (req, res) => {
     const parsed = JSON.parse(body);
     requests.push(parsed);
     const system = parsed.messages?.[0]?.content || '';
+    const last = parsed.messages?.[parsed.messages.length - 1] || {};
+    if (parsed.tools?.length) {
+      if (last.role === 'tool') {
+        const result = JSON.parse(last.content || '{}');
+        return stream(res, `Erledigt: ${result.saved ?? 0} gespeichert (${result.status || 'ok'}).`);
+      }
+      if (/importiere/i.test(last.content || '')) return toolCall(res, 'import_references', { references: IMPORT_REFS });
+      return stream(res, 'Hallo aus dem Werkzeug-Chat.');
+    }
     if (system.includes('Identify the language')) return stream(res, 'de');
     const question = parsed.messages?.[parsed.messages.length - 1]?.content || '';
     // Library plan: the question itself, its words as keywords (plus one that hits the long book, except for "Vulkane").

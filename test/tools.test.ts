@@ -1,0 +1,313 @@
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { setLocale } from '../src/i18n';
+import {
+  ollamaMessages, openAiMessages, parseOllamaLine, parseSseLine, parseToolArguments, ToolCallAccumulator,
+} from '../src/core/llm/stream-parsers';
+import { OllamaClient } from '../src/core/llm/ollama-client';
+import { OpenAiClient } from '../src/core/llm/openai-client';
+import type { ChatRequest, ChatResult, LlmClient } from '../src/core/llm/types';
+import {
+  cleanDOI, cleanISBN, fieldIdentifier, trustedTextIdentifiers, itemLabel, itemTypeOf, parseCreator, referencesFromArgs, referenceToItemJSON, sameTitle,
+} from '../src/core/tools/import-references/reference';
+import { resolveWithChain, type ReferenceResolver } from '../src/core/tools/import-references/resolvers';
+import { importReferencesTool, type ImportDeps } from '../src/core/tools/import-references/tool';
+import { runToolLoop } from '../src/core/tools/loop';
+import { ToolRegistry } from '../src/core/tools/registry';
+import type { Tool, ToolContext } from '../src/core/tools/types';
+import type { ToolRun, Turn } from '../src/core/turn';
+import { toolErrorMessage } from '../src/core/tools/session';
+
+setLocale('de');
+
+// --- stream parsers and wire formats ---
+
+test('Ollama line with tool calls: arguments as object, no id', () => {
+  const ev = parseOllamaLine(JSON.stringify({ message: { role: 'assistant', content: '', tool_calls: [{ function: { name: 'import_references', arguments: { references: [{ text: 'x' }] } } }] }, done: false }));
+  assert.deepEqual(ev?.toolCalls, [{ id: '', name: 'import_references', arguments: { references: [{ text: 'x' }] } }]);
+});
+
+test('OpenAI tool call fragments are joined per index', () => {
+  const acc = new ToolCallAccumulator();
+  const lines = [
+    { choices: [{ delta: { tool_calls: [{ index: 0, id: 'c1', type: 'function', function: { name: 'import_', arguments: '' } }] } }] },
+    { choices: [{ delta: { tool_calls: [{ index: 0, function: { name: 'references', arguments: '{"refer' } }] } }] },
+    { choices: [{ delta: { tool_calls: [{ index: 0, function: { arguments: 'ences":[]}' } }, { index: 1, id: 'c2', function: { name: 'other', arguments: 'nope' } }] } }] },
+    { choices: [{ delta: {}, finish_reason: 'tool_calls' }] },
+  ];
+  let done = false;
+  for (const l of lines) {
+    const ev = parseSseLine(`data: ${JSON.stringify(l)}`)!;
+    if (ev.toolDeltas) acc.push(ev.toolDeltas);
+    done ||= !!ev.done;
+  }
+  assert.ok(done);
+  assert.deepEqual(acc.result(), [
+    { id: 'c1', name: 'import_references', arguments: { references: [] } },
+    { id: 'c2', name: 'other', arguments: { _raw: 'nope' } },
+  ]);
+});
+
+test('tool arguments: objects pass, JSON strings are parsed, garbage is kept raw', () => {
+  assert.deepEqual(parseToolArguments({ a: 1 }), { a: 1 });
+  assert.deepEqual(parseToolArguments('{"a":1}'), { a: 1 });
+  assert.deepEqual(parseToolArguments(''), {});
+  assert.deepEqual(parseToolArguments('[1]'), { _raw: '[1]' });
+});
+
+test('messages with tool calls and results in both wire formats', () => {
+  const msgs = [
+    { role: 'user' as const, content: 'q' },
+    { role: 'assistant' as const, content: '', toolCalls: [{ id: 'c1', name: 't', arguments: { a: 1 } }] },
+    { role: 'tool' as const, content: 'ok', toolCallId: 'c1', toolName: 't' },
+  ];
+  assert.deepEqual(ollamaMessages(msgs), [
+    { role: 'user', content: 'q' },
+    { role: 'assistant', content: '', tool_calls: [{ function: { name: 't', arguments: { a: 1 } } }] },
+    { role: 'tool', content: 'ok', tool_name: 't' },
+  ]);
+  assert.deepEqual(openAiMessages(msgs), [
+    { role: 'user', content: 'q' },
+    { role: 'assistant', content: null, tool_calls: [{ id: 'c1', type: 'function', function: { name: 't', arguments: '{"a":1}' } }] },
+    { role: 'tool', content: 'ok', tool_call_id: 'c1' },
+  ]);
+});
+
+async function withFetch(body: string, fn: (calls: any[]) => Promise<void>): Promise<void> {
+  const calls: any[] = [];
+  const orig = globalThis.fetch;
+  globalThis.fetch = (async (url: string, init: any) => {
+    calls.push({ url, body: JSON.parse(init.body) });
+    return new Response(new ReadableStream({ start(c) { c.enqueue(new TextEncoder().encode(body)); c.close(); } }));
+  }) as any;
+  try {
+    await fn(calls);
+  } finally {
+    globalThis.fetch = orig;
+  }
+}
+
+const LOCAL = { baseUrl: 'http://127.0.0.1:11434', allowedRemoteHosts: [] };
+const TOOL = { name: 't', description: 'd', parameters: { type: 'object', properties: {} } };
+
+test('Ollama client sends tools and returns numbered tool calls', async () => {
+  const body = [
+    { message: { content: 'Ok. ' }, done: false },
+    { message: { content: '', tool_calls: [{ function: { name: 't', arguments: { a: 1 } } }] }, done: false },
+    { message: { content: '', tool_calls: [{ function: { name: 't', arguments: { a: 2 } } }] }, done: false },
+    { message: { content: '' }, done: true },
+  ].map((x) => JSON.stringify(x)).join('\n') + '\n';
+  await withFetch(body, async (calls) => {
+    const out = await new OllamaClient(LOCAL).streamTurn({ model: 'm', messages: [{ role: 'user', content: 'q' }], temperature: 0, maxTokens: 10, tools: [TOOL] }, () => {});
+    assert.equal(out.text, 'Ok. ');
+    assert.deepEqual(out.toolCalls.map((c) => [c.id, c.arguments.a]), [['call_0', 1], ['call_1', 2]]);
+    assert.deepEqual(calls[0].body.tools, [{ type: 'function', function: TOOL }]);
+  });
+});
+
+test('OpenAI client without tools sends no tools field', async () => {
+  const body = 'data: {"choices":[{"delta":{"content":"hi"}}]}\n\ndata: [DONE]\n\n';
+  await withFetch(body, async (calls) => {
+    const out = await new OpenAiClient(LOCAL).streamTurn({ model: 'm', messages: [{ role: 'user', content: 'q' }], temperature: 0, maxTokens: 10 }, () => {});
+    assert.deepEqual(out, { text: 'hi', toolCalls: [] });
+    assert.equal('tools' in calls[0].body, false);
+  });
+});
+
+// --- references ---
+
+test('item type from the model name or the fields', () => {
+  assert.equal(itemTypeOf({ itemType: 'Journal Article' }), 'journalArticle');
+  assert.equal(itemTypeOf({ itemType: 'inproceedings' }), 'conferencePaper');
+  assert.equal(itemTypeOf({ containerTitle: 'Handbuch' }), 'bookSection');
+  assert.equal(itemTypeOf({ publisher: 'oekom' }), 'book');
+  assert.equal(itemTypeOf({ url: 'https://x.de' }), 'webpage');
+  assert.equal(itemTypeOf({}), 'document');
+});
+
+test('creators: "Last, First", "First Last", particles, organisations', () => {
+  assert.deepEqual(parseCreator('Müller, Hans', 'author'), { creatorType: 'author', lastName: 'Müller', firstName: 'Hans' });
+  assert.deepEqual(parseCreator('Hans Peter Müller', 'author'), { creatorType: 'author', firstName: 'Hans Peter', lastName: 'Müller' });
+  assert.deepEqual(parseCreator('Ludwig van Beethoven', 'author'), { creatorType: 'author', firstName: 'Ludwig', lastName: 'van Beethoven' });
+  assert.deepEqual(parseCreator('Umweltbundesamt', 'author'), { creatorType: 'author', lastName: 'Umweltbundesamt', fieldMode: 1 });
+  assert.deepEqual(parseCreator('Deutsches Institut für Urbanistik', 'author'), { creatorType: 'author', lastName: 'Deutsches Institut für Urbanistik', fieldMode: 1 });
+  assert.equal(parseCreator('  ', 'author'), null);
+});
+
+test('identifiers: DOI from URL, ISBN only with a valid check digit', () => {
+  assert.equal(cleanDOI('https://doi.org/10.1016/j.uclim.2020.100123.'), '10.1016/j.uclim.2020.100123');
+  assert.equal(cleanISBN('ISBN 978-3-86581-123-4'), undefined);
+  assert.equal(cleanISBN('978-3-16-148410-0'), '9783161484100');
+  assert.equal(cleanISBN('3-16-148410-X'), '316148410X');
+  assert.deepEqual(fieldIdentifier({ url: 'https://doi.org/10.5194/hess-1-2' }), { DOI: '10.5194/hess-1-2' });
+  assert.deepEqual(fieldIdentifier({ ISBN: '978-3-16-148410-0' }), { ISBN: '9783161484100' });
+  assert.equal(fieldIdentifier({ text: 'no ids' }), undefined);
+});
+
+test('PMIDs from the text only when labelled (Zotero takes bare numbers for PMIDs)', () => {
+  const text = 'Kuttler (2011): Klima. Env. Sci. Eur. 23, S. 1-12. PMID: 21234567';
+  assert.deepEqual(trustedTextIdentifiers(text, [{ PMID: '1' }, { PMID: '21234567' }, { DOI: '10.1/x' }]), [{ PMID: '21234567' }, { DOI: '10.1/x' }]);
+});
+
+test('reference to item JSON: type-specific fields, editors, label', () => {
+  const item = referenceToItemJSON({
+    text: 'Müller, H.; Schmidt, A. (2020): Starkregen. In: Meier, K. (Hg.): Handbuch Stadtklima. Berlin: Springer, S. 10-20.',
+    itemType: 'bookSection', title: 'Starkregen', authors: ['Müller, H.', 'Schmidt, A.'], editors: ['Meier, K.'],
+    date: '2020', containerTitle: 'Handbuch Stadtklima', publisher: 'Springer', place: 'Berlin', pages: '10-20',
+  });
+  assert.equal(item.itemType, 'bookSection');
+  assert.equal(item.bookTitle, 'Handbuch Stadtklima');
+  assert.equal(item.publisher, 'Springer');
+  assert.deepEqual(item.creators!.map((c) => [c.creatorType, c.lastName]), [['author', 'Müller'], ['author', 'Schmidt'], ['editor', 'Meier']]);
+  assert.equal(itemLabel(item), 'Müller, Schmidt (2020): Starkregen');
+  const report = referenceToItemJSON({ text: 'x', itemType: 'report', title: 'Hitze', publisher: 'UBA' });
+  assert.equal(report.institution, 'UBA');
+  assert.equal(referenceToItemJSON({ text: 'Nur Text' }).title, 'Nur Text');
+});
+
+test('references from tool arguments: strings, objects, authors as one string', () => {
+  const refs = referencesFromArgs({ references: ['A. B. (2020) Titel', { title: 'T', authors: 'Müller, H.; Meier, K.' }, {}, null] });
+  assert.equal(refs.length, 2);
+  assert.equal(refs[0].text, 'A. B. (2020) Titel');
+  assert.deepEqual(refs[1].authors, ['Müller, H.', 'Meier, K.']);
+  assert.deepEqual(referencesFromArgs({}), []);
+});
+
+test('same title: word overlap, accents and case ignored', () => {
+  assert.ok(sameTitle('Urbane Hitzeinseln in Europa', 'urbane hitzeinseln in europa'));
+  assert.ok(!sameTitle('Urbane Hitzeinseln in Europa', 'Starkregen in Städten'));
+});
+
+// --- resolver chain ---
+
+test('chain: first resolver with a result wins, failures are collected', async () => {
+  const failing: ReferenceResolver = { id: 'a', resolve: async () => { throw new Error('HTTP 500'); } };
+  const none: ReferenceResolver = { id: 'b', resolve: async () => null };
+  const text: ReferenceResolver = { id: 'c', resolve: async (r) => ({ item: { itemType: 'document', title: r.text }, via: 'text' }) };
+  const out = await resolveWithChain({ text: 'T' }, [failing, none, text], new AbortController().signal);
+  assert.equal(out.resolved?.item.title, 'T');
+  assert.deepEqual(out.failures, ['a: HTTP 500']);
+});
+
+// --- loop ---
+
+/** Model stand-in: replies in order; records the requests. */
+function scriptedClient(replies: ChatResult[]): LlmClient & { requests: ChatRequest[] } {
+  const requests: ChatRequest[] = [];
+  return {
+    requests,
+    listModels: async () => [],
+    modelInfo: async () => ({}),
+    streamChat: async () => '',
+    async streamTurn(req, onDelta) {
+      requests.push({ ...req, messages: [...req.messages] });
+      const r = replies.shift() || { text: 'end', toolCalls: [] };
+      if (r.text) onDelta(r.text);
+      return r;
+    },
+  };
+}
+
+function loopContext(answer: Turn) {
+  return (run: ToolRun): ToolContext => ({
+    target: { libraryID: 1, label: 'Meine Bibliothek' }, signal: new AbortController().signal, run, update: () => {}, confirm: async () => true,
+  });
+}
+
+test('loop: tool call, result back to the model, final answer', async () => {
+  const echo: Tool = { spec: TOOL, title: () => 'Echo', run: async (args) => `got ${args.a}` };
+  const client = scriptedClient([
+    { text: '<think>hm</think>Moment.', toolCalls: [{ id: 'c1', name: 't', arguments: { a: 7 } }] },
+    { text: 'Fertig.', toolCalls: [] },
+  ]);
+  const answer: Turn = { role: 'assistant', content: '', pending: true };
+  await runToolLoop({ client, request: { model: 'm', temperature: 0, maxTokens: 10 }, messages: [{ role: 'user', content: 'q' }], registry: new ToolRegistry([echo]), answer, notify: () => {}, context: loopContext(answer) });
+  assert.equal(answer.content, 'Moment.\n\nFertig.');
+  assert.deepEqual(answer.toolRuns!.map((r) => [r.title, r.state]), [['Echo', 'done']]);
+  const second = client.requests[1].messages;
+  assert.deepEqual(second.slice(-2).map((m) => [m.role, m.content]), [['assistant', 'Moment.'], ['tool', 'got 7']]);
+  assert.ok(client.requests[1].tools?.length);
+});
+
+test('loop: unknown tool and broken arguments go back as errors; rounds are limited', async () => {
+  const client = scriptedClient([
+    { text: '', toolCalls: [{ id: 'c1', name: 'nope', arguments: {} }] },
+    { text: '', toolCalls: [{ id: 'c2', name: 't', arguments: { _raw: '{' } }] },
+    { text: 'last', toolCalls: [{ id: 'c3', name: 't', arguments: {} }] },
+  ]);
+  const answer: Turn = { role: 'assistant', content: '', pending: true };
+  const tool: Tool = { spec: TOOL, title: () => 'T', run: async () => 'ok' };
+  await runToolLoop({ client, request: { model: 'm', temperature: 0, maxTokens: 10 }, messages: [], registry: new ToolRegistry([tool]), answer, notify: () => {}, context: loopContext(answer), maxRounds: 2 });
+  assert.deepEqual(answer.toolRuns!.map((r) => r.state), ['error', 'error']);
+  assert.match(client.requests[1].messages.at(-1)!.content, /no tool named "nope"/);
+  assert.match(client.requests[2].messages.at(-1)!.content, /not valid JSON/);
+  assert.equal(client.requests[2].tools, undefined, 'last round without tools');
+  assert.equal(answer.content, 'last');
+});
+
+test('unsupported tool calling gets a hint', () => {
+  assert.match(toolErrorMessage(new Error('HTTP 400: registry.ollama.ai/library/gemma2 does not support tools')), /Tool-Unterstützung/);
+  assert.equal(toolErrorMessage(new Error('HTTP 500')), 'HTTP 500');
+});
+
+// --- import tool with fake Zotero ---
+
+function fakeDeps(opts: { duplicateTitle?: string } = {}) {
+  const saved: string[] = [];
+  const deps: ImportDeps = {
+    resolvers: () => [
+      { id: 'identifier', resolve: async (r) => (r.DOI ? { item: { itemType: 'journalArticle', title: `Found ${r.DOI}`, creators: [] }, via: 'identifier', detail: `DOI ${r.DOI}` } : null) },
+      { id: 'text', resolve: async (r) => ({ item: referenceToItemJSON(r), via: 'text' }) },
+    ],
+    findDuplicate: async (item) => (item.title === opts.duplicateTitle ? { id: 99 } : null),
+    save: async (resolved) => {
+      saved.push(String(resolved.item.title));
+      return { id: 100 + saved.length, getField: () => String(resolved.item.title) };
+    },
+  };
+  return { deps, saved };
+}
+
+function toolContext(confirm: (run: ToolRun) => boolean) {
+  const run: ToolRun = { id: 'c1', name: 'import_references', title: '', state: 'running' };
+  const ctx: ToolContext = {
+    target: { libraryID: 1, collectionID: 5, label: 'Sammlung „Klima“' }, signal: new AbortController().signal, run, update: () => {},
+    confirm: async () => { run.state = 'confirm'; const ok = confirm(run); run.state = 'running'; return ok; },
+  };
+  return { run, ctx };
+}
+
+test('import: preview with duplicate unchecked, saves only checked items, reports to the model', async () => {
+  const { deps, saved } = fakeDeps({ duplicateTitle: 'Alt' });
+  const tool = importReferencesTool(deps);
+  const { run, ctx } = toolContext((r) => {
+    assert.deepEqual(r.items!.map((i) => [i.badge, i.checked]), [['gefunden', true], ['vorhanden', false], ['Text', true]]);
+    r.items![2].checked = false;
+    return true;
+  });
+  const args = { references: [{ text: 'X, doi 10.1/x', DOI: '10.1/x' }, { text: 'Alt', title: 'Alt' }, { text: 'Neu', title: 'Neu' }] };
+  assert.equal(tool.title(args), '3 Quellen importieren');
+  const out = JSON.parse(await tool.run(args, ctx));
+  assert.deepEqual(saved, ['Found 10.1/x']);
+  assert.equal(out.saved, 1);
+  assert.deepEqual(out.references.map((r: any) => r.status), ['imported', 'already in library, not imported', 'skipped by the user']);
+  assert.equal(run.state, 'done');
+  assert.equal(run.items![0].itemID, 101);
+  assert.equal(run.items![1].itemID, 99, 'duplicate links to the existing item');
+  assert.equal(run.status, '1 Eintrag in Sammlung „Klima“ gespeichert.');
+});
+
+test('import: cancelled preview saves nothing', async () => {
+  const { deps, saved } = fakeDeps();
+  const { run, ctx } = toolContext(() => false);
+  const out = JSON.parse(await importReferencesTool(deps).run({ references: [{ text: 'A' }] }, ctx));
+  assert.equal(out.saved, 0);
+  assert.equal(saved.length, 0);
+  assert.equal(run.state, 'cancelled');
+});
+
+test('import: no references is an error for the model', async () => {
+  const { deps } = fakeDeps();
+  const { ctx } = toolContext(() => true);
+  assert.match(await importReferencesTool(deps).run({ references: [] }, ctx), /^Error: no references/);
+});

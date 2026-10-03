@@ -51,7 +51,10 @@ they use `docker` or fall back to `sudo docker`, and run containers with the cal
 | `src/core/zotseek/client.ts` | ZotSeek REST (`/zotseek/search`, `/zotseek/stats`) on Zotero's local server: status/diagnosis, passage search. No fallback: without the endpoint there is no library chat |
 | `src/core/library/` | Library chat without UI: `sources.ts` (`Evidence` from all sources → numbered sources, stable numbers, carry-over; **the PDF is kept per excerpt** — `attachmentFor()` picks the PDF a citation opens, `pageGroups()` groups pages per PDF for list, export and note), `plan.ts` (planning call: standalone question, queries, keywords as JSON), `books.ts` + `book-excerpts.ts` (keyword scan per book, pre-reading prompt `[Page N]` passages), `library-context.ts` (`LibraryContextProvider`, scopes, multi-query ZotSeek search), `zotero-items.ts` (library keys, `openSourceCitation`) |
 | `src/ui/library-window.ts`, `content/libraryChat.xhtml` | Library chat window (one instance; the xhtml calls `Zotero.SeekChat.onLibraryWindowLoad`, the plugin builds the DOM) |
-| `src/ui/toolbar-button.ts` | Button right after `#zotseek-toolbar-button`, kept in sync by a MutationObserver (plugin start order is not fixed) |
+| `src/ui/toolbar-button.ts` | Library chat button right after `#zotseek-toolbar-button`, tool chat button after it (else after `#zotero-tb-lookup`), kept in sync by a MutationObserver (plugin start order is not fixed) |
+| `src/core/tools/` | Tool chat: `Tool`/`ToolContext` (`types.ts`), `ToolRegistry`, `runToolLoop` (model ↔ tools, max 5 rounds, then once without tools), `ToolChatSession` (one, confirmation waits), `index.ts` = the registered tools |
+| `src/core/tools/import-references/` | Tool `import_references`: `reference.ts` (model fields → translator JSON, pure), `resolvers.ts` (resolver chain; new sources such as zotero-reference go in front), `zotero-resolvers.ts` (Translate.Search / Translate.Web lookups with `libraryID: false`, duplicates, saving via `Translate.ItemSaver`), `tool.ts` (preview → confirm → save) |
+| `src/ui/tools-window.ts`, `content/toolsChat.xhtml` | Tool chat window (target: selected collection or a library) |
 | `src/ui/turn-view.ts`, `src/ui/markdown.ts` | Rendering of one chat turn (safe Markdown subset, page or source citations, source list), shared by section and window |
 | `src/core/library/coverage.ts` | What ZotSeek cannot see in a scope (standalone PDFs, excluded books, abstract mode), from Zotero and ZotSeek's global prefs |
 | `src/core/session.ts` | One `ChatSession` per provider key (LRU, a running chat is kept): chat state, streaming, abort, `skipBook`; answers PDF questions itself; in memory only |
@@ -117,6 +120,11 @@ Extending: new sources are new `ContextProvider`s; session, prompt and turn rend
   sets `"search": true` (mock: `e2e/mock-*.mjs` decides by the question's words).
 - Test PDFs must not start every page with the same sentence (it counts as a running header and is removed):
   `e2e/make-pdf.mjs` rotates its filler sentences; `seekchat-headers.pdf` has a real header, footer and page labels.
+- LLM clients: `streamTurn` returns text and tool calls (Ollama: complete calls with object arguments, no ids;
+  OpenAI: fragments joined by `ToolCallAccumulator`); `ChatMessage` with `toolCalls`/`toolCallId` is mapped per wire format.
+- `Zotero.Utilities.extractIdentifiers` takes any bare number for a PMID (page "1" → PubMed article 1): from free text
+  only labelled PMIDs count (`trustedTextIdentifiers`).
+- E2E image: Zotero 7 ships as `.tar.bz2`, 8+ as `.tar.xz`; other versions via `ARG ZOTERO_VERSION` in `e2e/Dockerfile`.
 - Library window: the SeekBook switch stays locked until ZotSeek's status **and** the scope coverage are known
   (SeekBook's status arrives first; unlocking on it alone let the box flash up as allowed).
 

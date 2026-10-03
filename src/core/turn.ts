@@ -25,6 +25,34 @@ export interface Turn {
   bookProgress?: BookProgress[];
   /** Every request sent to the model for this answer, in order (for the Markdown export). */
   requests?: LlmRequestLog[];
+  /** Tool chat: the tools the model ran for this answer, in order. */
+  toolRuns?: ToolRun[];
+}
+
+export type ToolRunState = 'running' | 'confirm' | 'done' | 'error' | 'cancelled';
+
+/** One tool call as the UI shows it: progress line, a list (preview or result) and, in state "confirm", the user's choice. */
+export interface ToolRun {
+  id: string;
+  name: string;
+  /** What the tool does, in the UI language ("Import 3 references"). */
+  title: string;
+  state: ToolRunState;
+  /** Progress or result line. */
+  status?: string;
+  items?: ToolRunItem[];
+}
+
+export interface ToolRunItem {
+  label: string;
+  detail?: string;
+  /** Short state shown before the label ("found", "duplicate", "saved" …). */
+  badge?: string;
+  /** In state "confirm": the item is offered with a checkbox; `checked` is the user's choice. */
+  selectable?: boolean;
+  checked?: boolean;
+  /** Zotero item the label opens (existing duplicate or saved item). */
+  itemID?: number;
 }
 
 export interface LlmRequestLog {

@@ -90,22 +90,23 @@ export async function expandKeywords(
 
 /** Model client that records each request into the answer turn. */
 export function recordingClient(client: LlmClient, answer: Turn, purpose: () => string): LlmClient {
+  const streamTurn: LlmClient['streamTurn'] = (req, onDelta) => {
+    const why = purpose();
+    L.info(`model call: ${why}`);
+    (answer.requests ??= []).push({
+      purpose: why,
+      model: req.model,
+      temperature: req.temperature,
+      maxTokens: req.maxTokens,
+      numCtx: req.numCtx,
+      messages: req.messages.map((m) => ({ role: m.role, content: m.content })),
+    });
+    return client.streamTurn(req, onDelta);
+  };
   return {
     listModels: (signal) => client.listModels(signal),
     modelInfo: (model, signal) => client.modelInfo(model, signal),
-    streamChat: (req, onDelta) => {
-      const why = purpose();
-      L.info(`model call: ${why}`);
-      (answer.requests ??= []).push({
-        purpose: why,
-        model: req.model,
-        temperature: req.temperature,
-        maxTokens: req.maxTokens,
-        numCtx: req.numCtx,
-        messages: req.messages.map((m) => ({ role: m.role, content: m.content })),
-      });
-      return client.streamChat(req, onDelta);
-    },
+    streamChat: async (req, onDelta) => (await streamTurn(req, onDelta)).text,
+    streamTurn,
   };
 }
-

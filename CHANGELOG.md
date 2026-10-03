@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.14.0 – 2026-10-03
+
+- **New: tool chat** – a third chat next to the PDF and library chat, in its own window (button in the items
+  toolbar, works without ZotSeek). Its model can act in Zotero through tools (function calling, Ollama and
+  OpenAI-compatible servers).
+- **First tool: import references.** Paste references or a bibliography: the model splits them, Zotero looks up DOIs,
+  ISBNs, labelled PMIDs, arXiv ids and web pages with its own translators, the rest is created from the text. A preview
+  marks items already in the library (unchecked); only confirmed items are saved, into the selected collection or a
+  library.
+- Built to be extended: further tools register in `src/core/tools/`, further lookup sources (e.g. zotero-reference)
+  as resolvers in front of Zotero's own.
+- E2E image can run Zotero 7 again (`.tar.bz2` download).
+
 ## 0.13.3 – 2026-09-29
 
 - Internal: `session.ts` split up (review, maintainability): the library chat's pipeline is its own module

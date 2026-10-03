@@ -1,6 +1,6 @@
 import { HttpError, readLines, request } from './http';
-import { parseOllamaLine } from './stream-parsers';
-import type { ChatRequest, ClientConfig, LlmClient, ModelInfo } from './types';
+import { ollamaMessages, parseOllamaLine, toolsPayload } from './stream-parsers';
+import type { ChatRequest, ChatResult, ClientConfig, LlmClient, ModelInfo, ToolCall } from './types';
 
 /** Ollama's native API: lets us set num_ctx, which the /v1 endpoint cannot. */
 export class OllamaClient implements LlmClient {
@@ -22,10 +22,15 @@ export class OllamaClient implements LlmClient {
   private noThink = new Set<string>();
 
   async streamChat(req: ChatRequest, onDelta: (text: string) => void): Promise<string> {
+    return (await this.streamTurn(req, onDelta)).text;
+  }
+
+  async streamTurn(req: ChatRequest, onDelta: (text: string) => void): Promise<ChatResult> {
     const think = req.think !== undefined && !this.noThink.has(req.model) ? { think: req.think } : {};
     const body = {
       model: req.model,
-      messages: req.messages,
+      messages: ollamaMessages(req.messages),
+      ...toolsPayload(req.tools),
       stream: true,
       ...think,
       options: {
@@ -42,9 +47,10 @@ export class OllamaClient implements LlmClient {
       // "think" (a model name like qwen3-thinking, a proxy message) must not switch thinking off for good.
       if (!('think' in think) || !(e instanceof HttpError && e.status === 400) || !/support[^\n]*think/i.test(e.message)) throw e;
       this.noThink.add(req.model);
-      return this.streamChat(req, onDelta);
+      return this.streamTurn(req, onDelta);
     }
     let full = '';
+    const toolCalls: ToolCall[] = [];
     await readLines(resp, (line) => {
       const ev = parseOllamaLine(line);
       if (!ev) return;
@@ -53,9 +59,10 @@ export class OllamaClient implements LlmClient {
         full += ev.delta;
         onDelta(ev.delta);
       }
+      for (const c of ev.toolCalls || []) toolCalls.push({ ...c, id: c.id || `call_${toolCalls.length}` });
       if (ev.done) return false;
     });
-    return full;
+    return { text: full, toolCalls };
   }
 }
 
