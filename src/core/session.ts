@@ -303,7 +303,6 @@ export class ChatSession {
         messages: buildMessages({ systemPrompt: prefs.systemPrompt, context, history, question }),
         temperature: prefs.temperature,
         maxTokens: prefs.maxTokens,
-        numCtx: prefs.numCtx,
         think: prefs.thinking,
         signal: ctrl.signal,
       },

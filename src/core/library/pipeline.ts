@@ -215,7 +215,7 @@ export class LibraryPipeline {
       // From the second question on, the planner may ask to load pages or search in a named document (7e-2).
       const sources = history.length ? known.map((s) => ({ n: s.n, label: s.label, book: s.origin === 'book' })) : undefined;
       const reply = await client.streamChat(
-        { model: prefs.model, messages: buildPlanMessages({ question, history, scope, sources }), temperature: 0.1, maxTokens: 1024, numCtx: prefs.numCtx, think: false, signal },
+        { model: prefs.model, messages: buildPlanMessages({ question, history, scope, sources }), temperature: 0.1, maxTokens: 1024, think: false, signal },
         () => {},
       );
       return parsePlan(reply, question, sources ? new Set(known.map((s) => s.n)) : undefined);
@@ -385,7 +385,7 @@ export class LibraryPipeline {
         messages: buildMessages({ systemPrompt: '', context, history, question }),
         temperature: prefs.temperature,
         maxTokens: prefs.maxTokens,
-        numCtx: prefs.numCtx,
+       
         think: prefs.thinking,
         signal: ctrl.signal,
       },
@@ -511,7 +511,7 @@ export class LibraryPipeline {
           }),
           temperature: 0.1,
           maxTokens: Math.min(prefs.maxTokens, 4096),
-          numCtx: prefs.numCtx,
+         
           think: false,
           signal: bookCtrl.signal,
         },

@@ -1,8 +1,9 @@
 /**
- * Resolver through Find Online References (zotero-reference): its parser reads the reference text, its
- * lookup finds the record online (DOI/arXiv, else a plausibility-checked title search via Crossref,
- * OpenAlex …). With a DOI or arXiv id the full metadata comes from Zotero's identifier lookup; nothing
- * found: the next resolver (Zotero's own) is asked.
+ * Resolver through Find Online References (zotero-reference) for references WITHOUT identifier: its parser
+ * reads the reference text, its lookup finds the record by a plausibility-checked title search (Crossref,
+ * OpenAlex …). References with a DOI, arXiv id, ISBN or PMID are left to Zotero's identifier lookup, which
+ * asks every registration agency (Crossref, DataCite …). A DOI found by title gets its full metadata from
+ * Zotero's lookup too; nothing found: the next resolver (Zotero's own) is asked.
  */
 import { getFindRefsApi, type FindRefsFound, type FindRefsParsed } from '../../findrefs/client';
 import { cleanDOI, cleanISBN, referenceToItemJSON, type ReferenceInput } from './reference';
@@ -45,6 +46,8 @@ export function findRefsResolver(identifier: ReferenceResolver): ReferenceResolv
       const api = getFindRefsApi();
       if (!api) throw new Error('Find Online References is not installed');
       const parsed = mergeParsed(api.parseReference(ref.text || ref.title || ''), ref);
+      const ids = parsed.identifiers;
+      if (ids.DOI || ids.arXiv || ids.ISBN || ids.PMID) return null;
       const found = await api.lookup(parsed);
       if (!found) return null;
       const source = `Find Online References${found.source ? ` (${found.source})` : ''}`;

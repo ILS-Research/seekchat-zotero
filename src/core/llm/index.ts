@@ -30,7 +30,7 @@ function logged(client: LlmClient): LlmClient {
       const chars = req.messages.reduce((n, m) => n + m.content.length, 0);
       const t0 = Date.now();
       let first = 0;
-      L.info(`→ ${req.model}: ${req.messages.length} messages, ${chars} chars, numCtx ${req.numCtx ?? "-"}, maxTokens ${req.maxTokens}, think ${req.think ?? "default"}${req.tools?.length ? `, tools ${req.tools.map((x) => x.name).join(',')}` : ''}`);
+      L.info(`→ ${req.model}: ${req.messages.length} messages, ${chars} chars, maxTokens ${req.maxTokens}, think ${req.think ?? "default"}${req.tools?.length ? `, tools ${req.tools.map((x) => x.name).join(',')}` : ''}`);
       try {
         const out = await client.streamTurn(req, (d) => {
           if (!first) first = Date.now() - t0;

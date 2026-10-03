@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.17.0 – 2026-10-03
+
+- **SeekChat never sets the context window (`num_ctx`) any more:** Ollama reloaded the model whenever it differed
+  from the loaded one. Now the server's own window is used, and the text budget follows it: for Ollama the window of
+  the loaded model (`/api/ps`), else `num_ctx` from the Modelfile, else Ollama's default (4096) – no longer the model's
+  maximum, which Ollama does not use unasked. The settings show where the value comes from. Manual mode: the context
+  window is what the server is known to use (set it in the Modelfile or with `OLLAMA_CONTEXT_LENGTH`).
+- **Import references:** references with a DOI, ISBN, PMID or arXiv id go straight to Zotero's identifier lookup
+  (all registration agencies, e.g. DataCite); Find Online References is used for references without identifier,
+  its strength (title search). Failed intermediate steps are shown only when nothing was found, no longer next to
+  a successful lookup ("Suche fehlgeschlagen: … 404" for a DataCite DOI).
+
 ## 0.16.1 – 2026-10-03
 
 - **Fix (tool chat):** ticking or unticking a reference in the import preview no longer jumps to the end of the chat.

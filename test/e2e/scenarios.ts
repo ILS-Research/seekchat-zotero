@@ -241,8 +241,9 @@ export const scenarios: Scenario[] = [
     assert(answer.meta?.includes('vollständiger Text'), `unexpected meta: ${answer.meta}`);
     const req = await mockLastRequest();
     assert(req.model === 'mock-model', 'wrong model sent');
-    // Auto limits from the mock's /api/show: 80 % of 20480 -> 16384, answer 1638, text (16384-1638-1500)*3.5 -> 46000 chars.
-    assert(req.options?.num_ctx === 16384 && req.options?.num_predict === 1638, `auto limits not applied: ${JSON.stringify(req.options)}`);
+    // Auto limits from the mock's /api/ps (loaded window 20480): 80 % -> 16384, answer 1638, text -> 46000 chars.
+    // num_ctx is never sent: any other value than the loaded one makes Ollama reload the model.
+    assert(!('num_ctx' in (req.options || {})) && req.options?.num_predict === 1638, `auto limits not applied: ${JSON.stringify(req.options)}`);
     assert(req.messages[0].content.includes('[Page 2]'), 'document pages missing in system prompt');
     session.clear();
   }],
@@ -833,7 +834,7 @@ export const scenarios: Scenario[] = [
     }, 20000);
     const doc = pw.document;
     await waitFor('auto limits shown', () => doc.getElementById('seekchat-auto-numCtx')?.textContent === '16.384 Tokens'
-      && doc.getElementById('seekchat-auto-detail')?.textContent?.includes('Maximum des Modells'), 10000);
+      && doc.getElementById('seekchat-auto-detail')?.textContent?.includes('des geladenen Modells'), 10000);
     assert(!doc.getElementById('seekchat-limits-auto-panel').hidden && doc.getElementById('seekchat-limits-manual-panel').hidden,
       'auto tab not the default');
     doc.getElementById('seekchat-limits-auto-panel').scrollIntoView();
@@ -1473,6 +1474,13 @@ export const scenarios: Scenario[] = [
     await screenshot(ctx, 'tool-list', toolsWin);
     toolsWin.close();
     await waitFor('tool chat window closed', () => !getToolsChatView(), 5000);
+  }],
+
+  ['no model request ever sets num_ctx (Ollama would reload the model)', async () => {
+    const all = await mockRequests();
+    assert(all.length > 10, `only ${all.length} requests`);
+    const withCtx = all.filter((r) => r.options && 'num_ctx' in r.options);
+    assert(!withCtx.length, `${withCtx.length} of ${all.length} requests set num_ctx`);
   }],
 
   ['portal: Zotero accepts the certificate and serves updates.json', async () => {

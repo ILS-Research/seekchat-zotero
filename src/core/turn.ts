@@ -61,7 +61,6 @@ export interface LlmRequestLog {
   model: string;
   temperature: number;
   maxTokens: number;
-  numCtx?: number;
   messages: { role: string; content: string }[];
 }
 

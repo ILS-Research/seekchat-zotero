@@ -57,6 +57,8 @@ const server = http.createServer(async (req, res) => {
     res.writeHead(200, { 'Content-Type': 'application/pdf' });
     return res.end(fs.readFileSync('/fixtures/seekchat-test.pdf'));
   }
+  // Loaded model with the window the server uses (no num_ctx is ever sent).
+  if (req.method === 'GET' && req.url === '/api/ps') return json({ models: [{ name: 'mock-model', model: 'mock-model', context_length: 20480 }] });
   if (req.method === 'GET' && req.url === '/__requests') return json(requests);
   if (req.method === 'GET' && req.url === '/__last') return json(requests[requests.length - 1] ?? null);
   if (req.method === 'POST' && req.url === '/api/chat') {

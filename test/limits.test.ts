@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { describeSource, limitsFromContext } from '../src/core/limits';
-import { parseOllamaShow } from '../src/core/llm/ollama-client';
+import { parseOllamaPs, parseOllamaShow } from '../src/core/llm/ollama-client';
 import { setLocale } from '../src/i18n';
 
 // The expectations below are the German UI texts; English is covered in i18n.test.ts.
@@ -24,8 +24,22 @@ test('limits: 80 % of the context, answer a tenth (max 12288), rest for the text
   assert.deepEqual(limitsFromContext(8192, 500), { numCtx: 6144, maxTokens: 400, contextChars: 14000 });
 });
 
-test('configured context wins over the model maximum', () => {
+test('OpenAI-compatible: configured context wins over the model maximum', () => {
   assert.equal(describeSource({ configuredContext: 131072, maxContext: 262144 }).context, 131072);
   assert.equal(describeSource({ maxContext: 262144 }).context, 262144);
   assert.equal(describeSource({}).context, undefined);
+});
+
+test('Ollama: the window it really uses – loaded model, Modelfile, default; never the model maximum', () => {
+  assert.deepEqual(describeSource({ loadedContext: 65536, configuredContext: 131072, maxContext: 262144 }, 'ollama'), { context: 65536, detail: 'Kontext 65536 des geladenen Modells' });
+  assert.equal(describeSource({ configuredContext: 131072, maxContext: 262144 }, 'ollama').context, 131072);
+  assert.deepEqual(describeSource({ maxContext: 262144 }, 'ollama'), { context: 4096, detail: 'Kontext 4096 (Ollama-Standard, angenommen)' });
+});
+
+test('ollama /api/ps: context_length of the model, with or without :latest', () => {
+  const ps = { models: [{ name: 'gpt-oss:20b', model: 'gpt-oss:20b', context_length: 131072 }, { name: 'qwen3:latest', model: 'qwen3:latest', context_length: 32768 }] };
+  assert.equal(parseOllamaPs(ps, 'qwen3'), 32768);
+  assert.equal(parseOllamaPs(ps, 'gpt-oss:20b'), 131072);
+  assert.equal(parseOllamaPs(ps, 'other'), undefined);
+  assert.equal(parseOllamaPs({}, 'x'), undefined);
 });

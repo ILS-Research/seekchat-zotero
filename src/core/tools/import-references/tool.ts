@@ -75,13 +75,15 @@ interface Candidate {
 }
 
 function viaText(c: Candidate): string {
-  if (!c.resolved) return t('import.via.none');
+  if (!c.resolved) return c.failures.length ? `${t('import.via.none')} · ${t('import.lookupFailed', { reasons: c.failures.join('; ') })}` : t('import.via.none');
   const via = c.resolved.via;
   const base = via === 'identifier' ? t('import.via.identifier', { what: c.resolved.detail || '' })
     : via === 'url' ? t('import.via.url')
     : via === 'text' ? t('import.via.text')
     : t('import.via.other', { source: c.resolved.detail || via });
-  return c.failures.length ? `${base} · ${t('import.lookupFailed', { reasons: c.failures.join('; ') })}` : base;
+  // Failed steps matter only when no lookup succeeded (the item comes from the text alone); they are logged anyway.
+  const fromTextOnly = c.resolved.via === 'text';
+  return c.failures.length && fromTextOnly ? `${base} · ${t('import.lookupFailed', { reasons: c.failures.join('; ') })}` : base;
 }
 
 /** What the tool needs from Zotero; tests and later sources pass their own. */
@@ -139,6 +141,7 @@ export function importReferencesTool(deps: ImportDeps = ZOTERO_DEPS): Tool {
         run.status = t('import.resolving', { i: i + 1, n: refs.length });
         ctx.update();
         const { resolved, failures } = await resolveWithChain(ref, chain, signal);
+        if (failures.length) L.info(`reference ${i + 1}: ${failures.join('; ')}${resolved ? ` – resolved by ${resolved.via}` : ''}`);
         const c: Candidate = { ref, resolved, failures };
         if (resolved) {
           const dup = await deps.findDuplicate(resolved.item, target.libraryID).catch(() => null);

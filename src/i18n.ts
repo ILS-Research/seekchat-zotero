@@ -334,7 +334,6 @@ const EN = {
   'export.books': 'Books:',
   'export.request': 'Request {i} to the model: {purpose} ({params}; {chars} characters)',
   'export.params': 'model {model}, temperature {temperature}, max. {maxTokens} tokens',
-  'export.numCtx': 'num_ctx {n}',
   'purpose.answer': 'Answer',
   'purpose.language': 'Language detection',
   'purpose.keywords': 'Search terms',
@@ -343,6 +342,8 @@ const EN = {
 
   // Limits
   'limits.configured': 'context {n} from the server configuration',
+  'limits.loaded': 'context {n} of the loaded model',
+  'limits.ollamaDefault': 'context {n} (Ollama default, assumed)',
   'limits.maximum': 'context {n} (model maximum)',
   'limits.none': 'server reports no context size',
   'limits.manual': 'set manually',
@@ -393,14 +394,16 @@ const EN = {
   'prefs.notDetected': 'Not detectable ({detail}).',
   'prefs.tokens': '{n} tokens',
   'prefs.chars': '{n} characters (~{tokens} tokens)',
-  'prefs.autoHelp': 'SeekChat asks the server about the model: for Ollama num_ctx from the Modelfile, else the model\'s ' +
-    'maximum context length (vLLM: max_model_len). It uses 80 % of that; the answer length is a tenth of it (at most ' +
+  'prefs.autoHelp': 'SeekChat never sets the context window (Ollama would reload the model each time) and asks the server ' +
+    'which one it uses: for Ollama the window of the loaded model, else num_ctx from the Modelfile, else Ollama\'s default ' +
+    '(4096); for OpenAI-compatible servers max_model_len or the model\'s maximum. It uses 80 % of that; the answer length is a tenth of it (at most ' +
     '12,288, and at most 80 % of num_predict), the rest minus room for prompt and history goes to the document text ' +
     '(~3.5 characters per token). If the server reports nothing, the manual values apply. Large values make answers slower.',
   'prefs.numCtxManual': 'Context window (tokens):',
   'prefs.contextCharsManual': 'PDF text per question (characters):',
   'prefs.maxTokensManual': 'Max. answer length (tokens):',
-  'prefs.manualHelp': 'The context window only applies to Ollama (num_ctx); OpenAI-compatible servers set it themselves. ' +
+  'prefs.manualHelp': 'Context window: the size the server actually uses (SeekChat never sends it; for Ollama set it in the ' +
+    'Modelfile or with OLLAMA_CONTEXT_LENGTH). ' +
     'Rule of thumb: PDF text (characters) ÷ 3.5 + answer length + history must fit into the context window. ' +
     'Longer PDFs are cut down to the pages that best match the question.',
   'prefs.systemPrompt': 'System prompt for the PDF chat (empty = default; the page citation format is always added):',
@@ -734,7 +737,6 @@ const DE: Record<Key, string> = {
   'export.books': 'Bücher:',
   'export.request': 'Anfrage {i} an das Modell: {purpose} ({params}; {chars} Zeichen)',
   'export.params': 'Modell {model}, Temperatur {temperature}, max. {maxTokens} Tokens',
-  'export.numCtx': 'num_ctx {n}',
   'purpose.answer': 'Antwort',
   'purpose.language': 'Spracherkennung',
   'purpose.keywords': 'Suchbegriffe',
@@ -742,6 +744,8 @@ const DE: Record<Key, string> = {
   'purpose.bookAnswer': 'Antwort aus dem Buch',
 
   'limits.configured': 'Kontext {n} laut Server-Konfiguration',
+  'limits.loaded': 'Kontext {n} des geladenen Modells',
+  'limits.ollamaDefault': 'Kontext {n} (Ollama-Standard, angenommen)',
   'limits.maximum': 'Kontext {n} (Maximum des Modells)',
   'limits.none': 'Server meldet keine Kontextgröße',
   'limits.manual': 'manuell festgelegt',
@@ -792,15 +796,17 @@ const DE: Record<Key, string> = {
   'prefs.notDetected': 'Nicht ermittelbar ({detail}).',
   'prefs.tokens': '{n} Tokens',
   'prefs.chars': '{n} Zeichen (~{tokens} Tokens)',
-  'prefs.autoHelp': 'SeekChat fragt den Server nach dem Modell: bei Ollama num_ctx aus der Modelldatei, sonst die maximale ' +
-    'Kontextlänge des Modells (bei vLLM max_model_len). Davon nutzt es 80 %; die Antwortlänge ist ein Zehntel davon ' +
+  'prefs.autoHelp': 'SeekChat setzt das Kontextfenster nie selbst (Ollama würde das Modell jedes Mal neu laden) und fragt ' +
+    'den Server, welches er nutzt: bei Ollama das des geladenen Modells, sonst num_ctx aus der Modelldatei, sonst den ' +
+    'Ollama-Standard (4096); bei OpenAI-kompatiblen Servern max_model_len oder das Maximum des Modells. Davon nutzt es 80 %; die Antwortlänge ist ein Zehntel davon ' +
     '(höchstens 12.288 und höchstens 80 % von num_predict), der Rest abzüglich Platz für Prompt und Verlauf geht an den ' +
     'Dokumenttext (~3,5 Zeichen je Token). Meldet der Server nichts, gelten die manuellen Werte. Große Werte machen ' +
     'Antworten langsamer.',
   'prefs.numCtxManual': 'Kontextfenster (Tokens):',
   'prefs.contextCharsManual': 'PDF-Text pro Frage (Zeichen):',
   'prefs.maxTokensManual': 'Max. Antwortlänge (Tokens):',
-  'prefs.manualHelp': 'Das Kontextfenster gilt nur für Ollama (num_ctx); bei OpenAI-kompatiblen Servern legt es der Server fest. ' +
+  'prefs.manualHelp': 'Kontextfenster: die Größe, die der Server tatsächlich nutzt (SeekChat sendet sie nie; bei Ollama in der ' +
+    'Modelldatei oder mit OLLAMA_CONTEXT_LENGTH festlegen). ' +
     'Faustregel: PDF-Text (Zeichen) ÷ 3,5 + Antwortlänge + Verlauf muss ins Kontextfenster passen. ' +
     'Längere PDFs werden auf die zur Frage passendsten Seiten gekürzt.',
   'prefs.systemPrompt': 'System-Prompt für den PDF-Chat (leer = Standard; das Format der Seitenzitate wird immer ergänzt):',

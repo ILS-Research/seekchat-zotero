@@ -43,7 +43,7 @@ export async function resolveLanguage(
   const sample = await provider.sampleText(3000);
   try {
     const reply = await client.streamChat(
-      { model: prefs.model, messages: buildLanguageMessages(sample), temperature: 0, maxTokens: 64, numCtx: prefs.numCtx, think: false, signal },
+      { model: prefs.model, messages: buildLanguageMessages(sample), temperature: 0, maxTokens: 64, think: false, signal },
       () => {},
     );
     const fromModel = parseLanguageReply(reply);
@@ -73,7 +73,7 @@ export async function expandKeywords(
         messages: buildKeywordMessages({ question, previousQuestion, docTitle: provider.describe(), language }),
         temperature: 0.2,
         maxTokens: 512,
-        numCtx: prefs.numCtx,
+       
         think: false,
         signal,
       },
@@ -98,7 +98,6 @@ export function recordingClient(client: LlmClient, answer: Turn, purpose: () => 
       model: req.model,
       temperature: req.temperature,
       maxTokens: req.maxTokens,
-      numCtx: req.numCtx,
       messages: req.messages.map((m) => ({ role: m.role, content: m.content })),
     });
     return client.streamTurn(req, onDelta);

@@ -108,11 +108,12 @@ Extending: new sources are new `ContextProvider`s; session, prompt and turn rend
   own line. Running page headers/footers (title, page number, license) precede every page's text.
 - Real-document checks: put PDFs into `test/assets/` (ignored by git); the E2E scenario
   "assets" writes `e2e/out/assets-report.json` (pages, timings, fit, outline, keyword selection).
-- **Ollama reloads the model whenever `num_ctx` changes (5–6 s each).** All calls use the resolved `prefs.numCtx`;
-  never give helper calls their own context size. Thinking models reason by default and Ollama hides that in
-  `message.thinking`: helper calls send `think: false`, answers `think: prefs.thinking` (default off).
-- Ollama's `/v1` endpoint ignores `num_ctx`; with its small default context the PDF is silently
-  truncated. Keep Ollama on the native API.
+- **Never send `num_ctx`** (user decision): Ollama reloads the model whenever it differs from the loaded one
+  (5–6 s each, shared server). The text budget follows the window Ollama really uses (`limits.ts`: `/api/ps`
+  `context_length` of the loaded model → Modelfile `num_ctx` → Ollama default 4096; never the model maximum).
+  E2E "no model request ever sets num_ctx" checks every request. Thinking models reason by default and Ollama hides
+  that in `message.thinking`: helper calls send `think: false`, answers `think: prefs.thinking` (default off).
+- Keep Ollama on the native API (`/api/chat`): `/api/show` and `/api/ps` tell the window, `/v1` does not.
 - Log lines must go to `Services.console` (see `src/util/log.ts`): a sandbox's `console`, even the main window's
   called from the sandbox, never reaches the Browser Console. E2E "logging reaches the Browser Console" checks it.
 - Live run with a real book index: `E2E_SEEKBOOK_XPI=../seekbook-zotero_src/dist/seekbook-<v>.xpi E2E_TIMEOUT=3000

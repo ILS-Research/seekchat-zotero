@@ -90,7 +90,6 @@ export function requestsToMarkdown(requests: LlmRequestLog[]): string[] {
   const out: string[] = [];
   requests.forEach((r, i) => {
     const params = [t('export.params', { model: r.model, temperature: r.temperature, maxTokens: r.maxTokens })];
-    if (r.numCtx) params.push(t('export.numCtx', { n: r.numCtx }));
     const chars = r.messages.reduce((n, m) => n + m.content.length, 0);
     out.push('<details>', `<summary>${t('export.request', { i: i + 1, purpose: r.purpose, params: params.join(', '), chars })}</summary>`, '');
     for (const m of r.messages) {

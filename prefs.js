@@ -10,8 +10,8 @@ pref("extensions.zotero.seekchat.baseUrl", "http://127.0.0.1:11434");
 pref("extensions.zotero.seekchat.apiKey", "");
 pref("extensions.zotero.seekchat.model", "");
 pref("extensions.zotero.seekchat.temperaturePercent", 20);
-// Ollama only: context window in tokens (num_ctx). Ollama's default is small
-// and would silently cut the document off.
+// Manual limits: context window the server uses, in tokens. Never sent (Ollama would reload the model);
+// only the text budget is based on it.
 pref("extensions.zotero.seekchat.numCtx", 16384);
 // Maximum answer length in tokens.
 pref("extensions.zotero.seekchat.maxTokens", 2048);

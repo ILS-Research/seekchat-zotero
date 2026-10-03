@@ -183,6 +183,19 @@ test('same title: word overlap, accents and case ignored', () => {
 
 // --- resolver chain ---
 
+test('import: failed steps are shown only when the item comes from the text alone', async () => {
+  const { deps } = fakeDeps();
+  deps.resolvers = () => [
+    { id: 'zotero-reference', resolve: async () => { throw new Error('HTTP 404'); } },
+    { id: 'identifier', resolve: async (r) => (r.DOI ? { item: { itemType: 'report', title: 'Found' }, via: 'identifier', detail: `DOI ${r.DOI}` } : null) },
+    { id: 'text', resolve: async (r) => ({ item: referenceToItemJSON(r), via: 'text' }) },
+  ];
+  const { run, ctx } = toolContext(() => false);
+  await importReferencesTool(deps).run({ references: [{ text: 'A', DOI: '10.2312/lis.14.01' }, { text: 'B', title: 'B' }] }, ctx);
+  assert.equal(run.items![0].detail, 'gefunden über DOI 10.2312/lis.14.01');
+  assert.match(run.items![1].detail!, /nur aus dem Quellentext.*Suche fehlgeschlagen: zotero-reference: HTTP 404/);
+});
+
 test('chain: first resolver with a result wins, failures are collected', async () => {
   const failing: ReferenceResolver = { id: 'a', resolve: async () => { throw new Error('HTTP 500'); } };
   const none: ReferenceResolver = { id: 'b', resolve: async () => null };
@@ -365,7 +378,7 @@ test('zotero-reference resolver: model fields win, DOI found -> Zotero lookup, e
   const parsed = { text: 't', title: 'Parsed title', authors: ['P'], year: '1999', identifiers: {} };
   assert.deepEqual(mergeParsed(parsed, { title: 'Model title', DOI: 'doi:10.1000/a' }).identifiers, { DOI: '10.1000/a' });
   assert.equal(mergeParsed(parsed, {}).title, 'Parsed title');
-  let looked: any = null;
+  let looked: any = null as any;
   const identifier: ReferenceResolver = { id: 'identifier', resolve: async (r) => (r.DOI ? { item: { itemType: 'journalArticle', title: 'Full' }, via: 'identifier', detail: `DOI ${r.DOI}` } : null) };
   stubZotero({
     version: 1,
@@ -373,10 +386,13 @@ test('zotero-reference resolver: model fields win, DOI found -> Zotero lookup, e
     lookup: async (ref: any) => { looked = ref; return ref.title === 'With DOI' ? { title: 'X', authors: [], identifiers: { DOI: '10.2/b' }, source: 'crossref' } : { title: 'Record', authors: ['Doe, Jane'], year: '2001', identifiers: {}, venue: 'J', type: 'journalArticle', source: 'openalex' }; },
   });
   const r = findRefsResolver(identifier);
+  // A reference with an identifier is left to Zotero (all registration agencies), without asking the plugin.
+  assert.equal(await r.resolve({ text: 'x', title: 'With DOI', DOI: '10.2312/lis.14.01' }, new AbortController().signal), null);
+  assert.equal(looked, null);
   const a = await r.resolve({ text: 'x', title: 'With DOI' }, new AbortController().signal);
   assert.deepEqual([a?.via, a?.item.title, a?.detail], ['zotero-reference', 'Full', 'Find Online References (crossref): DOI 10.2/b']);
   const b = await r.resolve({ text: 'y' }, new AbortController().signal);
-  assert.equal(looked.title, 'Parsed title');
+  assert.equal(looked!.title, 'Parsed title');
   assert.deepEqual([b?.item.title, b?.item.date, b?.item.publicationTitle, b?.detail], ['Record', '2001', 'J', 'Find Online References (openalex)']);
   delete (globalThis as any).Zotero;
   await assert.rejects(r.resolve({ text: 'z' }, new AbortController().signal), /not installed/);

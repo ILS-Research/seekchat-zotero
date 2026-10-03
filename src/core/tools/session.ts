@@ -113,7 +113,6 @@ export class ToolChatSession {
           model: prefs.model,
           temperature: prefs.temperature,
           maxTokens: limits.maxTokens,
-          numCtx: limits.numCtx,
           think: prefs.thinking,
           signal: ctrl.signal,
         },

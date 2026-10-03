@@ -2,7 +2,10 @@ import { HttpError, readLines, request } from './http';
 import { ollamaMessages, parseOllamaLine, toolsPayload } from './stream-parsers';
 import type { ChatRequest, ChatResult, ClientConfig, LlmClient, ModelInfo, ToolCall } from './types';
 
-/** Ollama's native API: lets us set num_ctx, which the /v1 endpoint cannot. */
+/**
+ * Ollama's native API. SeekChat never sends num_ctx: every other value makes Ollama reload the model (seconds),
+ * so the server's own context window is used and the text budget follows it (limits.ts).
+ */
 export class OllamaClient implements LlmClient {
   constructor(private cfg: ClientConfig) {}
 
@@ -12,10 +15,20 @@ export class OllamaClient implements LlmClient {
     return (json.models || []).map((m: any) => String(m.name)).sort();
   }
 
-  /** /api/show: num_ctx/num_predict from the Modelfile parameters, the model's own maximum from model_info. */
+  /**
+   * /api/show: num_ctx/num_predict from the Modelfile parameters, the model's own maximum from model_info;
+   * /api/ps: the context window of the model if it is loaded (older servers do not report it).
+   */
   async modelInfo(model: string, signal?: AbortSignal): Promise<ModelInfo> {
     const resp = await request(this.cfg, '/api/show', { method: 'POST', body: { model }, signal });
-    return parseOllamaShow(await resp.json());
+    const info = parseOllamaShow(await resp.json());
+    try {
+      const ps = await request(this.cfg, '/api/ps', { method: 'GET', signal });
+      info.loadedContext = parseOllamaPs(await ps.json(), model);
+    } catch {
+      // not loaded or older server: the Modelfile or Ollama's default decides
+    }
+    return info;
   }
 
   /** Models that rejected the `think` field (not a thinking model); asked without it from then on. */
@@ -36,7 +49,6 @@ export class OllamaClient implements LlmClient {
       options: {
         temperature: req.temperature,
         num_predict: req.maxTokens,
-        ...(req.numCtx ? { num_ctx: req.numCtx } : {}),
       },
     };
     let resp: Response;
@@ -64,6 +76,14 @@ export class OllamaClient implements LlmClient {
     });
     return { text: full, toolCalls };
   }
+}
+
+/** Pure: context_length of `model` in /api/ps (names with and without ":latest" match). */
+export function parseOllamaPs(json: any, model: string): number | undefined {
+  const norm = (n: string) => String(n || '').replace(/:latest$/, '');
+  const entry = (json?.models || []).find((m: any) => norm(m.name) === norm(model) || norm(m.model) === norm(model));
+  const n = Number(entry?.context_length);
+  return n > 0 ? n : undefined;
 }
 
 /** Pure parser for /api/show (unit-tested). */

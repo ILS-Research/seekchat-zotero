@@ -33,8 +33,6 @@ export interface ChatRequest {
   messages: ChatMessage[];
   temperature: number;
   maxTokens: number;
-  /** Context window in tokens; honored by providers that accept it (Ollama). */
-  numCtx?: number;
   /**
    * Reasoning phase of thinking models (Qwen 3, gpt-oss …), Ollama only. Undefined = server default (for Qwen 3:
    * on, and the reasoning is hidden from us, so the answer starts late). SeekChat sends false for helper calls.
@@ -49,6 +47,8 @@ export interface ChatRequest {
 export interface ModelInfo {
   /** Context window the server is configured to use (Ollama: num_ctx in the Modelfile). */
   configuredContext?: number;
+  /** Ollama: context window of the model as loaded right now (/api/ps), i.e. what a request gets. */
+  loadedContext?: number;
   /** Maximum context the model supports. */
   maxContext?: number;
   /** Configured answer length (Ollama: num_predict in the Modelfile). */

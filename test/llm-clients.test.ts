@@ -38,19 +38,19 @@ function stream(chunks: string[], status = 200): () => Response {
 const LOCAL = { baseUrl: 'http://127.0.0.1:11434', allowedRemoteHosts: [] };
 const req = { model: 'm', messages: [{ role: 'user' as const, content: 'q' }], temperature: 0.2, maxTokens: 100 };
 
-test('Ollama: streamed deltas across chunk borders, stops at done, sends num_ctx', async () => {
+test('Ollama: streamed deltas across chunk borders, stops at done, never sends num_ctx', async () => {
   await withFetch([stream([
     '{"message":{"content":"Hal"},"done":false}\n{"message":{"con',
     'tent":"lo"},"done":false}\n{"done":true}\n{"message":{"content":"IGNORED"}}\n',
   ])], async (calls) => {
     const deltas: string[] = [];
-    const out = await new OllamaClient(LOCAL).streamChat({ ...req, numCtx: 8192 }, (d) => deltas.push(d));
+    const out = await new OllamaClient(LOCAL).streamChat(req, (d) => deltas.push(d));
     assert.equal(out, 'Hallo');
     assert.deepEqual(deltas, ['Hal', 'lo']);
     assert.equal(calls[0].url, 'http://127.0.0.1:11434/api/chat');
     assert.equal(calls[0].init.redirect, 'error');
     const body = JSON.parse(calls[0].init.body);
-    assert.equal(body.options.num_ctx, 8192);
+    assert.equal('num_ctx' in body.options, false, 'num_ctx makes Ollama reload the model');
     assert.equal(body.options.num_predict, 100);
   });
 });
@@ -68,10 +68,12 @@ test('Ollama: model list and /api/show limits', async () => {
   await withFetch([
     () => Response.json({ models: [{ name: 'b' }, { name: 'a' }] }),
     () => Response.json({ parameters: 'num_ctx 32768\nnum_predict 4096', model_info: { 'qwen3.context_length': 131072 } }),
+    () => Response.json({ models: [{ name: 'a:latest', model: 'a:latest', context_length: 65536 }] }),
   ], async (calls) => {
     const c = new OllamaClient(LOCAL);
     assert.deepEqual(await c.listModels(), ['a', 'b']);
-    assert.deepEqual(await c.modelInfo('a'), { configuredContext: 32768, numPredict: 4096, maxContext: 131072 });
+    assert.deepEqual(await c.modelInfo('a'), { configuredContext: 32768, numPredict: 4096, maxContext: 131072, loadedContext: 65536 });
+    assert.equal(calls[2].url, 'http://127.0.0.1:11434/api/ps');
     assert.equal(JSON.parse(calls[1].init.body).model, 'a');
   });
 });

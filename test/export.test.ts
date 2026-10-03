@@ -38,12 +38,12 @@ test('model requests are exported verbatim in collapsible blocks', () => {
     { role: 'user', content: 'Frage' },
     {
       role: 'assistant', content: 'Antwort', requests: [
-        { purpose: 'Suchbegriffe', model: 'm', temperature: 0.2, maxTokens: 512, numCtx: 4096, messages: [{ role: 'system', content: 'Liste ```json``` Suchbegriffe' }] },
+        { purpose: 'Suchbegriffe', model: 'm', temperature: 0.2, maxTokens: 512, messages: [{ role: 'system', content: 'Liste ```json``` Suchbegriffe' }] },
         { purpose: 'Antwort', model: 'm', temperature: 0.2, maxTokens: 2048, messages: [{ role: 'system', content: 'Doku' }, { role: 'user', content: 'Frage' }] },
       ],
     },
   ], { subject: 'PDF X', model: 'm', date });
-  assert.ok(md.includes('<summary>Anfrage 1 an das Modell: Suchbegriffe (Modell m, Temperatur 0.2, max. 512 Tokens, num_ctx 4096; 29 Zeichen)</summary>'));
+  assert.ok(md.includes('<summary>Anfrage 1 an das Modell: Suchbegriffe (Modell m, Temperatur 0.2, max. 512 Tokens; 29 Zeichen)</summary>'));
   assert.ok(md.includes('**system:**\n\n````text\nListe ```json``` Suchbegriffe\n````'), 'fence longer than the backticks inside');
   assert.ok(md.includes('<summary>Anfrage 2 an das Modell: Antwort (Modell m, Temperatur 0.2, max. 2048 Tokens; 9 Zeichen)</summary>'));
   assert.ok(md.trimEnd().endsWith('</details>'));

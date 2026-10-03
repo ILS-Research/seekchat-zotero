@@ -1,11 +1,12 @@
 /**
- * Token limits per question: context window (Ollama num_ctx), answer length
- * and the document text budget.
+ * Token limits per question: the context window the server uses, answer length and the document text budget.
+ * SeekChat never sends a context size (Ollama would reload the model for each other num_ctx); the budget
+ * follows the server's own window.
  *
- * Mode "auto" (default): best guess from the server – Ollama's num_ctx from the
- * Modelfile, else the model's maximum context (or vLLM's max_model_len) – minus
- * 20 % headroom. Mode "manual": the values from the settings. If the server
- * reports nothing, auto falls back to the manual values.
+ * Mode "auto" (default), Ollama: the window of the loaded model (/api/ps), else num_ctx from the Modelfile,
+ * else Ollama's default (4096) – never the model's maximum, which Ollama does not use unasked. OpenAI-compatible:
+ * the server's limit (vLLM max_model_len), else the model's maximum. Minus 20 % headroom. Mode "manual": the
+ * values from the settings (the context window is then what the server is known to use).
  */
 import { t } from '../i18n';
 import { CHARS_PER_TOKEN } from './context/fit';
@@ -15,6 +16,7 @@ import type { SeekChatPrefs } from '../prefs';
 import { logError } from '../util/log';
 
 export interface Limits {
+  /** Context window the budget is based on (not sent to the server). */
   numCtx: number;
   maxTokens: number;
   contextChars: number;
@@ -31,6 +33,8 @@ export const HEADROOM = 0.8;
 /** Tokens kept free for system prompt, history and question. */
 const RESERVE_TOKENS = 1500;
 const MAX_ANSWER_TOKENS = 12288;
+/** Ollama's context window when neither the Modelfile nor the server environment sets one. */
+export const OLLAMA_DEFAULT_CONTEXT = 4096;
 
 /** Pure: limits from a context size in tokens (unit-tested). */
 export function limitsFromContext(context: number, numPredict?: number): Limits {
@@ -43,7 +47,12 @@ export function limitsFromContext(context: number, numPredict?: number): Limits 
   return { numCtx, maxTokens, contextChars };
 }
 
-export function describeSource(info: ModelInfo): { context?: number; detail: string } {
+export function describeSource(info: ModelInfo, provider: 'ollama' | 'openai' = 'openai'): { context?: number; detail: string } {
+  if (provider === 'ollama') {
+    if (info.loadedContext) return { context: info.loadedContext, detail: t('limits.loaded', { n: info.loadedContext }) };
+    if (info.configuredContext) return { context: info.configuredContext, detail: t('limits.configured', { n: info.configuredContext }) };
+    return { context: OLLAMA_DEFAULT_CONTEXT, detail: t('limits.ollamaDefault', { n: OLLAMA_DEFAULT_CONTEXT }) };
+  }
   if (info.configuredContext) return { context: info.configuredContext, detail: t('limits.configured', { n: info.configuredContext }) };
   if (info.maxContext) return { context: info.maxContext, detail: t('limits.maximum', { n: info.maxContext }) };
   return { detail: t('limits.none') };
@@ -59,7 +68,11 @@ function modelInfo(prefs: SeekChatPrefs): Promise<ModelInfo | null> {
   const key = `${prefs.provider}|${prefs.baseUrl}|${prefs.model}`;
   let p = cache.get(key);
   if (!p) {
-    p = createClient(prefs).modelInfo(prefs.model).catch((e) => {
+    p = createClient(prefs).modelInfo(prefs.model).then((info) => {
+      // Ollama's window is known once the model is loaded: ask again next time until it is.
+      if (prefs.provider === 'ollama' && !info.loadedContext) cache.delete(key);
+      return info;
+    }, (e) => {
       logError(e);
       cache.delete(key);
       return null;
@@ -79,7 +92,7 @@ export async function resolveLimits(prefs: SeekChatPrefs): Promise<ResolvedLimit
     return { ...manualLimits(prefs), source: 'fallback', detail: t('limits.noModel') };
   }
   const info = await modelInfo(prefs);
-  const { context, detail } = describeSource(info || {});
+  const { context, detail } = info ? describeSource(info, prefs.provider) : describeSource({});
   if (!context) return { ...manualLimits(prefs), source: 'fallback', detail: t('limits.fallback', { detail: info ? detail : t('limits.unreachable') }) };
   return { ...limitsFromContext(context, info?.numPredict), source: 'auto', detail: t('limits.share', { detail, percent: Math.round(HEADROOM * 100) }) };
 }
