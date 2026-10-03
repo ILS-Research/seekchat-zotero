@@ -267,6 +267,7 @@ function fakeDeps(opts: { duplicateTitle?: string } = {}) {
       saved.push(String(resolved.item.title));
       return { id: 100 + saved.length, getField: () => String(resolved.item.title) };
     },
+    attachPdf: async (item: any) => (item.id === 101 ? 'attached' : 'none'),
   };
   return { deps, saved };
 }
@@ -297,6 +298,21 @@ test('import: preview with duplicate unchecked, saves only checked items, report
   assert.equal(run.state, 'done');
   assert.equal(run.items![0].itemID, 101);
   assert.equal(run.items![1].itemID, 99, 'duplicate links to the existing item');
+  assert.equal(run.status, '1 Eintrag in Sammlung „Klima“ gespeichert. 1 PDF angehängt.');
+  assert.match(run.items![0].detail!, /PDF angehängt$/);
+  assert.equal(out.pdfsAttached, 1);
+  assert.equal(out.references[0].pdf, 'attached');
+});
+
+test('import: option pdf "off" looks for no PDF', async () => {
+  const { deps } = fakeDeps();
+  let asked = 0;
+  deps.attachPdf = async () => { asked++; return 'attached'; };
+  const { run, ctx } = toolContext(() => true);
+  ctx.options = { pdf: 'off' };
+  const out = JSON.parse(await importReferencesTool(deps).run({ references: [{ text: 'A', title: 'A' }] }, ctx));
+  assert.equal(asked, 0);
+  assert.equal(out.saved, 1);
   assert.equal(run.status, '1 Eintrag in Sammlung „Klima“ gespeichert.');
 });
 
@@ -337,9 +353,9 @@ test('settings: tools on by default, switched off by pref; unavailable choice fa
   assert.ok(isToolEnabled('import_references'));
   setToolOption(tool, 'parser', 'zotero-reference');
   assert.equal(storedOption(tool, tool.options![0]), 'zotero-reference');
-  assert.deepEqual(effectiveOptions(tool), { parser: 'zotero' }, 'plugin missing');
+  assert.deepEqual(effectiveOptions(tool), { parser: 'zotero', pdf: 'find' }, 'plugin missing');
   stubZotero({ version: 1, parseReference: () => ({}), lookup: async () => undefined }).set('seekchat.tools.import_references.parser', 'zotero-reference');
-  assert.deepEqual(effectiveOptions(tool), { parser: 'zotero-reference' });
+  assert.deepEqual(effectiveOptions(tool), { parser: 'zotero-reference', pdf: 'find' });
   assert.deepEqual(ZOTERO_DEPS.resolvers({ parser: 'zotero-reference' }).map((r) => r.id), ['zotero-reference', 'identifier', 'url', 'text']);
   assert.deepEqual(ZOTERO_DEPS.resolvers({ parser: 'zotero' }).map((r) => r.id), ['identifier', 'url', 'text']);
   delete (globalThis as any).Zotero;

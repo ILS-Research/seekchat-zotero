@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.16.0 – 2026-10-03
+
+- **Import references now fetches the PDF:** after saving, Zotero's "Find Full Text" runs for each new item (DOI
+  landing page, the reference's link – also a direct PDF link –, open access via Unpaywall/PMC, custom resolvers set
+  up in Zotero). Zotero forces links to https; a plain http link that is a PDF (content type checked) is downloaded
+  directly, since many reports are served over http only. Each item shows "PDF attached" / "no freely available PDF
+  found"; the model is told how many PDFs were attached.
+- New setting of the tool (tool list): **PDF – find and attach / do not download**.
+
 ## 0.15.0 – 2026-10-03
 
 - **Tool list in the tool chat:** a collapsible section at the top lists all tools; each can be switched off (the model

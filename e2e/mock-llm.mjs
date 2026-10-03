@@ -7,6 +7,7 @@
 // Tool chat (request with tools): "importiere" -> tool call import_references with
 // IMPORT_REFS, after a tool result -> short answer quoting it, else a plain answer.
 import http from 'node:http';
+import fs from 'node:fs';
 
 const ANSWER = 'Laut Dokument fuehren Starkregenereignisse in Staedten zu Ueberflutungen [S. 2].';
 const LIBRARY_ANSWER = 'Starkregen fuehrt zu Ueberflutungen [1, S. 2]; Waermeinseln erhoehen die Temperaturen [2, S. 27; 1].';
@@ -21,7 +22,7 @@ export const IMPORT_REFS = [
   {
     text: 'Umweltbundesamt (2019): Hitze in der Stadt – Strategien für eine klimaangepasste Stadtentwicklung. Dessau-Roßlau.',
     itemType: 'report', title: 'Hitze in der Stadt – Strategien für eine klimaangepasste Stadtentwicklung', authors: ['Umweltbundesamt'],
-    date: '2019', publisher: 'Umweltbundesamt', place: 'Dessau-Roßlau',
+    date: '2019', publisher: 'Umweltbundesamt', place: 'Dessau-Roßlau', url: 'http://127.0.0.1:11434/hitze.pdf',
   },
 ];
 
@@ -50,6 +51,11 @@ const server = http.createServer(async (req, res) => {
   // Like a Modelfile without num_ctx: only the model's maximum context (auto limits: 80 % of it).
   if (req.method === 'POST' && req.url === '/api/show') {
     return json({ parameters: 'temperature 1', model_info: { 'mock.context_length': 20480, 'mock.rope.scaling.original_context_length': 4096 } });
+  }
+  // Linked PDF of a reference (tool chat import: "Find Full Text" downloads it).
+  if (req.method === 'GET' && req.url === '/hitze.pdf') {
+    res.writeHead(200, { 'Content-Type': 'application/pdf' });
+    return res.end(fs.readFileSync('/fixtures/seekchat-test.pdf'));
   }
   if (req.method === 'GET' && req.url === '/__requests') return json(requests);
   if (req.method === 'GET' && req.url === '/__last') return json(requests[requests.length - 1] ?? null);

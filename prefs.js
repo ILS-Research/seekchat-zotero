@@ -44,3 +44,4 @@ pref("extensions.zotero.seekchat.logContent", false);
 // Tool chat: tools switched off (names, comma-separated) and tool settings (tools.<tool>.<option>).
 pref("extensions.zotero.seekchat.tools.disabled", "");
 pref("extensions.zotero.seekchat.tools.import_references.parser", "zotero");
+pref("extensions.zotero.seekchat.tools.import_references.pdf", "find");

@@ -1369,6 +1369,12 @@ export const scenarios: Scenario[] = [
     const report = byTitle('Hitze in der Stadt');
     assert(report?.itemType === 'report' && report.getField('institution') === 'Umweltbundesamt' && report.getCreators()[0]?.fieldMode === 1,
       `report ${report?.itemType} ${report?.getField('institution')} ${JSON.stringify(report?.getCreators())}`);
+    // PDF: the report's link is downloaded and attached; the article has neither DOI nor link.
+    const pdfs = Zotero.Items.get(report.getAttachments()).filter((a: any) => a.attachmentContentType === 'application/pdf');
+    assert(pdfs.length === 1 && await pdfs[0].fileExists(), `report PDFs: ${pdfs.length}`);
+    assert(!article.getAttachments().length, 'article got an attachment');
+    assert(/PDF angehängt/.test(run.items![1].detail || '') && /keine PDF-Suche/.test(run.items![0].detail || ''), `details ${run.items!.map((i) => i.detail).join(' | ')}`);
+    assert(/1 PDF angehängt/.test(run.status || ''), `status ${run.status}`);
     const toolMsg = (await mockLastRequest()).messages.find((m: any) => m.role === 'tool');
     assert(toolMsg && JSON.parse(toolMsg.content).saved === 2, `tool result to model: ${toolMsg?.content}`);
     const link = Array.from(doc.querySelectorAll('.seekchat-tool-run .seekchat-cite')) as HTMLElement[];

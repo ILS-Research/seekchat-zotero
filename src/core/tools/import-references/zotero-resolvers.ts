@@ -12,10 +12,12 @@ import type { ToolTarget } from '../types';
 const L = logger('Import');
 /** A lookup that takes longer is given up (the next resolver is asked). */
 const LOOKUP_TIMEOUT_MS = 30000;
+/** Finding and downloading a PDF (several sources, large files) may take longer. */
+const PDF_TIMEOUT_MS = 90000;
 
-function withTimeout<T>(p: Promise<T>, what: string): Promise<T> {
+function withTimeout<T>(p: Promise<T>, what: string, ms = LOOKUP_TIMEOUT_MS): Promise<T> {
   return new Promise<T>((resolve, reject) => {
-    const timer = setTimeout(() => reject(new Error(`${what}: timeout`)), LOOKUP_TIMEOUT_MS);
+    const timer = setTimeout(() => reject(new Error(`${what}: timeout`)), ms);
     p.then((v) => { clearTimeout(timer); resolve(v); }, (e) => { clearTimeout(timer); reject(e); });
   });
 }
@@ -56,7 +58,8 @@ export const urlResolver: ReferenceResolver = {
   id: 'url',
   async resolve(ref) {
     const url = String(ref.url || '').trim();
-    if (!/^https?:\/\//i.test(url) || cleanDOI(url)) return null;
+    // A link straight to a PDF has no page to translate; the PDF itself is fetched after saving (attachPdf).
+    if (!/^https?:\/\//i.test(url) || cleanDOI(url) || /\.pdf($|[?#])/i.test(url)) return null;
     let item: ItemJSON | null = null;
     await L.time(`web translator ${url}`, () => withTimeout(Zotero.HTTP.processDocuments([url], async (doc: any) => {
       const translate = new Zotero.Translate.Web();
@@ -154,4 +157,35 @@ export async function saveItem(resolved: ResolvedReference, target: ToolTarget):
   if (!saved?.[0]) throw new Error('not saved');
   L.info(`saved item ${saved[0].id} (${resolved.via})`);
   return saved[0];
+}
+
+export type PdfResult = 'attached' | 'present' | 'none' | 'notPossible';
+
+/**
+ * Zotero's "Find Full Text" for a saved item: DOI landing page, the item's URL (also a direct PDF link), open
+ * access (Unpaywall, PMC) and the custom resolvers set up in Zotero. 'present': it already has a PDF;
+ * 'notPossible': no DOI, URL or PMCID to start from.
+ */
+export async function attachPdf(item: any): Promise<PdfResult> {
+  const A = Zotero.Attachments;
+  if (item.numFileAttachmentsWithContentType?.('application/pdf')) return 'present';
+  if (!A.canFindFileForItem(item)) return 'notPossible';
+  const att = await L.time(`find PDF for item ${item.id}`, () => withTimeout<any>(A.addAvailableFile(item), 'PDF', PDF_TIMEOUT_MS));
+  if (att) return 'attached';
+  return (await attachHttpPdf(item)) ? 'attached' : 'none';
+}
+
+/**
+ * Zotero's search forces every link to https ("if a request fails because of that, too bad"); reports of
+ * authorities and institutes are often served over http only. A plain http link that really is a PDF
+ * (checked by its content type) is downloaded directly.
+ */
+async function attachHttpPdf(item: any): Promise<boolean> {
+  const url = String(item.getField('url') || '');
+  if (!/^http:\/\//i.test(url)) return false;
+  const [mimeType] = await withTimeout<[string, boolean]>(Zotero.MIME.getMIMETypeFromURL(url), url);
+  if (mimeType !== 'application/pdf') return false;
+  const att = await L.time(`download http PDF for item ${item.id}`, () => withTimeout<any>(
+    Zotero.Attachments.importFromURL({ url, parentItemID: item.id, contentType: mimeType }), url, PDF_TIMEOUT_MS));
+  return !!att;
 }

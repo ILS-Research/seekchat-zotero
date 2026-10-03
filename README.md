@@ -54,6 +54,8 @@ Zotero tools**. The first tool imports references:
 - A **preview** shows every reference (found / text only / already in the library); items already in the library are
   unchecked. Nothing is saved before you click **Import selected**.
 - Items go to the target chosen at the top: the collection selected in Zotero or a library.
+- **PDFs come along** where freely available: like Zotero's *Find Full Text* (DOI page, the reference's link,
+  open access, your custom resolvers); can be switched off in the tool list.
 - Needs a model with tool calling (e.g. Qwen 3, Llama 3.1+, Mistral).
 - The **Tools** section at the top lists all tools: switch single ones off, and choose the lookup for imports –
   Zotero's own, or [Find Online References](../zotero-reference_src) first (better title search for references

@@ -3,13 +3,13 @@
  * each is resolved (resolver chain), checked against the target library, shown as a preview and saved
  * only after the user confirmed. The result tells the model what happened to each one.
  */
-import { t, tn } from '../../../i18n';
+import { t, tn, type Key } from '../../../i18n';
 import { logger } from '../../../util/log';
 import type { ToolRunItem } from '../../turn';
 import type { Tool, ToolTarget } from '../types';
 import { itemLabel, referencesFromArgs, type ReferenceInput } from './reference';
 import { resolveWithChain, type ReferenceResolver, type ResolvedReference } from './resolvers';
-import { findDuplicate, identifierResolver, saveItem, zoteroResolvers } from './zotero-resolvers';
+import { attachPdf, findDuplicate, identifierResolver, saveItem, zoteroResolvers, type PdfResult } from './zotero-resolvers';
 import { findRefsResolver } from './findrefs-resolver';
 import { getFindRefsApi } from '../../findrefs/client';
 
@@ -90,6 +90,8 @@ export interface ImportDeps {
   resolvers(options: Record<string, string>): ReferenceResolver[];
   findDuplicate(item: ResolvedReference['item'], libraryID: number): Promise<{ id: number } | null>;
   save(resolved: ResolvedReference, target: ToolTarget): Promise<{ id: number; getField(f: string): string }>;
+  /** Finds and attaches the PDF of a saved item (option "pdf"). */
+  attachPdf(item: any): Promise<PdfResult>;
 }
 
 /** Option "parser": Zotero's own chain, or Find Online References (zotero-reference) in front of it. */
@@ -99,6 +101,7 @@ export const ZOTERO_DEPS: ImportDeps = {
     : zoteroResolvers()),
   findDuplicate,
   save: saveItem,
+  attachPdf,
 };
 
 export function importReferencesTool(deps: ImportDeps = ZOTERO_DEPS): Tool {
@@ -113,6 +116,14 @@ export function importReferencesTool(deps: ImportDeps = ZOTERO_DEPS): Tool {
       choices: [
         { value: 'zotero', label: t('import.parser.zotero') },
         { value: 'zotero-reference', label: t('import.parser.findrefs'), available: () => !!getFindRefsApi(), unavailableHint: t('import.parser.findrefsMissing') },
+      ],
+    }, {
+      key: 'pdf',
+      label: t('import.option.pdf'),
+      default: 'find',
+      choices: [
+        { value: 'find', label: t('import.pdf.find') },
+        { value: 'off', label: t('import.pdf.off') },
       ],
     }],
     title: (args) => tn('import.title', referencesFromArgs(args).length),
@@ -147,6 +158,7 @@ export function importReferencesTool(deps: ImportDeps = ZOTERO_DEPS): Tool {
       }
       const report: object[] = [];
       let saved = 0;
+      let pdfs = 0;
       run.state = 'running';
       for (const [i, c] of candidates.entries()) {
         const item = run.items[i];
@@ -165,7 +177,17 @@ export function importReferencesTool(deps: ImportDeps = ZOTERO_DEPS): Tool {
           item.itemID = zItem.id;
           item.badge = t('import.badge.saved');
           saved++;
-          report.push({ reference: label, status: 'imported', via: c.resolved.via, title: zItem.getField('title') });
+          const entry: Record<string, unknown> = { reference: label, status: 'imported', via: c.resolved.via, title: zItem.getField('title') };
+          if (ctx.options.pdf !== 'off') {
+            run.status = t('import.findingPdf', { i: i + 1, n: candidates.length });
+            ctx.update();
+            const pdf = await deps.attachPdf(zItem).catch((e: any): PdfResult | string => String(e?.message || e));
+            if (pdf === 'attached') pdfs++;
+            entry.pdf = pdf === 'attached' ? 'attached' : pdf === 'present' ? 'already there' : 'not found';
+            item.detail = [item.detail, t(`import.pdfResult.${['attached', 'present', 'none', 'notPossible'].includes(pdf) ? pdf : 'failed'}` as Key, { error: pdf })]
+              .filter(Boolean).join(' · ');
+          }
+          report.push(entry);
         } catch (e: any) {
           item.badge = t('import.badge.failed');
           item.detail = String(e?.message || e);
@@ -174,8 +196,8 @@ export function importReferencesTool(deps: ImportDeps = ZOTERO_DEPS): Tool {
         ctx.update();
       }
       run.state = 'done';
-      run.status = tn('import.done', saved, { target: target.label });
-      return JSON.stringify({ target: target.label, saved, references: report });
+      run.status = tn('import.done', saved, { target: target.label }) + (ctx.options.pdf !== 'off' && saved ? ` ${tn('import.pdfs', pdfs)}` : '');
+      return JSON.stringify({ target: target.label, saved, pdfsAttached: pdfs, references: report });
     },
   };
 }
