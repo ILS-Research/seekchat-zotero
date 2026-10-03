@@ -892,8 +892,8 @@ export const scenarios: Scenario[] = [
     win.Zotero_Tabs.select('zotero-pane');
     await win.ZoteroPane.collectionsView.selectLibrary(Zotero.Libraries.userLibraryID);
     await win.ZoteroPane.selectItems([a.id]);
-    // Zotero 10 has MenuManager: the entries come from there, not from the DOM fallback.
-    assert((Zotero as any).MenuManager, 'MenuManager missing in Zotero 10');
+    // Zotero 8+ has MenuManager: the entries come from there. Zotero 7: the next scenario tests the DOM fallback.
+    if (!(Zotero as any).MenuManager) throw new SkipError('Zotero 7 has no MenuManager (DOM fallback: next scenario)');
     const popup = win.document.getElementById('zotero-itemmenu');
     popup.openPopup(null, 'overlap', 0, 0, true, false);
     const file = await waitFor('file entry', () => popup.querySelector('[data-l10n-id="seekchat-menu-chat-file"]'), 5000);
