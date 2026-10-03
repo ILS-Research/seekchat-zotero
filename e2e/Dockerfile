@@ -9,8 +9,9 @@ RUN apt-get update \
  && rm -rf /var/lib/apt/lists/*
 
 ARG ZOTERO_VERSION=10.0.3
-RUN curl -fsSL "https://download.zotero.org/client/release/${ZOTERO_VERSION}/Zotero-${ZOTERO_VERSION}_linux-x86_64.tar.xz" \
-      | tar -xJ -C /opt \
+# Zotero 7 ships as .tar.bz2, Zotero 8+ as .tar.xz.
+RUN base="https://download.zotero.org/client/release/${ZOTERO_VERSION}/Zotero-${ZOTERO_VERSION}_linux-x86_64" \
+ && (curl -fsSL "$base.tar.xz" | tar -xJ -C /opt || curl -fsSL "$base.tar.bz2" | tar -xj -C /opt) \
  && mv /opt/Zotero_linux-x86_64 /opt/zotero
 
 # In-house CAs (e2e/certs/*.crt, e.g. ILS_GuM for ollama.ils.local): system store for curl/Node;
