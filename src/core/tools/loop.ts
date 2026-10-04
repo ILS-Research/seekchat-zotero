@@ -27,6 +27,8 @@ export interface ToolLoopOptions {
   /** Context for one tool call (target, confirmation) bound to its run. */
   context(run: ToolRun): ToolContext;
   maxRounds?: number;
+  /** Called before every model round; may shorten old messages so the conversation fits the context. */
+  compact?(messages: ChatMessage[]): void;
 }
 
 export async function runToolLoop(opts: ToolLoopOptions): Promise<void> {
@@ -36,6 +38,7 @@ export async function runToolLoop(opts: ToolLoopOptions): Promise<void> {
   // Text of earlier rounds stays on screen; each round streams after it.
   let shown = '';
   for (let round = 0; ; round++) {
+    opts.compact?.(messages);
     const withTools = round < maxRounds && registry.size > 0;
     let raw = '';
     const result = await client.streamTurn(

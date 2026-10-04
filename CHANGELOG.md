@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.24.0 – 2026-10-04
+
+- **Subagent for long tasks** (tool chat, new tool "Subagent für lange Aufgaben"). The model hands a long reading
+  task – e.g. "check the item type of every item in this collection" – to a subagent that works through it on its own
+  with the read-only tools (search, read items, read documents, reference lists) and returns only its result; what it
+  read stays out of the main chat's context.
+  - A collection or a list of items is worked through in **packages of 20**, one subagent each, one after the other
+    (same model; the GPU serves one request at a time); JSON results of the packages are joined into one list.
+  - The subagent **only reads**; it proposes changes, the main chat applies them with its tools and your confirmation.
+  - **"Subagent stoppen"** stops only the subagent (also from the closed tool block); the chat goes on with the
+    results so far and names the items not worked through.
+  - Long subagent conversations stay in the model's context: older tool results are shortened.
+- Not yet covered by tests.
+
 ## 0.23.0 – 2026-10-04
 
 - **Tool calls in one closed block.** All tool calls of an answer sit in a single block that shows one status line

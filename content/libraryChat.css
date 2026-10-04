@@ -41,6 +41,8 @@
 .seekchat-tool-items li { margin: 3px 0; }
 .seekchat-tool-detail { font-size: 11px; margin-left: 22px; white-space: pre-line; }
 .seekchat-tool-badge { display: inline-block; font-size: 10px; padding: 0 4px; border-radius: 3px; background: var(--fill-quinary); }
+.seekchat-tool-stop { margin-top: 4px; font-size: 11px; }
+.seekchat-tools-block > summary .seekchat-tool-stop { margin: 0 0 0 6px; }
 .seekchat-tool-buttons { display: flex; gap: 8px; margin-top: 4px; }
 .seekchat-tools-list > summary { cursor: pointer; color: var(--fill-secondary); }
 .seekchat-tools-items { display: flex; flex-direction: column; gap: 6px; padding: 6px 0 2px 14px; }

@@ -274,6 +274,7 @@ export class ToolsChatView {
     this.turnList.update(this.messages, s.turns, {
       onToolConfirm: (run, ok) => s.confirm(run, ok),
       onToolToggle: (run, i, checked) => s.toggleItem(run, i, checked),
+      onToolCancel: (run) => s.cancelRun(run),
       onOpenUrl: (url) => {
         if (/^https?:\/\//i.test(url)) Zotero.launchURL(url);
       },

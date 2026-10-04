@@ -3,7 +3,8 @@
  * arguments and a ToolContext, shows its progress in its ToolRun and returns the text the model reads.
  * New tools are new modules registered in tools/index.ts; session, loop and rendering stay.
  */
-import type { ToolSpec } from '../llm/types';
+import type { ChatRequest, LlmClient, ToolSpec } from '../llm/types';
+import type { ToolRegistry } from './registry';
 import type { ToolRun } from '../turn';
 
 /** Where tools that create items put them. */
@@ -27,6 +28,15 @@ export interface ToolContext {
    * false = cancelled (also when the chat is stopped).
    */
   confirm(): Promise<boolean>;
+  /** The tools switched on for this answer (a tool that runs its own loop picks from them). */
+  tools?: ToolRegistry;
+  /** The model of this answer, for tools that ask it themselves (subagent); its context is the server's own. */
+  llm?: { client: LlmClient; request: Omit<ChatRequest, 'messages' | 'tools'>; contextChars: number };
+  /**
+   * A signal of this run alone: the run gets a cancel button; aborted by that button or by stopping the chat.
+   * The tool decides what a cancel means (e.g. return the results so far).
+   */
+  cancellable?(): AbortSignal;
 }
 
 /** One choice of a tool setting; `available` false: shown disabled with `unavailableHint`. */

@@ -27,6 +27,8 @@ export interface CitationHandlers {
   onToolConfirm?: (run: ToolRun, ok: boolean) => void;
   /** Tool chat: an item of a run waiting for confirmation was checked or unchecked. */
   onToolToggle?: (run: ToolRun, index: number, checked: boolean) => void;
+  /** Tool chat: cancel one running run (subagent). */
+  onToolCancel?: (run: ToolRun) => void;
   /** Tool chat: show a Zotero item (saved or already present). */
   onShowItem?: (itemID: number) => void;
   /** Tool chat: open a web page (DOI, publisher, search) in the browser. */
@@ -108,6 +110,7 @@ function toolRunBox(doc: Document, run: ToolRun, handlers: CitationHandlers): HT
     });
     box.append(list);
   }
+  if (run.state === 'running' && run.cancellable && handlers.onToolCancel) box.append(cancelRunButton(doc, run, handlers));
   if (run.state === 'confirm' && handlers.onToolConfirm) {
     const row = el(doc, 'div', 'seekchat-tool-buttons');
     const ok = el(doc, 'button', 'seekchat-tool-ok', run.confirmLabel || t('tools.confirm')) as HTMLButtonElement;
@@ -119,6 +122,19 @@ function toolRunBox(doc: Document, run: ToolRun, handlers: CitationHandlers): HT
     box.append(row);
   }
   return box;
+}
+
+/** "Cancel subagent": stops this run alone; inside a summary it must not open or close the block. */
+function cancelRunButton(doc: Document, run: ToolRun, handlers: CitationHandlers): HTMLButtonElement {
+  const btn = el(doc, 'button', 'seekchat-tool-stop', t('agent.cancel')) as HTMLButtonElement;
+  btn.title = t('agent.cancelTitle');
+  btn.addEventListener('click', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    btn.disabled = true;
+    handlers.onToolCancel!(run);
+  });
+  return btn;
 }
 
 /** Blocks the user opened (true) or closed (false) by hand; without an entry the block follows the rule. */
@@ -141,6 +157,9 @@ function toolBlock(doc: Document, turn: Turn, handlers: CitationHandlers): HTMLE
   }));
   // The choice is taken from the click; a block that waits for the user stays open.
   summary.addEventListener('click', () => toolBlockChoice.set(turn, !block.open));
+  // A running subagent can be stopped from the closed block too.
+  const stoppable = runs.find((r) => r.state === 'running' && r.cancellable);
+  if (stoppable && handlers.onToolCancel) summary.append(doc.createTextNode(' '), cancelRunButton(doc, stoppable, handlers));
   block.append(summary);
   for (const run of runs) block.append(toolRunBox(doc, run, handlers));
   return block;

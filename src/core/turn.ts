@@ -45,6 +45,8 @@ export interface ToolRun {
   confirmLabel?: string;
   /** The confirm button works without a checked item (e.g. only creating a collection). */
   confirmEmpty?: boolean;
+  /** While running: a cancel button stops this run alone (subagent). */
+  cancellable?: boolean;
 }
 
 export interface ToolRunItem {

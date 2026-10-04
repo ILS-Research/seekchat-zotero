@@ -28,6 +28,8 @@ export const TOOL_SYSTEM_PROMPT = [
   'For sources related to a document (or a topic in it), read its reference list with get_document_references, choose '
   + 'the fitting entries yourself and show them with show_references (the user gets links to add them in the browser).',
   'To check or correct items (e.g. whether the item type is right), page through them with search_library (fields, offset), look at the first pages of doubtful ones with read_document, then call update_item with all corrections at once; the user confirms. Change nothing you have no evidence for.',
+  'For tasks that need to read a lot (e.g. checking every item of a collection), call delegate_task: a subagent works through it package by package and returns only its result; then apply its proposals yourself (e.g. with update_item).\n'
+  + 'Prefer delegate_task over many search_library pages when more than about 20 items have to be checked one by one.',
   'To write down a result as a note (a summary, notes on an item), call create_note with the Markdown text; the user confirms it.',
   'To put found items into a collection (also a new one), call save_to_collection with their keys; the user confirms it.',
   'Name only items a tool returned; refer to them by author, year and title (the user sees them linked in the tool results).',
@@ -47,6 +49,8 @@ export class ToolChatSession {
   private listeners = new Set<() => void>();
   /** Runs waiting for the user's confirmation and how to continue them. */
   private waiting = new Map<ToolRun, (ok: boolean) => void>();
+  /** Runs that can be cancelled on their own (subagent) and their abort. */
+  private runAborts = new Map<ToolRun, AbortController>();
 
   constructor(private tools: ToolRegistry = defaultRegistry()) {}
 
@@ -95,6 +99,16 @@ export class ToolChatSession {
     resume(ok);
   }
 
+  /** Cancels one running run (its cancel button); the chat goes on with what the tool returns. */
+  cancelRun(run: ToolRun): void {
+    const ctrl = this.runAborts.get(run);
+    if (!ctrl) return;
+    this.runAborts.delete(run);
+    run.cancellable = false;
+    ctrl.abort();
+    this.notify();
+  }
+
   /** Checks or unchecks one item of a run waiting for confirmation. */
   toggleItem(run: ToolRun, index: number, checked: boolean): void {
     const item = run.items?.[index];
@@ -120,15 +134,17 @@ export class ToolChatSession {
       const registry = this.enabledTools();
       const messages: ChatMessage[] = [{ role: 'system', content: toolSystemPrompt() }, ...history, { role: 'user', content: q }];
       L.info(`tools: ${registry.specs().map((x) => x.name).join(', ') || 'none'}`);
+      const client = createClient(prefs);
+      const request = {
+        model: prefs.model,
+        temperature: prefs.temperature,
+        maxTokens: limits.maxTokens,
+        think: prefs.thinking,
+        signal: ctrl.signal,
+      };
       await runToolLoop({
-        client: createClient(prefs),
-        request: {
-          model: prefs.model,
-          temperature: prefs.temperature,
-          maxTokens: limits.maxTokens,
-          think: prefs.thinking,
-          signal: ctrl.signal,
-        },
+        client,
+        request,
         messages,
         registry,
         answer,
@@ -139,6 +155,16 @@ export class ToolChatSession {
           signal: ctrl.signal,
           run,
           update: () => this.notify(),
+          tools: registry,
+          llm: { client, request, contextChars: limits.contextChars },
+          cancellable: () => {
+            const own = newAbortController();
+            if (ctrl.signal.aborted) own.abort();
+            else ctrl.signal.addEventListener('abort', () => own.abort(), { once: true });
+            this.runAborts.set(run, own);
+            run.cancellable = true;
+            return own.signal;
+          },
           confirm: () => new Promise<boolean>((resolve) => {
             if (ctrl.signal.aborted) return resolve(false);
             run.state = 'confirm';
@@ -162,6 +188,8 @@ export class ToolChatSession {
       }
     } finally {
       for (const run of answer.toolRuns || []) {
+        run.cancellable = false;
+        this.runAborts.delete(run);
         if (run.state === 'running' || run.state === 'confirm') run.state = 'cancelled';
         for (const item of run.items || []) item.selectable = false;
       }
