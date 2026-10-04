@@ -2474,6 +2474,31 @@ export const scenarios: Scenario[] = [
     getToolsChatWindow()?.close();
   }],
 
+  ['tutorial: questions that work on the literature itself (one book, two books compared)', async (ctx) => {
+    useLiveServer(ctx);
+    const win = Zotero.getMainWindow();
+    // One book in the PDF chat: a question about its argument, answered with page links.
+    const book = ctx.tut['Schlenz et al. - 2026 - Forschungsdatenmanagement - Eine praxisorientierte Einführung.pdf'];
+    const section = await openSectionInLibrary(book.id);
+    await delay(500);
+    const answer = await askThroughUi(section,
+      'Welche Phasen unterscheidet das Buch im Lebenszyklus von Forschungsdaten, und was verlangt es in der Planungsphase konkret von Forschenden? '
+      + 'Nenne die Stellen mit Seitenangabe.', 420000);
+    await (section.closest('item-details') as any)?.scrollToPane(section.getAttribute('data-pane'), 'instant');
+    await delay(500);
+    await screenshot(ctx, 'tut-deep-1-book');
+    await reportLive(ctx, { step: 'tutorial-deep-book', answer: answer.textContent });
+    win.Zotero_Tabs.select('zotero-pane');
+    // Two books against each other in the tool chat (search through SeekBook, reading the passages).
+    await openLiveToolChat();
+    const turn = await liveToolAsk(ctx, 'tut-deep-2',
+      'Vergleiche, was „Forschungsdatenmanagement – eine praxisorientierte Einführung“ und „Forschungsdaten-Policies für Forschungsprojekte“ dazu sagen, '
+      + 'wie ein Projekt seine Regeln zum Umgang mit Forschungsdaten festlegen soll. Wo ergänzen sich die Bücher, wo setzen sie unterschiedliche Schwerpunkte? '
+      + 'Belege jede Aussage mit Buch und Seite.');
+    await reportLive(ctx, { step: 'tutorial-deep-compare', answer: turn.content, runs: runsReport(turn) });
+    getToolsChatWindow()?.close();
+  }],
+
   ['live: model server lists the configured model', async (ctx) => {
     useLiveServer(ctx);
     const prefs = readPrefs();

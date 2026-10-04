@@ -62,10 +62,10 @@ export async function runAll(): Promise<void> {
     await waitFor('main window with ZoteroPane', () => Zotero.getMainWindow()?.ZoteroPane?.itemsView, 60000);
     await delay(1000);
     Zotero.debug('[SeekChat E2E] running scenarios');
-    // E2E_ONLY=<text>: only scenarios whose name contains it (for slow live scenarios).
+    // E2E_ONLY=<text>[|<text>…]: only scenarios whose name contains one of them (for slow live scenarios).
     const only = String(Zotero.Prefs.get('seekchat.e2e.only') || '');
     for (const [name, fn] of scenarios) {
-      if (only && !name.includes(only)) continue;
+      if (only && !only.split('|').some((o) => name.includes(o))) continue;
       const t0 = Date.now();
       try {
         await fn(ctx);
