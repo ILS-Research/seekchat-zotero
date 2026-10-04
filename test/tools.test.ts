@@ -256,8 +256,9 @@ test('loop: unknown tool and broken arguments go back as errors; rounds are limi
   await runToolLoop({ client, request: { model: 'm', temperature: 0, maxTokens: 10 }, messages: [], registry: new ToolRegistry([tool]), answer, notify: () => {}, context: loopContext(answer), maxRounds: 2 });
   assert.deepEqual(answer.toolRuns!.map((r) => r.state), ['error', 'error']);
   assert.match(client.requests[1].messages.at(-1)!.content, /no tool named "nope"/);
-  assert.match(client.requests[2].messages.at(-1)!.content, /not valid JSON/);
+  assert.match(client.requests[2].messages.at(-2)!.content, /not valid JSON/);
   assert.equal(client.requests[2].tools, undefined, 'last round without tools');
+  assert.deepEqual([client.requests[2].messages.at(-1)!.role, /cannot call tools any more/.test(client.requests[2].messages.at(-1)!.content)], ['user', true], 'last round asks for the answer');
   assert.equal(answer.content, 'last');
 });
 

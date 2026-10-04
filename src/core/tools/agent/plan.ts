@@ -28,7 +28,7 @@ export function shortenOldToolResults(messages: ChatMessage[], budgetChars: numb
     const m = messages[i];
     if (m.content.length <= head + 80) continue;
     const before = m.content.length;
-    m.content = `${m.content.slice(0, head)} … [earlier result shortened to save context; call the tool again if you need it]`;
+    m.content = `${m.content.slice(0, head)} … [earlier result shortened to save context – you have read it already; do not call it again, go on with what you concluded from it]`;
     total -= before - m.content.length;
     if (total <= budgetChars) return;
   }

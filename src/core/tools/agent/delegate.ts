@@ -30,6 +30,7 @@ const SUBAGENT_PROMPT = [
   'You are a subagent of SeekChat inside the reference manager Zotero. You work through one task on your own: nobody',
   'answers questions, so do not ask any. Use the read-only tools you have; read only what the task needs (use offset',
   'and limit, read a few pages, not whole documents). Never invent items, keys or facts.',
+  'Read several items in one round (several tool calls at once) and read each document only once.',
   'When you are done, answer with the result only, exactly in the requested format, without explanations around it.',
   'If you could not finish, say what is missing in one short line at the end.',
 ].join('\n');
@@ -153,6 +154,7 @@ export const delegateTaskTool = (): Tool => ({
           registry: tools,
           answer: scratch,
           maxRounds: subRounds(pkg.length),
+          finalPrompt: 'You cannot call tools any more. Give your result now, exactly in the requested format, from what you have read; mark items you could not check.',
           notify: status,
           compact: (m) => shortenOldToolResults(m, ctx.llm!.contextChars),
           context: (subRun) => {

@@ -13,7 +13,7 @@ import type { ToolContext } from './types';
 const L = logger('Tools');
 
 /** Model rounds with tools per answer; a model that keeps calling tools gets a last round without them. */
-export const MAX_TOOL_ROUNDS = 5;
+export const MAX_TOOL_ROUNDS = 12;
 
 export interface ToolLoopOptions {
   client: LlmClient;
@@ -29,7 +29,15 @@ export interface ToolLoopOptions {
   maxRounds?: number;
   /** Called before every model round; may shorten old messages so the conversation fits the context. */
   compact?(messages: ChatMessage[]): void;
+  /**
+   * Sent as a user message before the last round (no tools): without it a model that is still busy often answers
+   * with nothing, or with tool calls nobody runs.
+   */
+  finalPrompt?: string;
 }
+
+/** Default last-round instruction of the tool chat. */
+export const FINAL_PROMPT = 'You cannot call tools any more. Answer now in a few sentences: what the tools did and found, and what is still open.';
 
 export async function runToolLoop(opts: ToolLoopOptions): Promise<void> {
   const { client, registry, answer } = opts;
@@ -40,6 +48,7 @@ export async function runToolLoop(opts: ToolLoopOptions): Promise<void> {
   for (let round = 0; ; round++) {
     opts.compact?.(messages);
     const withTools = round < maxRounds && registry.size > 0;
+    if (!withTools && round > 0 && round >= maxRounds) messages.push({ role: 'user', content: opts.finalPrompt ?? FINAL_PROMPT });
     let raw = '';
     const result = await client.streamTurn(
       { ...opts.request, messages, ...(withTools ? { tools: registry.specs() } : {}) },

@@ -135,7 +135,7 @@ export const updateItemTool = (): Tool => ({
   spec: {
     name: 'update_item',
     description:
-      'Change items of the library: their item type, fields and tags. Give a list of "changes", one per item: "key" (from '
+      'Change items of the library: their item type, fields and tags. Put ALL changes into ONE call (a list of "changes", one per item) – the user confirms them together: "key" (from '
       + 'search_library, get_item, get_selection – never invent keys), optionally "item_type" (Zotero name, e.g. journalArticle, '
       + 'book, bookSection, conferencePaper, report, thesis, webpage), "fields" (Zotero field name -> new value; "" clears '
       + 'the field), "add_tags", "remove_tags". A new item type drops the fields it does not have (the preview shows which). '

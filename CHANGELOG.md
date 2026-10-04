@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.24.4 – 2026-10-04
+
+Fixes from the second live test (subagent checking item types, qwen3.8 27B):
+- **The tool chat had only 5 model rounds**: after subagent, search and reading, the model's `update_item` calls came in
+  the last round, which offers no tools – they were dropped and the answer was empty. Now 12 rounds.
+- **Empty last answer**: before the last round (no tools) the model is now told to answer with what the tools did;
+  the subagent is told to give its result in the requested format. Before, both often answered with nothing.
+- **The subagent read the same documents again and again**: shortened old tool results invited it to call the tool
+  again. Now they say it has read them already; the subagent reads several items per round and each document once.
+- `update_item` asks for all changes in one call (one preview to confirm instead of one per item).
+
 ## 0.24.3 – 2026-10-04
 
 - **Fix: a field the item type does not have no longer blocks the whole change.** Found in the live test: the model
