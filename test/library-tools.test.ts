@@ -101,3 +101,32 @@ test('reference links: DOI, arXiv, URL, ISBN, else a Scholar search by title', a
   assert.equal(m.n, 3);
   assert.ok(String(m.text).length < 270 && m.doi === '10.1/x' && !('url' in m));
 });
+
+test('item changes: arguments read into changes, bad ones refused with a reason the model can read', async () => {
+  const { parseChanges, matchName, tagDelta, dash, MAX_UPDATE_ITEMS } = await import('../src/core/tools/library/edit-plan');
+  const [c] = parseChanges({ changes: [{ key: 'AAAA', item_type: 'book', fields: { publisher: ' Springer ', volume: null, year: 5 }, add_tags: 'x, y' }] });
+  assert.deepEqual(c, { key: 'AAAA', itemType: 'book', fields: { publisher: 'Springer', volume: '', year: '5' }, addTags: ['x', 'y'], removeTags: [] });
+  assert.equal(parseChanges({ key: 'B', item_type: 'report' })[0].key, 'B');
+  assert.throws(() => parseChanges({}), /no changes given/);
+  assert.throws(() => parseChanges({ changes: [{ item_type: 'book' }] }), /no "key"/);
+  assert.throws(() => parseChanges({ changes: [{ key: 'A' }] }), /changes nothing/);
+  assert.throws(() => parseChanges({ changes: [{ key: 'A', item_type: 'book' }, { key: 'A', item_type: 'report' }] }), /twice/);
+  assert.throws(() => parseChanges({ changes: Array.from({ length: MAX_UPDATE_ITEMS + 1 }, (_x, i) => ({ key: `K${i}`, item_type: 'book' })) }), /at most 50/);
+  assert.equal(matchName('Journal Article', ['book', 'journalArticle']), 'journalArticle');
+  assert.equal(matchName('book_section', ['bookSection']), 'bookSection');
+  assert.equal(matchName('nope', ['book']), undefined);
+  assert.deepEqual(tagDelta(['a', 'b'], ['b', 'c', 'c'], ['a', 'z']), { add: ['c'], remove: ['a'] });
+  assert.equal(dash(' '), '–');
+});
+
+test('read_document: the window of pages is cut by page count and characters, and says where to go on', async () => {
+  const { pageWindow, READ_MAX_PAGES } = await import('../src/core/tools/library/read-document');
+  const lens = Array.from({ length: 100 }, () => 1000);
+  assert.deepEqual(pageWindow(100, undefined, undefined, lens), { from: 1, to: 3, next: 4 });
+  assert.deepEqual(pageWindow(100, 10, 12, lens), { from: 10, to: 12, next: 13 });
+  assert.equal(pageWindow(100, 1, 80, lens.map(() => 2000)).to, 6, 'cut by characters (12000)');
+  assert.equal(pageWindow(100, 1, 80, lens.map(() => 100)).to, READ_MAX_PAGES, 'cut by page count');
+  assert.deepEqual(pageWindow(5, 4, 99, lens), { from: 4, to: 5 });
+  assert.deepEqual(pageWindow(5, 99, undefined, lens), { from: 5, to: 5 });
+  assert.deepEqual(pageWindow(100, 1, 2, [20000, 20000]), { from: 1, to: 1, next: 2 }, 'a huge page is still read alone');
+});

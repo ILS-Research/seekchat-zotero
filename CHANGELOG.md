@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.22.0 – 2026-10-04
+
+- **New tool: change items.** The tool chat can change the item type, fields and tags of items – e.g. "go through my
+  collection and check that the item types are right". It shows a preview first (per item what changes, which fields
+  a new item type drops, checkboxes) and changes nothing before you confirm ("Änderungen übernehmen"). Fields that
+  the new type names differently (publication title → book title) are carried over. The result lists the previous
+  values, so a change can be reverted.
+- **New tool: read text.** Reads pages of a document of the library (PDF by page, web page/e-book/text by section;
+  default the first three, at most ten pages per call) – e.g. the title page to see what a document really is.
+- **Search the library** takes `fields` (DOI, ISBN, pages … per result) and `offset`, so the model can page through
+  a whole collection.
+
 ## 0.21.0 – 2026-10-03
 
 - **Find related sources in a document's reference list** (tool chat, needs Find Online References 0.7.37+):

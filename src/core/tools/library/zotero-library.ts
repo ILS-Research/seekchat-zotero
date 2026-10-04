@@ -4,6 +4,7 @@
  * Everything read-only.
  */
 import { docKind } from '../../context/document';
+import { matchName } from './edit-plan';
 import { noteText } from '../../context/notes';
 import { libraryKeyOf } from '../../library/zotero-items';
 import { readZotSeekSettings, zotseekBookMode } from '../../library/coverage';
@@ -31,13 +32,13 @@ function topItem(item: any): any | null {
   return parent?.isRegularItem?.() && !parent.deleted ? parent : null;
 }
 
-function names(item: any): string[] {
+export function names(item: any): string[] {
   const creators: any[] = item.getCreators?.() || [];
   const authors = creators.filter((c) => Zotero.CreatorTypes.getName(c.creatorTypeID) !== 'editor');
   return (authors.length ? authors : creators).map((c) => c.lastName || c.name).filter(Boolean);
 }
 
-function field(item: any, name: string): string {
+export function field(item: any, name: string): string {
   try {
     return String(item.getField(name, false, true) || '');
   } catch {
@@ -78,6 +79,8 @@ export interface SearchArgs {
   added_after?: string;
   sources?: string[] | string;
   limit?: number;
+  /** Skip this many results (paging through a long list). */
+  offset?: number;
 }
 
 export interface SearchSettings {
@@ -230,7 +233,21 @@ export async function searchLibrary(libraryID: number, args: SearchArgs, setting
       return true;
     });
   L.info(`search in ${scope}: zotero ${status.zotero}, zotseek ${JSON.stringify(status.zotseek)}, seekbook ${JSON.stringify(status.seekbook)} → ${merged.length}`);
-  return { scope, status, total: merged.length, hits: merged.slice(0, limit) };
+  const offset = Math.max(0, Math.round(Number(args.offset) || 0));
+  return { scope, status, total: merged.length, hits: merged.slice(offset, offset + limit) };
+}
+
+/** Values of the named Zotero fields (any spelling, also base names like publicationTitle) that the item has. */
+export function fieldValues(item: any, wanted: string[]): Record<string, string> {
+  const out: Record<string, string> = {};
+  const valid: string[] = Zotero.ItemFields.getItemTypeFields(item.itemTypeID).map((id: number) => Zotero.ItemFields.getName(id));
+  for (const w of wanted) {
+    const name = matchName(w, valid) || matchName(w, ['creators', 'tags']);
+    if (!name || name === 'creators' || name === 'tags') continue;
+    const v = field(item, name);
+    if (v) out[name] = cut(v, 200);
+  }
+  return out;
 }
 
 export type ItemPart = 'fields' | 'abstract' | 'notes' | 'attachments' | 'tags' | 'collections' | 'related';

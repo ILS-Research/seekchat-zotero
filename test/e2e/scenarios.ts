@@ -1440,7 +1440,7 @@ export const scenarios: Scenario[] = [
     const session = getToolSession();
     session.clear();
     const list = doc.querySelector('.seekchat-tools-list') as HTMLDetailsElement;
-    assert(list && /7 von 9/.test(list.querySelector('summary')!.textContent!), `summary ${list?.querySelector('summary')?.textContent}`);
+    assert(list && /9 von 11/.test(list.querySelector('summary')!.textContent!), `summary ${list?.querySelector('summary')?.textContent}`);
     list.open = true;
     const item = () => doc.querySelector('.seekchat-tools-item[data-tool="import_references"]') as HTMLElement;
     const select = () => item().querySelector('select[data-option="parser"]') as HTMLSelectElement;
@@ -1451,7 +1451,7 @@ export const scenarios: Scenario[] = [
     const box = item().querySelector('input[type=checkbox]') as HTMLInputElement;
     box.click();
     assert(Zotero.Prefs.get('seekchat.tools.disabled') === 'import_references', `pref ${Zotero.Prefs.get('seekchat.tools.disabled')}`);
-    assert(/6 von 9/.test(doc.querySelector('.seekchat-tools-list summary')!.textContent!), 'summary not updated');
+    assert(/8 von 11/.test(doc.querySelector('.seekchat-tools-list summary')!.textContent!), 'summary not updated');
     view.input.value = 'Bitte importiere das';
     await view.send();
     const req = await mockLastRequest();
@@ -1641,7 +1641,8 @@ export const scenarios: Scenario[] = [
       assert(all.run.items!.every((i) => i.itemID), 'items without link');
       assert(/Ergebnis search_library: \d+/.test(all.answer), `answer ${all.answer}`);
       const doc = toolsWin.document;
-      assert(doc.querySelectorAll('.seekchat-tool-run .seekchat-cite').length >= 3, 'no item links in the window');
+      // The window repaints at most every 60 ms.
+      await waitFor('item links in the window', () => doc.querySelectorAll('.seekchat-tool-run .seekchat-cite').length >= 3, 5000);
 
       // Filters apply to passage hits too: year from 2020 keeps only the report.
       const recent = await call('search_library', { query: 'Hitze', year_from: 2020 });
@@ -1755,6 +1756,106 @@ export const scenarios: Scenario[] = [
       for (const p of prefs) Zotero.Prefs.set(p, 'on');
       zs.uninstall();
       restoreSeekBook();
+    }
+  }],
+
+  ['tool chat: update_item changes type, fields and tags after confirmation (mapped fields kept, dropped ones reported); read_document reads pages; search pages with fields', async (ctx) => {
+    setPref('provider', 'ollama');
+    setPref('baseUrl', MOCK);
+    setPref('model', 'mock-model');
+    const lib = Zotero.Libraries.userLibraryID;
+    const make = async (type: string, title: string, fields: Record<string, string>, tags: string[]) => {
+      const item = new Zotero.Item(type);
+      item.setField('title', title);
+      for (const [k, v] of Object.entries(fields)) item.setField(k, v);
+      for (const tag of tags) item.addTag(tag);
+      await item.saveTx();
+      return item;
+    };
+    const one = await make('journalArticle', 'E2E Typprüfung Buch', { publicationTitle: 'Zeitschrift Z', volume: '3', DOI: '10.1000/e2e-typ' }, ['E2E-Typ', 'E2E-Weg']);
+    const two = await make('journalArticle', 'E2E Typprüfung Kapitel', { publicationTitle: 'Sammelband S' }, ['E2E-Typ']);
+    const att = await Zotero.Attachments.importFromFile({ file: Zotero.File.pathToFile(`${ctx.fixturesDir}/seekchat-long.pdf`), parentItemID: two.id });
+    openToolsChat();
+    const toolsWin = await waitFor('tool chat window', () => getToolsChatWindow(), 10000);
+    const view = await waitFor('tool chat view', () => getToolsChatView(), 10000);
+    view.setTarget(`l${lib}`);
+    const session = getToolSession();
+    session.clear();
+    try {
+      const doc = toolsWin.document;
+      const lastTool = async () => {
+        const req = await mockLastRequest();
+        const msg = [...req.messages].reverse().find((m: any) => m.role === 'tool');
+        try { return JSON.parse(msg.content); } catch { return { text: msg.content }; }
+      };
+      const call = async (name: string, args: object) => {
+        view.input.value = `TOOL ${name} ${JSON.stringify(args)}`;
+        await view.send();
+        const turn = session.turns[session.turns.length - 1];
+        assert(!turn.error, `${name}: ${turn.content}`);
+        return { run: turn.toolRuns![0], result: await lastTool() };
+      };
+
+      // Search with chosen fields and paging.
+      const page = await call('search_library', { tags: ['E2E-Typ'], sources: ['zotero'], fields: ['DOI', 'publicationTitle', 'volume'], limit: 1 });
+      assert(page.result.total === 2 && page.result.shown === 1, `paging ${JSON.stringify(page.result).slice(0, 300)}`);
+      const page2 = await call('search_library', { tags: ['E2E-Typ'], sources: ['zotero'], fields: ['DOI'], limit: 1, offset: 1 });
+      const both = [page.result.results[0], page2.result.results[0]];
+      assert(both.map((r: any) => r.key).sort().join() === [one.key, two.key].sort().join(), `offset ${JSON.stringify(both.map((r: any) => r.key))}`);
+      assert(page.result.results[0].key === one.key ? page.result.results[0].fields.DOI === '10.1000/e2e-typ' && page.result.results[0].fields.volume === '3' : true, 'fields missing');
+
+      // Preview: one to book (fields, tag, dropped fields), one to bookSection (mapped title kept), an unknown key.
+      view.input.value = `TOOL update_item ${JSON.stringify({ changes: [
+        { key: one.key, item_type: 'book', fields: { publisher: 'Springer', place: 'Berlin' }, remove_tags: ['E2E-Weg'], add_tags: ['E2E-Neu'] },
+        { key: two.key, item_type: 'book_section', fields: { publicationTitle: 'Sammelband S' } },
+        { key: 'NOSUCHKY', item_type: 'book' },
+      ] })}`;
+      const sending = view.send();
+      const run = await waitFor('update preview', () => session.turns[session.turns.length - 1]?.toolRuns?.find((r) => r.state === 'confirm'), 10000);
+      assert(run.items!.length === 3, `preview ${JSON.stringify(run.items)}`);
+      assert(run.items![0].checked && /→/.test(run.items![0].detail!) && /publicationTitle/.test(run.items![0].detail!) && /E2E-Neu/.test(run.items![0].detail!) && /Springer/.test(run.items![0].detail!), `first ${run.items![0].detail}`);
+      assert(run.items![1].checked && !/Sammelband/.test(run.items![1].detail!.split('\n').slice(1).join(' ')), `second ${run.items![1].detail}`);
+      assert(!run.items![2].selectable && run.items![2].badge === 'nicht möglich', `third ${JSON.stringify(run.items![2])}`);
+      assert(one.itemType === 'journalArticle', 'changed before confirmation');
+      // The user takes the second one out.
+      run.items![1].checked = false;
+      const ok = await waitFor('confirm button', () => doc.querySelector('.seekchat-tool-ok') as HTMLButtonElement, 5000);
+      assert(ok.textContent === 'Änderungen übernehmen', `button ${ok.textContent}`);
+      ok.click();
+      await sending;
+      const done = await lastTool();
+      assert(one.itemType === 'book' && one.getField('publisher') === 'Springer' && one.getField('place') === 'Berlin', `one: ${one.itemType} ${one.getField('publisher')}`);
+      
+      assert(one.hasTag('E2E-Neu') && !one.hasTag('E2E-Weg') && one.hasTag('E2E-Typ'), 'tags');
+      assert(two.itemType === 'journalArticle', 'unchecked item changed');
+      assert(done.changed.length === 1 && done.changed[0].before.item_type === 'journalArticle' && done.changed[0].before.droppedFields.publicationTitle === 'Zeitschrift Z', `result ${JSON.stringify(done)}`);
+
+      // The second one for real: the mapped title survives as the book title.
+      const second = call('update_item', { changes: [{ key: two.key, item_type: 'book_section' }] });
+      const run2 = await waitFor('second preview', () => session.turns[session.turns.length - 1]?.toolRuns?.find((r) => r.state === 'confirm'), 10000);
+      assert(!/Dropped|verloren/.test(run2.items![0].detail!), `mapped field reported as lost: ${run2.items![0].detail}`);
+      (await waitFor('ok', () => doc.querySelector('.seekchat-tool-ok') as HTMLButtonElement, 5000)).click();
+      await second;
+      assert(two.itemType === 'bookSection' && two.getField('bookTitle') === 'Sammelband S', `two: ${two.itemType} / ${two.getField('bookTitle')}`);
+
+      // Cancelling changes nothing; a field the type does not have is refused without a preview.
+      const cancelled = call('update_item', { changes: [{ key: two.key, item_type: 'report' }] });
+      await waitFor('third preview', () => session.turns[session.turns.length - 1]?.toolRuns?.find((r) => r.state === 'confirm'), 10000);
+      (doc.querySelector('.seekchat-tool-cancel') as HTMLButtonElement).click();
+      await cancelled;
+      assert(two.itemType === 'bookSection', 'changed despite cancel');
+      const bad = await call('update_item', { changes: [{ key: two.key, fields: { nosuchfield: 'x' } }] });
+      assert(bad.run.state === 'error' && /nosuchfield/.test(bad.result.problems[0].problem), `bad field ${JSON.stringify(bad.result)}`);
+
+      // read_document: first three pages, then one chosen page; the item key finds the PDF.
+      const read = await call('read_document', { key: two.key });
+      assert(read.result.kind === 'pdf' && read.result.key === att.key && read.result.pages >= 4 && read.result.from === 1 && read.result.to === 3 && read.result.next === 4 && read.result.text.length === 3, `read ${JSON.stringify(read.result).slice(0, 300)}`);
+      const one3 = await call('read_document', { key: att.key, from_page: 2, to_page: 2 });
+      assert(one3.result.text.length === 1 && one3.result.text[0].page === 2, `page 2 ${JSON.stringify(one3.result).slice(0, 200)}`);
+      const none = await call('read_document', { key: one.key });
+      assert(none.run.state === 'error', 'item without file not reported');
+    } finally {
+      toolsWin.close();
     }
   }],
 

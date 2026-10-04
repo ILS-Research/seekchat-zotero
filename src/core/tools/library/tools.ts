@@ -8,7 +8,7 @@ import type { Tool, ToolContext } from '../types';
 import type { ToolRunItem } from '../../turn';
 import { clampLimit, sourceStatusText, stringArg, type SourceID, type SourceStatus } from './summary';
 import {
-  currentSelection, DEFAULT_PARTS, itemByKey, itemDetails, listCollections, listTags, searchLibrary, summarize,
+  currentSelection, DEFAULT_PARTS, fieldValues, itemByKey, itemDetails, listCollections, listTags, searchLibrary, summarize,
   type ItemPart, type SearchArgs,
 } from './zotero-library';
 
@@ -51,6 +51,8 @@ export const searchLibraryTool = (): Tool => ({
         added_after: { type: 'string', description: 'Only items added after this date (YYYY-MM-DD).' },
         sources: { type: 'array', items: { type: 'string', enum: ['zotero', 'zotseek', 'seekbook'] }, description: 'Limit to these search sources (default: all available).' },
         limit: { type: 'integer', description: 'Number of results (default 15, at most 25).' },
+        offset: { type: 'integer', description: 'Skip this many results; with limit it pages through a long list (the result says the total).' },
+        fields: { type: 'array', items: STRING, description: 'Zotero fields to include per result (e.g. DOI, ISBN, ISSN, url, pages, volume, publisher); only fields the item has are returned.' },
       },
     },
   },
@@ -83,6 +85,7 @@ export const searchLibraryTool = (): Tool => ({
     const settings = { zotseek: ctx.options.zotseek === 'on', seekbook: ctx.options.seekbook === 'on' };
     ctx.run.status = t('libtools.searching');
     ctx.update();
+    const wantedFields = stringArg(args.fields).slice(0, 12);
     const out = await searchLibrary(ctx.target.libraryID, args as SearchArgs, settings, t('cite.page'), ctx.signal);
     ctx.run.status = `${tn('libtools.found', out.total, { scope: out.scope })}${out.total > out.hits.length ? ` ${t('libtools.shown', { n: out.hits.length })}` : ''}\n${sourceLine(out.status)}`;
     ctx.run.items = out.hits.map((h): ToolRunItem => {
@@ -101,8 +104,10 @@ export const searchLibraryTool = (): Tool => ({
       sources: Object.fromEntries(Object.entries(out.status).map(([k, v]) => [k, sourceStatusText(v)])),
       total: out.total,
       shown: out.hits.length,
+      ...(out.hits.length && Number(args.offset) > 0 ? { offset: Math.round(Number(args.offset)) } : {}),
       results: out.hits.map((h) => ({
         ...summarize(h.item),
+        ...(wantedFields.length ? { fields: fieldValues(h.item, wantedFields) } : {}),
         foundBy: h.sources,
         ...(h.excerpts.length ? { excerpts: h.excerpts.map((e) => ({ source: e.source, where: e.where, text: e.text })) } : {}),
       })),
