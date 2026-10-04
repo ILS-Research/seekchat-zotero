@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.24.1 – 2026-10-04
+
+- Tool chat: the opened tool list is at most about a third of the window high and scrolls, so it no longer pushes
+  the chat out of the window.
+
 ## 0.24.0 – 2026-10-04
 
 - **Subagent for long tasks** (tool chat, new tool "Subagent für lange Aufgaben"). The model hands a long reading
