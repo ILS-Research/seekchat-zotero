@@ -12,6 +12,8 @@ mkdir -p "$HOME" "$PROFILE/extensions" "$WORK/data" /out
 rm -f /out/results.json /out/screenshot-*.png
 cp "$XPI" "$PROFILE/extensions/seekchat@ils-forschung.de.xpi"
 [ -f /seekbook.xpi ] && cp /seekbook.xpi "$PROFILE/extensions/seekbook@ils-forschung.de.xpi"
+# Further plugins (E2E_PLUGINS in run.sh), already named by their add-on id.
+for xpi in /plugins/*.xpi; do [ -f "$xpi" ] && cp "$xpi" "$PROFILE/extensions/"; done
 
 cat > "$PROFILE/user.js" <<PREFS
 user_pref("extensions.autoDisableScopes", 0);
@@ -26,6 +28,7 @@ user_pref("extensions.zotero.seekchat.e2e.resultsPath", "/out/results.json");
 user_pref("extensions.zotero.seekchat.e2e.outDir", "/out");
 user_pref("extensions.zotero.seekchat.e2e.fixturesDir", "/fixtures");
 user_pref("extensions.zotero.seekchat.e2e.assetsDir", "/assets");
+user_pref("extensions.zotero.seekchat.e2e.refAssetsDir", "$([ -d /refassets ] && echo /refassets)");
 user_pref("extensions.zotero.seekchat.e2e.portal", ${E2E_PORTAL:-false});
 user_pref("extensions.zotero.seekchat.e2e.only", "${E2E_ONLY:-}");
 // UI texts in the scenarios are German; English is checked in its own scenario.

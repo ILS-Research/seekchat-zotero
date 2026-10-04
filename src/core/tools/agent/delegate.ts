@@ -22,7 +22,8 @@ const L = logger('Subagent');
 
 /** Items per package, model rounds per package. */
 export const PACKAGE_SIZE = 20;
-const SUB_ROUNDS = 10;
+/** Model rounds of a package: one per item (reading them one by one) plus some for searching and the answer. */
+const subRounds = (items: number) => Math.max(10, items + 5);
 const MAX_PACKAGES = 50;
 
 const SUBAGENT_PROMPT = [
@@ -151,7 +152,7 @@ export const delegateTaskTool = (): Tool => ({
           messages,
           registry: tools,
           answer: scratch,
-          maxRounds: SUB_ROUNDS,
+          maxRounds: subRounds(pkg.length),
           notify: status,
           compact: (m) => shortenOldToolResults(m, ctx.llm!.contextChars),
           context: (subRun) => {

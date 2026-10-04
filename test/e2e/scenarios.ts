@@ -29,6 +29,8 @@ import { renderTurn } from '../../src/ui/turn-view';
 import { resolveAttachment } from '../../src/ui/chat-section';
 import { docKind } from '../../src/core/context/document';
 import { assert, delay, screenshot, SkipError, waitFor, type E2EContext } from './harness';
+import { noteText } from '../../src/core/context/notes';
+import type { ToolRun, Turn } from '../../src/core/turn';
 
 type Scenario = [string, (ctx: E2EContext) => Promise<void>];
 
@@ -63,6 +65,75 @@ function useLiveServer(ctx: E2EContext): void {
 async function reportLive(ctx: E2EContext, entry: Record<string, unknown>): Promise<void> {
   ctx.live.push(entry);
   await Zotero.File.putContentsAsync(`${ctx.outDir}/live-report.json`, JSON.stringify(ctx.live, null, 2));
+}
+
+/** Real documents of zotero-reference's test set (E2E_REF_ASSETS), or skip. */
+function refAssets(): string {
+  const dir: string = Zotero.Prefs.get('seekchat.e2e.refAssetsDir') || '';
+  if (!dir) throw new SkipError('zotero-reference test assets not mounted');
+  return dir;
+}
+
+/** A regular item with a real PDF of the test set attached. */
+async function liveDoc(type: string, title: string, file: string, collectionID?: number): Promise<{ item: any; att: any }> {
+  const item = new Zotero.Item(type);
+  item.setField('title', title);
+  if (collectionID) item.setCollections([collectionID]);
+  await item.saveTx();
+  const att = await Zotero.Attachments.importFromFile({ file: Zotero.File.pathToFile(`${refAssets()}/${file}`), parentItemID: item.id });
+  return { item, att };
+}
+
+/**
+ * Asks the tool chat with a real model: answers every confirmation with `decide` (true = confirm), takes a screenshot
+ * at each confirmation, every 20 s while it runs and at the end. Returns the answer turn.
+ */
+async function liveToolAsk(ctx: E2EContext, name: string, question: string, decide: (run: ToolRun) => boolean = () => true): Promise<Turn> {
+  const toolsWin = getToolsChatWindow();
+  const view = getToolsChatView()!;
+  const session = getToolSession();
+  view.input.value = question;
+  let finished = false;
+  const sending = view.send().finally(() => { finished = true; });
+  const answered = new Set<ToolRun>();
+  let shots = 0;
+  let lastShot = Date.now();
+  while (!finished) {
+    const turn = session.turns[session.turns.length - 1];
+    const run = turn?.toolRuns?.find((r) => r.state === 'confirm' && !answered.has(r));
+    if (run) {
+      answered.add(run);
+      await delay(400);
+      await screenshot(ctx, `${name}-${++shots}-confirm-${run.name}`, toolsWin);
+      session.confirm(run, decide(run));
+    } else if (Date.now() - lastShot > 20000) {
+      lastShot = Date.now();
+      await screenshot(ctx, `${name}-${++shots}-running`, toolsWin);
+    }
+    await delay(500);
+  }
+  await sending;
+  await delay(400);
+  const turn = session.turns[session.turns.length - 1];
+  await screenshot(ctx, `${name}-${++shots}-answer`, toolsWin);
+  for (const block of Array.from(toolsWin.document.querySelectorAll('.seekchat-tools-block') as NodeListOf<HTMLDetailsElement>)) block.open = true;
+  await delay(300);
+  await screenshot(ctx, `${name}-${++shots}-answer-tools-opened`, toolsWin);
+  return turn;
+}
+
+/** The tool runs of a turn in short form for the live report. */
+function runsReport(turn: Turn): unknown[] {
+  return (turn.toolRuns || []).map((r) => ({ name: r.name, title: r.title, state: r.state, status: r.status, items: r.items?.map((i) => `${i.badge || ''} ${i.label}${i.detail ? ` | ${i.detail.slice(0, 200)}` : ''}`) }));
+}
+
+/** Opens the tool chat on the user library for a live scenario. */
+async function openLiveToolChat(): Promise<void> {
+  openToolsChat();
+  await waitFor('tool chat window', () => getToolsChatWindow(), 10000);
+  const view = await waitFor('tool chat view', () => getToolsChatView(), 10000);
+  view.setTarget(`l${Zotero.Libraries.userLibraryID}`);
+  getToolSession().clear();
 }
 
 /** Checkbox of the chapter with this title in the tree. */
@@ -1440,7 +1511,7 @@ export const scenarios: Scenario[] = [
     const session = getToolSession();
     session.clear();
     const list = doc.querySelector('.seekchat-tools-list') as HTMLDetailsElement;
-    assert(list && /10 von 12/.test(list.querySelector('summary')!.textContent!), `summary ${list?.querySelector('summary')?.textContent}`);
+    assert(list && /11 von 13/.test(list.querySelector('summary')!.textContent!), `summary ${list?.querySelector('summary')?.textContent}`);
     list.open = true;
     const item = () => doc.querySelector('.seekchat-tools-item[data-tool="import_references"]') as HTMLElement;
     const select = () => item().querySelector('select[data-option="parser"]') as HTMLSelectElement;
@@ -1451,7 +1522,7 @@ export const scenarios: Scenario[] = [
     const box = item().querySelector('input[type=checkbox]') as HTMLInputElement;
     box.click();
     assert(Zotero.Prefs.get('seekchat.tools.disabled') === 'import_references', `pref ${Zotero.Prefs.get('seekchat.tools.disabled')}`);
-    assert(/9 von 12/.test(doc.querySelector('.seekchat-tools-list summary')!.textContent!), 'summary not updated');
+    assert(/10 von 13/.test(doc.querySelector('.seekchat-tools-list summary')!.textContent!), 'summary not updated');
     view.input.value = 'Bitte importiere das';
     await view.send();
     const req = await mockLastRequest();
@@ -1817,6 +1888,8 @@ export const scenarios: Scenario[] = [
       assert(run.items![1].checked && !/Sammelband/.test(run.items![1].detail!.split('\n').slice(1).join(' ')), `second ${run.items![1].detail}`);
       assert(!run.items![2].selectable && run.items![2].badge === 'nicht möglich', `third ${JSON.stringify(run.items![2])}`);
       assert(one.itemType === 'journalArticle', 'changed before confirmation');
+      await delay(200);
+      await screenshot(ctx, 'tools-update-preview', toolsWin);
       // The user takes the second one out.
       run.items![1].checked = false;
       const ok = await waitFor('confirm button', () => doc.querySelector('.seekchat-tool-ok') as HTMLButtonElement, 5000);
@@ -1828,6 +1901,8 @@ export const scenarios: Scenario[] = [
       
       assert(one.hasTag('E2E-Neu') && !one.hasTag('E2E-Weg') && one.hasTag('E2E-Typ'), 'tags');
       assert(two.itemType === 'journalArticle', 'unchecked item changed');
+      await delay(200);
+      await screenshot(ctx, 'tools-update-done', toolsWin);
       assert(done.changed.length === 1 && done.changed[0].before.item_type === 'journalArticle' && done.changed[0].before.droppedFields.publicationTitle === 'Zeitschrift Z', `result ${JSON.stringify(done)}`);
 
       // The second one for real: the mapped title survives as the book title.
@@ -1849,6 +1924,8 @@ export const scenarios: Scenario[] = [
 
       // read_document: first three pages, then one chosen page; the item key finds the PDF.
       const read = await call('read_document', { key: two.key });
+      await delay(200);
+      await screenshot(ctx, 'tools-read-document', toolsWin);
       assert(read.result.kind === 'pdf' && read.result.key === att.key && read.result.pages >= 4 && read.result.from === 1 && read.result.to === 3 && read.result.next === 4 && read.result.text.length === 3, `read ${JSON.stringify(read.result).slice(0, 300)}`);
       const one3 = await call('read_document', { key: att.key, from_page: 2, to_page: 2 });
       assert(one3.result.text.length === 1 && one3.result.text[0].page === 2, `page 2 ${JSON.stringify(one3.result).slice(0, 200)}`);
@@ -1881,6 +1958,7 @@ export const scenarios: Scenario[] = [
       const run = await waitFor('note preview', () => session.turns[session.turns.length - 1]?.toolRuns?.find((r) => r.state === 'confirm'), 10000);
       assert(/Punkt \*\*eins\*\*/.test(run.items![0].detail!) && /E2E Notizbuch/.test(run.items![0].label), `preview ${JSON.stringify(run.items)}`);
       await waitFor('block open while asking', () => block()?.open === true, 5000);
+      await screenshot(ctx, 'tools-note-preview', toolsWin);
       assert(item.getNotes().length === 0, 'note created before confirmation');
       const ok = await waitFor('confirm button', () => doc.querySelector('.seekchat-tool-ok') as HTMLButtonElement, 5000);
       assert(ok.textContent === 'Notiz anlegen', `button ${ok.textContent}`);
@@ -1892,13 +1970,87 @@ export const scenarios: Scenario[] = [
       await waitFor('block closed after the answer', () => block() && block()!.open === false, 5000);
       const summary = block()!.querySelector('summary') as HTMLElement;
       assert(/Notiz/.test(summary.textContent || '') && !summary.textContent!.includes('\n'), `summary ${summary.textContent}`);
+      await screenshot(ctx, 'tools-block-closed', toolsWin);
       summary.click();
       await waitFor('block opened by the user', () => block()?.open === true, 5000);
+      await screenshot(ctx, 'tools-block-opened', toolsWin);
 
       // Without key and collection the note goes to the library root; a missing parent is refused.
       view.input.value = `TOOL create_note ${JSON.stringify({ key: 'NOSUCHKY', text: 'x' })}`;
       await view.send();
       assert(session.turns[session.turns.length - 1].toolRuns![0].state === 'error', 'unknown parent not refused');
+    } finally {
+      toolsWin.close();
+    }
+  }],
+
+  ['tool chat: subagent works through a collection in packages with read-only tools, returns only its result; its stop button keeps the results so far', async (ctx) => {
+    setPref('provider', 'ollama');
+    setPref('baseUrl', MOCK);
+    setPref('model', 'mock-model');
+    const lib = Zotero.Libraries.userLibraryID;
+    const col = new Zotero.Collection({ libraryID: lib, name: 'E2E Subagent' });
+    await col.saveTx();
+    const keys: string[] = [];
+    for (let i = 0; i < 45; i++) {
+      const item = new Zotero.Item('journalArticle');
+      item.setField('title', `E2E Paket-Eintrag ${i + 1}`);
+      item.setCollections([col.id]);
+      await item.saveTx();
+      keys.push(item.key);
+    }
+    openToolsChat();
+    const toolsWin = await waitFor('tool chat window', () => getToolsChatWindow(), 10000);
+    const view = await waitFor('tool chat view', () => getToolsChatView(), 10000);
+    view.setTarget(`l${lib}`);
+    const session = getToolSession();
+    session.clear();
+    try {
+      const doc = toolsWin.document;
+      const before = (await mockRequests()).length;
+      view.input.value = `TOOL delegate_task ${JSON.stringify({ task: 'Prüfe den Eintragstyp jedes Eintrags.', result_format: 'JSON-Liste {key, item_type, reason}', collection: 'E2E Subagent' })}`;
+      await view.send();
+      const turn = session.turns[session.turns.length - 1];
+      const run = turn.toolRuns![0];
+      assert(run.state === 'done' && run.items!.length === 3 && run.items!.every((i) => i.badge === 'fertig'), `run ${run.state} ${JSON.stringify(run.items?.map((i) => i.badge))} ${run.status}`);
+      await delay(200);
+      await screenshot(ctx, 'tools-subagent-done', toolsWin);
+      const block0 = Array.from(doc.querySelectorAll('.seekchat-tools-block') as NodeListOf<HTMLDetailsElement>).pop()!;
+      block0.open = true;
+      await delay(200);
+      await screenshot(ctx, 'tools-subagent-done-opened', toolsWin);
+      const all = (await mockRequests()).slice(before);
+      const sub = all.filter((r: any) => (r.messages?.[0]?.content || '').includes('You are a subagent'));
+      assert(sub.length === 6, `${sub.length} subagent requests (2 per package expected)`);
+      const offered = new Set(sub.flatMap((r: any) => (r.tools || []).map((x: any) => x.function.name)));
+      assert(offered.has('get_item') && offered.has('read_document') && !['update_item', 'create_note', 'save_to_collection', 'import_references', 'delegate_task'].some((n) => offered.has(n)), `subagent tools ${[...offered]}`);
+      assert(sub.every((r: any) => (r.messages[1].content.match(/^- \w{8}:/gm) || []).length <= 20), 'package larger than 20');
+      // The main chat sees only the joined result, none of the subagent's reading.
+      const main = all.filter((r: any) => !(r.messages?.[0]?.content || '').includes('You are a subagent')).pop();
+      const toolMsg = [...main.messages].reverse().find((m: any) => m.role === 'tool');
+      const result = JSON.parse(toolMsg.content);
+      assert(result.packages === 3 && result.finished === 3 && Array.isArray(result.result) && result.result.length === 45, `result ${toolMsg.content.slice(0, 300)}`);
+      assert(result.result.map((r: any) => r.key).sort().join() === [...keys].sort().join(), 'keys of the joined result');
+      assert(!main.messages.some((m: any) => m.role === 'tool' && /E2E Paket-Eintrag/.test(m.content) && m !== toolMsg), 'subagent reading leaked into the main chat');
+
+      // Slow subagent: stop it in the closed block during package 1; the chat goes on with what is there.
+      view.input.value = `TOOL delegate_task ${JSON.stringify({ task: 'Prüfe langsam jeden Eintrag.', collection: 'E2E Subagent' })}`;
+      const slow = view.send();
+      const running = await waitFor('subagent running', () => session.turns[session.turns.length - 1]?.toolRuns?.find((r) => r.state === 'running' && r.cancellable), 10000);
+      const stop = await waitFor('stop button in the block line', () => doc.querySelector('.seekchat-tools-block > summary .seekchat-tool-stop') as HTMLButtonElement, 5000);
+      const block = stop.closest('details') as HTMLDetailsElement;
+      assert(!block.open, 'block opened for a running subagent');
+      await screenshot(ctx, 'tools-subagent-running', toolsWin);
+      stop.click();
+      await slow;
+      assert(running.state === 'cancelled' && !running.cancellable, `after stop ${running.state}`);
+      assert(!block.open, 'stop opened the block');
+      await delay(200);
+      await screenshot(ctx, 'tools-subagent-stopped', toolsWin);
+      const stopped = JSON.parse([...(await mockLastRequest()).messages].reverse().find((m: any) => m.role === 'tool').content);
+      assert(/cancelled by the user/.test(stopped.status) && stopped.notWorkedThrough.length >= 25, `stopped ${JSON.stringify(stopped).slice(0, 300)}`);
+      const answer = session.turns[session.turns.length - 1];
+      assert(!answer.cancelled && !answer.error && /Ergebnis delegate_task/.test(answer.content), `chat did not go on: ${answer.content}`);
     } finally {
       toolsWin.close();
     }
@@ -1938,6 +2090,85 @@ export const scenarios: Scenario[] = [
     } finally {
       Services.console.unregisterListener(listener);
     }
+  }],
+
+  ['live tools: subagent checks the item types of real documents in a collection, corrections applied after confirmation', async (ctx) => {
+    useLiveServer(ctx);
+    const lib = Zotero.Libraries.userLibraryID;
+    const col = new Zotero.Collection({ libraryID: lib, name: 'E2E Live Typen' });
+    await col.saveTx();
+    // Four with a wrong type, two right.
+    const docs = [
+      { type: 'journalArticle', title: 'Überörtliche Raumplanung', file: 'tud-diss-ueberoertliche-raumplanung.pdf', right: ['thesis'] },
+      { type: 'book', title: 'GIS and green infrastructure', file: 'plos-gis-green-infrastructure-2025.pdf', right: ['journalArticle'] },
+      { type: 'journalArticle', title: 'Forschungsdatenmanagement – Eine praxisorientierte Einführung', file: 'Schlenz et al. - 2026 - Forschungsdatenmanagement - Eine praxisorientierte Einführung.pdf', right: ['book'] },
+      { type: 'book', title: 'Attention Is All You Need', file: 'arxiv-attention-2017.pdf', right: ['conferencePaper', 'preprint', 'journalArticle', 'report'] },
+      { type: 'journalArticle', title: 'The FAIR Guiding Principles', file: 'scidata-fair-principles-2016.pdf', right: ['journalArticle'] },
+      { type: 'journalArticle', title: 'Küpper 2024 (Raumforschung und Raumordnung)', file: 'rur-kuepper-2024-de.pdf', right: ['journalArticle'] },
+    ];
+    const made = [];
+    for (const d of docs) made.push({ ...d, ...(await liveDoc(d.type, d.title, d.file, col.id)) });
+    await openLiveToolChat();
+    const t0 = Date.now();
+    const turn = await liveToolAsk(ctx, 'live-types',
+      'Prüfe in der Sammlung „E2E Live Typen“ für jeden Eintrag anhand der ersten Seiten seines Dokuments, ob der Eintragstyp stimmt. '
+      + 'Lass das den Subagenten (delegate_task) erledigen und schlage danach die nötigen Korrekturen mit update_item vor.');
+    const after = made.map((d) => ({ file: d.file, before: d.type, after: d.item.itemType, right: d.right }));
+    await reportLive(ctx, { step: 'tools-subagent-types', ms: Date.now() - t0, answer: turn.content, runs: runsReport(turn), types: after });
+    assert(!turn.error, `error: ${turn.content}`);
+    const delegate = turn.toolRuns?.find((r) => r.name === 'delegate_task');
+    assert(delegate && delegate.state === 'done', `subagent not run: ${JSON.stringify(runsReport(turn)).slice(0, 500)}`);
+    const fixed = after.filter((d) => d.before !== d.after && d.right.includes(d.after)).length;
+    const broken = after.filter((d) => d.right.includes(d.before) && d.after !== d.before).length;
+    assert(fixed >= 1, `no wrong type corrected: ${JSON.stringify(after)}`);
+    assert(broken === 0, `a right type was changed: ${JSON.stringify(after)}`);
+  }],
+
+  ['live tools: reference list of a real paper through Find Online References, related sources linked', async (ctx) => {
+    useLiveServer(ctx);
+    if (!(Zotero as any).FindOnlineReferences?.api?.getReferences) throw new SkipError('Find Online References not installed (E2E_PLUGINS)');
+    const { item } = await liveDoc('journalArticle', 'Green infrastructure planning with GIS', 'plos-gis-green-infrastructure-2025.pdf');
+    await openLiveToolChat();
+    const t0 = Date.now();
+    const turn = await liveToolAsk(ctx, 'live-refs',
+      `Lies die Literaturliste des Dokuments mit dem Schlüssel ${item.key} und zeige mir mit Links die Quellen daraus, die sich mit Stadtklima, Hitze oder Grünflächen befassen.`);
+    await reportLive(ctx, { step: 'tools-references', ms: Date.now() - t0, answer: turn.content, runs: runsReport(turn) });
+    assert(!turn.error, `error: ${turn.content}`);
+    const list = turn.toolRuns?.find((r) => r.name === 'get_document_references');
+    const shown = turn.toolRuns?.find((r) => r.name === 'show_references');
+    assert(list?.state === 'done', `reference list not read: ${JSON.stringify(runsReport(turn)).slice(0, 500)}`);
+    assert(shown?.state === 'done' && shown.items!.length >= 1 && shown.items!.every((i) => i.url || i.itemID), `no linked sources: ${JSON.stringify(runsReport(turn)).slice(0, 500)}`);
+  }],
+
+  ['live tools: reads the first pages of a real paper and writes a note about it after confirmation', async (ctx) => {
+    useLiveServer(ctx);
+    const { item } = await liveDoc('journalArticle', 'Tent 2024 (Raumforschung und Raumordnung)', 'rur-tent-2024-en.pdf');
+    await openLiveToolChat();
+    const t0 = Date.now();
+    const turn = await liveToolAsk(ctx, 'live-note',
+      `Lies die ersten zwei Seiten des Dokuments mit dem Schlüssel ${item.key} und lege an diesem Eintrag eine Notiz mit den drei wichtigsten Aussagen an.`);
+    const notes = Zotero.Items.get(item.getNotes());
+    await reportLive(ctx, { step: 'tools-read-note', ms: Date.now() - t0, answer: turn.content, runs: runsReport(turn), note: notes[0]?.getNote() });
+    assert(!turn.error, `error: ${turn.content}`);
+    assert(turn.toolRuns?.some((r) => r.name === 'read_document' && r.state === 'done'), `document not read: ${JSON.stringify(runsReport(turn)).slice(0, 400)}`);
+    assert(notes.length === 1 && noteText(notes[0].getNote()).length > 80, `no note: ${notes.length}`);
+  }],
+
+  ['live tools: library search with the installed search plugins', async (ctx) => {
+    useLiveServer(ctx);
+    await liveDoc('book', 'Forschungsdaten-Policies für Forschungsprojekte', 'Schmiederer und Kuberek - 2022 - Forschungsdaten-Policies für Forschungsprojekte ein strukturierter Leitfaden.pdf');
+    await liveDoc('journalArticle', 'Bausteine Forschungsdatenmanagement (Düvel 2025)', 'bausteine-fdm-duevel-2025-de.pdf');
+    await openLiveToolChat();
+    const t0 = Date.now();
+    const turn = await liveToolAsk(ctx, 'live-search', 'Welche Einträge in meiner Bibliothek behandeln Forschungsdatenmanagement? Nenne sie kurz.');
+    await reportLive(ctx, {
+      step: 'tools-search', ms: Date.now() - t0, answer: turn.content, runs: runsReport(turn),
+      plugins: { zotseek: !!(Zotero as any).ZotSeek, seekbook: !!(Zotero as any).SeekBook, findOnlineReferences: !!(Zotero as any).FindOnlineReferences },
+    });
+    assert(!turn.error, `error: ${turn.content}`);
+    const search = turn.toolRuns?.find((r) => r.name === 'search_library');
+    assert(search?.state === 'done' && (search.items?.length || 0) >= 1, `no search hits: ${JSON.stringify(runsReport(turn)).slice(0, 400)}`);
+    getToolsChatWindow()?.close();
   }],
 
   ['live: model server lists the configured model', async (ctx) => {

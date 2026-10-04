@@ -40,6 +40,18 @@ if [ -n "${E2E_SEEKBOOK_XPI:-}" ]; then
   LIVE+=(-v "$(realpath "$E2E_SEEKBOOK_XPI")":/seekbook.xpi:ro)
 fi
 
+# Optional: further real plugins sideloaded (e.g. for the live tool scenarios), space-separated xpi paths:
+#   E2E_PLUGINS="../zotero_selfhost_src/data/downloads/zotero-find-online-references/zotero-find-online-references-0.7.37.xpi …"
+# Each is mounted as /plugins/<add-on id>.xpi (id read from its manifest here, the image has no unzip).
+for xpi in ${E2E_PLUGINS:-}; do
+  id=$(python3 -c 'import json,sys,zipfile; m=json.loads(zipfile.ZipFile(sys.argv[1]).read("manifest.json")); a=m.get("applications") or m.get("browser_specific_settings") or {}; print((a.get("zotero") or a.get("gecko") or {})["id"])' "$xpi")
+  LIVE+=(-v "$(realpath "$xpi")":"/plugins/$id.xpi":ro)
+done
+
+# Real documents of zotero-reference's test set (CC-licensed papers, a thesis …) for the live tool scenarios.
+REF_ASSETS=${E2E_REF_ASSETS:-../zotero-reference_src/test/assets}
+[ -d "$REF_ASSETS" ] && LIVE+=(-v "$(realpath "$REF_ASSETS")":/refassets:ro)
+
 "${DOCKER[@]}" run --rm -u "$(id -u):$(id -g)" \
   -v "$PWD/dist":/dist:ro -v "$PWD/e2e/out":/out \
   -v "$PWD/test/assets":/assets:ro \

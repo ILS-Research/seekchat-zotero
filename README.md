@@ -51,28 +51,43 @@ or a whole library**. You choose where the answers come from:
 
 ### Tool chat: let SeekChat act in Zotero
 The speech bubble with a plus in the items toolbar (no ZotSeek needed) opens a **general chat whose model can use
-Zotero tools**. The first tool imports references:
+Zotero tools**: you ask in plain language, the model decides which tools to call, one after the other.
 
-- Paste one reference or a whole bibliography and ask to import it ("Importiere diese Quellen …").
-- The model splits the text into references; Zotero looks up DOIs, ISBNs, labelled PMIDs, arXiv ids and web pages
-  itself (like *Add Item by Identifier*). What cannot be looked up is created from the reference text.
-- A **preview** shows every reference (found / text only / already in the library); items already in the library are
-  unchecked. Nothing is saved before you click **Import selected**.
-- Items go to the target chosen at the top: the collection selected in Zotero or a library.
-- **PDFs come along** where freely available: like Zotero's *Find Full Text* (DOI page, the reference's link,
-  open access, your custom resolvers); can be switched off in the tool list.
-- Needs a model with tool calling (e.g. Qwen 3, Llama 3.1+, Mistral).
-- **Ask about your library:** "Which papers on heat islands do I have since 2020?", "What do my notes on the selected
-  item say?", "Which tags do I use for methods?" – the chat searches with Zotero's search and, if installed, ZotSeek
-  and SeekBook (switchable per tool), reads items, collections, tags and your current selection, and links what it finds.
-- **Collect what you found:** "Put these papers into a new collection Projekt A / Hitze" – the chat shows a preview
-  and creates the collection and adds the items once you confirm.
-- **Related sources from a reference list:** "Which sources cited in this paper are about heat stress?" – with
-  Find Online References installed, the chat reads the document's bibliography, picks the fitting entries and links them
-  (DOI, arXiv, web page or Google Scholar) so you can open and add them in the browser.
-- The **Tools** section at the top lists all tools: switch single ones off, and choose the lookup for imports –
-  Zotero's own, or [Find Online References](../zotero-reference_src) first (better title search for references
-  without DOI), when that plugin is installed.
+> **Model requirement:** the tool chat needs a **strong open-weights model with good native tool calling**
+> (function calling through the Ollama or OpenAI API, not tool calls written as text). Small models call tools
+> unreliably, invent arguments or stop half way. We use **`qwen3.8:27b`**, which needs **about 40 GB of RAM/VRAM**
+> on the model server. The PDF and library chats work with smaller models.
+
+What it can do:
+
+- **Import references:** paste one reference or a whole bibliography ("Importiere diese Quellen …"). Zotero looks up
+  DOIs, ISBNs, PMIDs, arXiv ids and web pages itself (like *Add Item by Identifier*); the rest is created from the
+  reference text. **PDFs come along** where freely available (like *Find Full Text*).
+- **Ask about your library:** "Which papers on heat islands do I have since 2020?", "Which tags do I use for
+  methods?" – it searches with Zotero's search and, if installed, ZotSeek and SeekBook, reads items, collections,
+  tags and your current selection, and links what it finds. It can page through a whole collection.
+- **Read documents:** the text of chosen pages of a PDF (or sections of a web page, e-book, text file), e.g. the
+  title page to see what a document really is.
+- **Correct items:** change item type, fields and tags – "check whether the item types in this collection are right".
+  Fields that the new type does not have are listed before anything changes.
+- **Write notes:** a note from the model's text, on an item, in a collection or in the library.
+- **Collect what you found:** "Put these papers into a new collection Projekt A / Hitze".
+- **Related sources from a reference list:** with Find Online References installed, it reads a document's bibliography,
+  picks the fitting entries and links them (DOI, arXiv, web page or Google Scholar).
+- **Subagent for long tasks:** reading-heavy tasks (e.g. every item of a large collection) go to a subagent that
+  works through them in packages of 20 with the read-only tools and returns only its result, so the chat's context
+  stays small. **Stop subagent** stops it alone; the chat goes on with the results so far.
+
+How it behaves:
+
+- **Nothing changes without you:** every tool that changes something (import, item changes, notes, collections) shows
+  a **preview with checkboxes** first and waits for your confirmation. The subagent only reads.
+- **Tool calls stay out of the way:** all calls of an answer sit in one closed block with a single status line; it opens
+  by itself only while the chat waits for your confirmation, and you can open it any time.
+- New items and notes go to the target chosen at the top: the collection selected in Zotero or a library.
+- The **Tools** section at the top lists all tools (scrollable): switch single ones off, and choose the lookup for
+  imports – Zotero's own, or [Find Online References](../zotero-reference_src) first (better title search for
+  references without DOI). Tools that need a missing plugin are greyed out.
 
 ---
 

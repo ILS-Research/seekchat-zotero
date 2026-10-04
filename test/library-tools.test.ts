@@ -136,3 +136,27 @@ test('note text: Markdown to note HTML with an escaped title', async () => {
   assert.equal(noteHtml('A & B', '- eins\n- **zwei**'), '<h1>A &amp; B</h1>\n<ul><li>eins</li><li><strong>zwei</strong></li></ul>');
   assert.equal(noteHtml('', 'Text <b>'), '<p>Text &lt;b&gt;</p>');
 });
+
+test('subagent: packages, read-only tools, old tool results shortened to fit, package results joined', async () => {
+  const { chunk, joinResults, shortenOldToolResults, SUBAGENT_TOOLS } = await import('../src/core/tools/agent/plan');
+  assert.deepEqual(chunk([1, 2, 3, 4, 5], 2), [[1, 2], [3, 4], [5]]);
+  assert.deepEqual(chunk([], 20), []);
+  for (const writer of ['update_item', 'create_note', 'save_to_collection', 'import_references', 'delegate_task', 'show_references']) {
+    assert.ok(!SUBAGENT_TOOLS.includes(writer), `${writer} offered to the subagent`);
+  }
+  const big = 'x'.repeat(5000);
+  const msgs: any[] = [
+    { role: 'system', content: 'sys' }, { role: 'user', content: 'task' },
+    { role: 'tool', content: big }, { role: 'tool', content: big }, { role: 'tool', content: big }, { role: 'tool', content: big },
+  ];
+  shortenOldToolResults(msgs, 12000);
+  assert.ok(msgs[2].content.length < 500 && /shortened/.test(msgs[2].content), 'oldest result not shortened');
+  assert.equal(msgs[5].content.length, 5000, 'last results kept');
+  assert.equal(msgs[1].content, 'task');
+  const small: any[] = [{ role: 'tool', content: big }];
+  shortenOldToolResults(small, 100000);
+  assert.equal(small[0].content.length, 5000, 'shortened although it fits');
+  assert.deepEqual(joinResults([{ label: 'P1', text: '```json\n[{"key":"A"}]\n```' }, { label: 'P2', text: '[{"key":"B"}]' }]), [{ key: 'A' }, { key: 'B' }]);
+  assert.deepEqual(joinResults([{ label: 'P1', text: '{"ok":true}' }]), { ok: true });
+  assert.equal(joinResults([{ label: 'P1', text: 'eins' }, { label: 'P2', text: '[1]' }]), '## P1\neins\n\n## P2\n[1]');
+});

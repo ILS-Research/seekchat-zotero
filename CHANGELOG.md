@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.24.2 – 2026-10-04
+
+- Tests for the subagent (unit and E2E: packages, read-only tools, only the result reaches the chat, stop button) and
+  live scenarios of the tool chat against a real model with real documents and real plugins (Find Online References,
+  SeekBook, ZotSeek sideloaded via `E2E_PLUGINS`; documents from zotero-reference's test set): item types checked by
+  the subagent and corrected, reference list with links, note about a paper, library search. Many screenshots.
+- A subagent package gets one model round per item (plus five), so it can read every document of a package.
+- README: tool chat section updated; it needs a strong open-weights model with native tool calling (e.g.
+  `qwen3.8:27b`, about 40 GB RAM).
+
 ## 0.24.1 – 2026-10-04
 
 - Tool chat: the opened tool list is at most about a third of the window high and scrolls, so it no longer pushes

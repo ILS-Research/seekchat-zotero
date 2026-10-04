@@ -68,6 +68,17 @@ const server = http.createServer(async (req, res) => {
     requests.push(parsed);
     const system = parsed.messages?.[0]?.content || '';
     const last = parsed.messages?.[parsed.messages.length - 1] || {};
+    // Subagent (delegate_task): first a read-only tool call on the first item of its package, then a JSON list with
+    // one proposal per item of the package; "langsam" in the task: slow answers (stop button test).
+    if (system.includes('You are a subagent')) {
+      const task = parsed.messages?.[1]?.content || '';
+      if (/langsam/.test(task)) await new Promise((r) => setTimeout(r, 1500));
+      const keys = [...task.matchAll(/^- (\w{8}):/gm)].map((m) => m[1]);
+      if (last.role === 'user') {
+        return keys.length ? toolCall(res, 'get_item', { key: keys[0] }, '') : toolCall(res, 'list_tags', {}, '');
+      }
+      return stream(res, '```json\n' + JSON.stringify(keys.map((key) => ({ key, item_type: 'book', reason: 'mock' }))) + '\n```');
+    }
     if (parsed.tools?.length) {
       if (last.role === 'tool') {
         let result = {};
