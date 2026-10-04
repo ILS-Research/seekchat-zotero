@@ -7441,9 +7441,29 @@ main {
 </div>
 <div class="jp-InputArea jp-Cell-inputArea"><div class="jp-InputPrompt jp-InputArea-prompt">
 </div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput" data-mime-type="text/markdown">
-<h1 id="SeekChat-%E2%80%93-Literature-Work-in-Zotero-with-a-Language-Model">SeekChat – Literature Work in Zotero with a Language Model<a class="anchor-link" href="#SeekChat-%E2%80%93-Literature-Work-in-Zotero-with-a-Language-Model">¶</a></h1><p><strong>What you can hand over in your daily work with your Zotero library – and where you have to look closely yourself.</strong>
-A tutorial for ILS colleagues. The model runs on our GPU machine in the server room, not in somebody else's cloud.</p>
-<p><em>The screenshots show the German interface (that is how they were taken). Button and field names are given as shown, with the English label in brackets where it matters.</em></p>
+<style>
+/* Slides: use the width of the window, scroll long slides, keep pictures below screen height */
+.reveal .slides { text-align: left; }
+.reveal .slides section { width: 100%; box-sizing: border-box; padding: 0 1.2em; }
+.reveal .slides section img { max-height: 58vh; width: auto; }
+.reveal .slides section figure { margin: 0.5em 0; }
+.reveal .slides > section, .reveal .slides > section > section { overflow-y: auto; max-height: 100%; }
+.reveal h1, .reveal h2 { text-transform: none; }
+.reveal ol, .reveal ul { display: block; }
+</style>
+<h1 id="SeekChat-%E2%80%93-Literature-Work-in-Zotero-with-a-Language-Model">SeekChat – Literature Work in Zotero with a Language Model<a class="anchor-link" href="#SeekChat-%E2%80%93-Literature-Work-in-Zotero-with-a-Language-Model">¶</a></h1><p><strong>What you can hand over in your daily work with your Zotero library – and where you have to look closely yourself.</strong></p>
+<p>A tutorial for ILS colleagues. The model runs on our GPU machine in the server room, not in somebody else's cloud.</p>
+<p><em>All pictures show a real run with a sample library and the ILS model. The screenshots show the German interface (that is how they were taken); button and field names are given as shown, with the English label in brackets where it matters.</em></p>
+</div>
+</div>
+</div>
+</div></section></section><section><section>
+<div class="jp-Cell jp-MarkdownCell jp-Notebook-cell" id="cell-id=f57c3760">
+<div class="jp-Cell-inputWrapper" tabindex="0">
+<div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
+</div>
+<div class="jp-InputArea jp-Cell-inputArea"><div class="jp-InputPrompt jp-InputArea-prompt">
+</div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput" data-mime-type="text/markdown">
 <h2 id="Contents">Contents<a class="anchor-link" href="#Contents">¶</a></h2><ol>
 <li><strong>What it is good for</strong></li>
 <li><strong>Setup</strong> – install the plugins, enter the model server, build the indexes (ZotSeek, SeekBook)</li>
@@ -7593,16 +7613,21 @@ Every page reference in the answer (e.g. <code>[S. 12]</code>, “S.” = page) 
 </div>
 <div class="jp-InputArea jp-Cell-inputArea"><div class="jp-InputPrompt jp-InputArea-prompt">
 </div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput" data-mime-type="text/markdown">
-<h2 id="3-Long-documents">3 Long documents<a class="anchor-link" href="#3-Long-documents">¶</a></h2><p>If a text does not fit into the model completely, SeekChat picks the pages that match the question; the answer tells you which ones.
-Books with their own index (SeekBook) are searched specifically – the index has to be finished for that (chapter 2).</p>
+<h2 id="3-Long-documents">3 Long documents<a class="anchor-link" href="#3-Long-documents">¶</a></h2><p>If a text does not fit into the model completely (here: a dissertation of 207 pages), a box <strong>“Dokument zu groß für den Kontext”</strong> (document too large for the context) appears when you open the chat. Only part of it can be read per question; you choose how SeekChat picks the pages:</p>
+<ul>
+<li><strong>Semantic search (SeekBook / ZotSeek):</strong> the best pages come from the index. This needs a finished index (chapter 2); otherwise the option is greyed out, and a button <strong>“Eintrag an ZotSeek übergeben”</strong> (hand the item over to ZotSeek) sends the document there.</li>
+<li><strong>Keyword expansion by the model:</strong> the model creates search terms for the question (synonyms, technical terms) in the language of the document; the pages with the most hits go along.</li>
+<li><strong>Search only in selected chapters:</strong> in the document's table of contents you pick the chapters that come into question.</li>
+</ul>
+<p>Above the answer you then see <strong>which pages were read</strong> (“Auszüge: S. 1–2, 13–44 … von 207 Seiten”, i.e. excerpts: pp. …) and with which search terms. For long documents too: click the page links and check.</p>
+<p>Further notes:</p>
 <ul>
 <li>If the PDF is open in the <strong>reader</strong>, the <strong>current page</strong> goes along (“explain this page to me”).</li>
 <li>Your own <strong>notes</strong> on the item can be sent along by ticking them (“Notizen als Kontext”, notes as context).</li>
 <li>Web page snapshots, e-books and text files work too, but without page numbers.</li>
-<li>A substantive question to a whole book is in 5.14.</li>
-<li>What happens to the chat and how to save it: chapter 6.</li>
+<li>A substantive question to a whole book is in 5.14; what happens to the chat and how to save it: chapter 6.</li>
 </ul>
-<figure style="margin:0.6em 0"><img alt="Long document" src="img/pdf-3-long-document.png" style="max-width:65%;border:1px solid #ccc"/><figcaption style="font-size:0.75em;color:#555;max-width:65%"><em>A dissertation as item. Look at: the section is the same as for an article; only the answer tells you how many pages were read.</em></figcaption></figure>
+<figure style="margin:0.6em 0"><img alt="Long documents: strategy box and answer" src="img/pdf-4-long-document-answer.png" style="max-width:75%;border:1px solid #ccc"/><figcaption style="font-size:0.75em;color:#555;max-width:75%"><em>The dissertation “Überörtliche Raumplanung” (supra-local spatial planning) with a question about the definition. Look at: the orange-framed box with the three options, the line “Auszüge: S. … von 207 Seiten (89 Seiten mit Treffern)” above the answer, and the search terms below it.</em></figcaption></figure>
 </div>
 </div>
 </div>
@@ -7671,13 +7696,13 @@ Abilities that need a missing plugin are greyed out (chapter 2).</li>
 <div class="jp-InputArea jp-Cell-inputArea"><div class="jp-InputPrompt jp-InputArea-prompt">
 </div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput" data-mime-type="text/markdown">
 <h2 id="5.1-Import-sources-from-a-reference-list">5.1 Import sources from a reference list<a class="anchor-link" href="#5.1-Import-sources-from-a-reference-list">¶</a></h2><p><strong>You write:</strong> <em>Import these sources: Oke 1982 …, Kuttler 2011 …, Wilkinson 2016 …</em></p>
-<p>Paste the reference list into the field. Every entry is resolved (via DOI, ISBN, arXiv id or title); freely available PDFs are fetched along. Check the preview before you confirm.</p>
+<p>Paste the reference list into the field. SeekChat tries to resolve every entry (via DOI, ISBN, arXiv id or title); freely available PDFs are fetched along. The preview states per source <strong>where the data came from</strong>, and you tick what should be imported. Check it before you confirm.</p>
 <blockquote>
 <p><strong>Result:</strong> Two of three sources imported; Wilkinson (2016) was already in the library and was not created twice.</p>
 </blockquote>
-<p><strong>Keep in mind:</strong> Sources without a DOI are looked up by title and can be matched wrongly – compare the titles in the preview. With <code>Find Online References</code> (chapter 2) the title search gets better.</p>
-<figure style="margin:0.6em 0"><img alt="Import preview" src="img/import-1-confirm-import_references.png" style="max-width:70%;border:1px solid #ccc"/><figcaption style="font-size:0.75em;color:#555;max-width:70%"><em>Import preview. Look at: title, authors, year and origin of the data per source; sources that are already in the library are marked.</em></figcaption></figure>
-<figure style="margin:0.6em 0"><img alt="Result" src="img/import-3-answer.png" style="max-width:70%;border:1px solid #ccc"/><figcaption style="font-size:0.75em;color:#555;max-width:70%"><em>Result. Look at: the number of imported sources and the note about the duplicate.</em></figcaption></figure>
+<p><strong>Keep in mind:</strong> Only sources with a DOI or another identifier are really looked up (“gefunden” = found). For the others the entry is created <strong>from the reference text alone</strong> (“Text”: not looked up) – check authors, title and year yourself. With <code>Find Online References</code> (chapter 2) the title search gets better.</p>
+<figure style="margin:0.6em 0"><img alt="Import preview" src="img/import-2-confirm-import_references.png" style="max-width:70%;border:1px solid #ccc"/><figcaption style="font-size:0.75em;color:#555;max-width:70%"><em>Import preview. Look at: the labels “gefunden” (looked up via DOI), “Text” (from the reference text only, not looked up) and “vorhanden” (already in the library, hence not ticked, with a link to the existing item).</em></figcaption></figure>
+<figure style="margin:0.6em 0"><img alt="Result" src="img/import-4-answer.png" style="max-width:70%;border:1px solid #ccc"/><figcaption style="font-size:0.75em;color:#555;max-width:70%"><em>Result after “Ausgewählte importieren” (import selected). Look at: the number of imported sources and the note about the duplicate.</em></figcaption></figure>
 </div>
 </div>
 </div>
@@ -7743,14 +7768,14 @@ Abilities that need a missing plugin are greyed out (chapter 2).</li>
 </div>
 <div class="jp-InputArea jp-Cell-inputArea"><div class="jp-InputPrompt jp-InputArea-prompt">
 </div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput" data-mime-type="text/markdown">
-<h2 id="5.6-Check-and-correct-metadata">5.6 Check and correct metadata<a class="anchor-link" href="#5.6-Check-and-correct-metadata">¶</a></h2><p><strong>You write:</strong> <em>Check whether the item type of “GIS and green infrastructure” is right; change only the type.</em></p>
-<p>The model looks at the title page, justifies its proposal and shows the change beforehand. Fields that the new type does not know are named first.</p>
+<h2 id="5.6-Check-and-correct-metadata">5.6 Check and correct metadata<a class="anchor-link" href="#5.6-Check-and-correct-metadata">¶</a></h2><p><strong>You write:</strong> <em>The item “GIS and green infrastructure” was entered as a book. Check on the first page whether the type is right, and correct it only if necessary. Change nothing else.</em></p>
+<p>The model reads the first page, justifies its proposal and shows the change beforehand as a preview. Fields that the new type does not know are named there.</p>
 <blockquote>
 <p><strong>Result:</strong> It is a journal article (PLOS ONE), not a book – the type was changed.</p>
 </blockquote>
-<p><strong>Keep in mind:</strong> Say what should be changed (“only the type”). Otherwise the model sometimes proposes further fields, e.g. the year. In the example that was useful, but it should happen on purpose.</p>
-<figure style="margin:0.6em 0"><img alt="Preview" src="img/fix-one-1-confirm-update_item.png" style="max-width:70%;border:1px solid #ccc"/><figcaption style="font-size:0.75em;color:#555;max-width:70%"><em>Preview. Look at: “book → journalArticle” and at notes on fields that will be dropped.</em></figcaption></figure>
-<figure style="margin:0.6em 0"><img alt="Result" src="img/fix-one-2-answer.png" style="max-width:70%;border:1px solid #ccc"/><figcaption style="font-size:0.75em;color:#555;max-width:70%"><em>Result with justification. Look at: whether the justification matches the title page.</em></figcaption></figure>
+<p><strong>Keep in mind:</strong> Despite “change nothing else” the model proposes <strong>more</strong> than the type here: the full title, DOI, issue, pages, journal and volume, each read off the first page. That is factually useful here, but it is not what you asked for. <strong>This is exactly why the preview exists:</strong> untick in the list what you do not want, and only then confirm. Also look at the box “0 Einträge ändern – fehlgeschlagen” (0 items changed – failed) in the block: the model's first attempt failed and it made a second one itself; nothing was changed before you confirmed.</p>
+<figure style="margin:0.6em 0"><img alt="Preview" src="img/fix-one-1-confirm-update_item.png" style="max-width:75%;border:1px solid #ccc"/><figcaption style="font-size:0.75em;color:#555;max-width:75%"><em>Preview; the block is expanded because the model is waiting for your confirmation. Look at: “Typ: Book → Journal Article” and the additional lines below it (DOI, Issue, Pages, Publication, Title, Volume), the red box of the failed first attempt and the buttons “Änderungen übernehmen” (apply changes) and “Abbrechen” (cancel).</em></figcaption></figure>
+<figure style="margin:0.6em 0"><img alt="Result" src="img/fix-one-3-answer.png" style="max-width:75%;border:1px solid #ccc"/><figcaption style="font-size:0.75em;color:#555;max-width:75%"><em>Result with justification. Look at: whether the justification matches the first page and which fields the model added on top.</em></figcaption></figure>
 </div>
 </div>
 </div>
@@ -7774,12 +7799,12 @@ Abilities that need a missing plugin are greyed out (chapter 2).</li>
 </div>
 <div class="jp-InputArea jp-Cell-inputArea"><div class="jp-InputPrompt jp-InputArea-prompt">
 </div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput" data-mime-type="text/markdown">
-<h2 id="5.8-Create-and-fill-collections">5.8 Create and fill collections<a class="anchor-link" href="#5.8-Create-and-fill-collections">¶</a></h2><p><strong>You write:</strong> <em>Put all items with FDM tags into a new collection “Projekt A / FDM-Grundlagen”.</em></p>
-<p>Collections and subcollections (with <code>/</code>) are created if needed; items are added, not moved.</p>
+<h2 id="5.8-Create-and-fill-collections">5.8 Create and fill collections<a class="anchor-link" href="#5.8-Create-and-fill-collections">¶</a></h2><p><strong>You write:</strong> <em>Put all items from the collection “Forschungsdaten” that carry a tag with FDM into a new collection “Projekt A / FDM-Grundlagen”.</em></p>
+<p>Collections and subcollections (with <code>/</code>) are created if needed; items are added, not moved. Beforehand a preview shows which items go in (as in 5.13).</p>
 <blockquote>
-<p><strong>Result:</strong> 13 items put into the new collection.</p>
+<p><strong>Result:</strong> Two items with the tag FDM (Schlenz 2026, Wilkinson 2016) were put into the new collection “Projekt A / FDM-Grundlagen”.</p>
 </blockquote>
-<figure style="margin:0.6em 0"><img alt="Answer" src="img/collect-1-answer.png" style="max-width:70%;border:1px solid #ccc"/><figcaption style="font-size:0.75em;color:#555;max-width:70%"><em>Result. Look at: the number of items filed – afterwards open the new collection in Zotero and check a few.</em></figcaption></figure>
+<figure style="margin:0.6em 0"><img alt="Answer" src="img/collect-2-answer.png" style="max-width:70%;border:1px solid #ccc"/><figcaption style="font-size:0.75em;color:#555;max-width:70%"><em>Result (at the bottom, after the note from 5.9). Look at: the names of the items filed – afterwards open the new collection in Zotero and check whether all items with the tag are there. An item with the tag in another spelling (e.g. “fdm”, see 5.7) would otherwise slip through.</em></figcaption></figure>
 </div>
 </div>
 </div>
@@ -7790,12 +7815,12 @@ Abilities that need a missing plugin are greyed out (chapter 2).</li>
 </div>
 <div class="jp-InputArea jp-Cell-inputArea"><div class="jp-InputPrompt jp-InputArea-prompt">
 </div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput" data-mime-type="text/markdown">
-<h2 id="5.9-Write-notes-on-texts">5.9 Write notes on texts<a class="anchor-link" href="#5.9-Write-notes-on-texts">¶</a></h2><p><strong>You write:</strong> <em>Write a note with the three most important statements of this article.</em></p>
+<h2 id="5.9-Write-notes-on-texts">5.9 Write notes on texts<a class="anchor-link" href="#5.9-Write-notes-on-texts">¶</a></h2><p><strong>You write:</strong> <em>Create a note on this item (“Nahversorgung in ländlichen Räumen”) with the three most important statements.</em></p>
 <p>The note appears as a Zotero note on the item, in a collection or in the library. It stays even when you close the chat.</p>
-<p><strong>Keep in mind:</strong> The note is a draft by the model. Good as a basis for your own summaries, not as a source to quote – check it against the text before you adopt it.</p>
+<p><strong>Keep in mind:</strong> The note is a draft by the model. Good as a basis for your own summaries, not as a source to quote – check it against the text before you adopt it. A <strong>red line</strong> in the tool block means a call failed (here the item key was wrong); the model usually tries again by itself. Expand the block if you want to know what happened.</p>
 <p><em>See also: chapter 6 (how to save the chat itself).</em></p>
 <figure style="margin:0.6em 0"><img alt="Note preview" src="img/note-1-confirm-create_note.png" style="max-width:70%;border:1px solid #ccc"/><figcaption style="font-size:0.75em;color:#555;max-width:70%"><em>Note preview. Look at: the text of the note and the target (which item it is attached to).</em></figcaption></figure>
-<figure style="margin:0.6em 0"><img alt="Result" src="img/note-2-answer.png" style="max-width:70%;border:1px solid #ccc"/><figcaption style="font-size:0.75em;color:#555;max-width:70%"><em>Result. Look at: the message saying which item the note was created on.</em></figcaption></figure>
+<figure style="margin:0.6em 0"><img alt="Result" src="img/note-3-answer.png" style="max-width:70%;border:1px solid #ccc"/><figcaption style="font-size:0.75em;color:#555;max-width:70%"><em>Result; above it the previous question about the first page (5.5). Look at: the red title “3 Werkzeugaufrufe … fertig” (3 tool calls … done; one call had failed) and the message saying which item the note was created on.</em></figcaption></figure>
 </div>
 </div>
 </div>
@@ -7833,14 +7858,14 @@ Abilities that need a missing plugin are greyed out (chapter 2).</li>
 </div>
 <div class="jp-InputArea jp-Cell-inputArea"><div class="jp-InputPrompt jp-InputArea-prompt">
 </div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput" data-mime-type="text/markdown">
-<h2 id="5.12-Check-many-items-at-once">5.12 Check many items at once<a class="anchor-link" href="#5.12-Check-many-items-at-once">¶</a></h2><p><strong>You write:</strong> <em>Check all items in the collection “Typen prüfen” for the correct item type.</em></p>
-<p>With many items the model hands the reading over to a <strong>helper agent</strong>. It goes through them in packages of 20, only reads, and returns a result at the end; the chat stays tidy. Nothing is changed until you confirm. A separate button <strong>“Subagent stoppen”</strong> (stop subagent) cancels only it; what it had by then stays.</p>
+<h2 id="5.12-Check-many-items-at-once">5.12 Check many items at once<a class="anchor-link" href="#5.12-Check-many-items-at-once">¶</a></h2><p><strong>You write:</strong> <em>In the collection “Typen prüfen”, check for every item on the first pages whether the item type is right. Let the subagent do that and afterwards change only the types that are wrong.</em></p>
+<p>With many items the model hands the reading over to a <strong>helper agent</strong> (called “Subagent” in the program). It goes through them in packages of 20, only reads, and returns a result at the end; the chat stays tidy. Nothing is changed until you confirm. A separate button <strong>“Subagent stoppen”</strong> (stop subagent) cancels only it; what it had by then stays.</p>
 <blockquote>
-<p><strong>Result:</strong> Of five items, two had the wrong type: a dissertation was recorded as a journal article, a conference paper likewise.</p>
+<p><strong>Result:</strong> Of five items, two had the wrong type: a dissertation was recorded as a journal article (“thesis”), a conference paper likewise (“conferencePaper”).</p>
 </blockquote>
 <p><strong>Keep in mind:</strong> With hundreds of items this takes minutes to hours, depending on how busy the server is.</p>
-<figure style="margin:0.6em 0"><img alt="Helper agent working" src="img/subagent-2-running.png" style="max-width:70%;border:1px solid #ccc"/><figcaption style="font-size:0.75em;color:#555;max-width:70%"><em>The helper agent is working. Look at: the progress line and the button to stop it.</em></figcaption></figure>
-<figure style="margin:0.6em 0"><img alt="Result" src="img/subagent-8-answer.png" style="max-width:70%;border:1px solid #ccc"/><figcaption style="font-size:0.75em;color:#555;max-width:70%"><em>Result. Look at: which items were recognized as wrong and with what justification.</em></figcaption></figure>
+<figure style="margin:0.6em 0"><img alt="Helper agent working" src="img/subagent-2-running.png" style="max-width:75%;border:1px solid #ccc"/><figcaption style="font-size:0.75em;color:#555;max-width:75%"><em>The helper agent is working. Look at: the line at the bottom “Subagent: For each item in the collection … – läuft” (running) with the button “Subagent stoppen” (the task description to the helper agent is in English).</em></figcaption></figure>
+<figure style="margin:0.6em 0"><img alt="Result" src="img/subagent-7-answer.png" style="max-width:75%;border:1px solid #ccc"/><figcaption style="font-size:0.75em;color:#555;max-width:75%"><em>Result. Look at: the two items recognized as wrong with old and new type, and the table at the end (it appears as text with vertical bars).</em></figcaption></figure>
 </div>
 </div>
 </div>
@@ -7851,14 +7876,15 @@ Abilities that need a missing plugin are greyed out (chapter 2).</li>
 </div>
 <div class="jp-InputArea jp-Cell-inputArea"><div class="jp-InputPrompt jp-InputArea-prompt">
 </div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput" data-mime-type="text/markdown">
-<h2 id="5.13-Several-steps-in-one-request">5.13 Several steps in one request<a class="anchor-link" href="#5.13-Several-steps-in-one-request">¶</a></h2><p><strong>You write:</strong> <em>Search the FDM items, check type and year against the title page, put them into “Literatur / FDM” and write an overview note.</em></p>
+<h2 id="5.13-Several-steps-in-one-request">5.13 Several steps in one request<a class="anchor-link" href="#5.13-Several-steps-in-one-request">¶</a></h2><p><strong>You write:</strong> <em>Search my library for the items on research data management, check for each on the title page whether item type and year are right, put them into the collection “Literatur / FDM” and finally write a note in this collection with an overview of the items, one sentence per item.</em></p>
 <p>The model carries out the steps one after the other and asks before every change – you confirm several times in a row.</p>
 <blockquote>
-<p><strong>Result:</strong> Four items found, in one of them the year corrected from 2026 to 2025 (according to the title page), all put into the collection, overview note created.</p>
+<p><strong>Result:</strong> Five items found, the years are right. For <strong>three</strong> items the model changed the <strong>type to “report”</strong> (a working paper, a guide, a series) and added DOI, place and institution. All five are in the new collection “Literatur / FDM”; the overview note is created.</p>
 </blockquote>
-<figure style="margin:0.6em 0"><img alt="Confirm correction" src="img/chain-2-confirm-update_item.png" style="max-width:60%;border:1px solid #ccc"/><figcaption style="font-size:0.75em;color:#555;max-width:60%"><em>First confirmation (correction). Look at: year 2026 → 2025.</em></figcaption></figure>
-<figure style="margin:0.6em 0"><img alt="Confirm collection" src="img/chain-3-confirm-save_to_collection.png" style="max-width:60%;border:1px solid #ccc"/><figcaption style="font-size:0.75em;color:#555;max-width:60%"><em>Second confirmation (collection). Look at: the name of the new collection and the list of items.</em></figcaption></figure>
-<figure style="margin:0.6em 0"><img alt="Summary" src="img/chain-6-answer.png" style="max-width:60%;border:1px solid #ccc"/><figcaption style="font-size:0.75em;color:#555;max-width:60%"><em>Summary at the end. Look at: whether everything you asked for was carried out.</em></figcaption></figure>
+<p><strong>Keep in mind:</strong> Whether “Bausteine Forschungsdatenmanagement” is a report or a journal article is the <strong>model's judgment</strong>, not settled. It is in your hands: the preview shows old → new for every item, and you can untick single ones. For longer requests like this one it pays to really read every preview.</p>
+<figure style="margin:0.6em 0"><img alt="Confirm correction" src="img/chain-4-confirm-update_item.png" style="max-width:70%;border:1px solid #ccc"/><figcaption style="font-size:0.75em;color:#555;max-width:70%"><em>Confirmation of the type changes. Look at: “Typ: Journal Article → Report”, the added fields (DOI, Place, Institution) and the lines “Ausgelassen (kein Feld von Report): publicationTitle” (left out: not a field of Report) – data the new type does not know and which are lost in the process.</em></figcaption></figure>
+<figure style="margin:0.6em 0"><img alt="Confirm collection" src="img/chain-3-confirm-save_to_collection.png" style="max-width:70%;border:1px solid #ccc"/><figcaption style="font-size:0.75em;color:#555;max-width:70%"><em>Confirmation of the collection. Look at: “New collection ‘Literatur / FDM’ will be created, 5 items go in”, the list of items with ticks and the model's analysis below.</em></figcaption></figure>
+<figure style="margin:0.6em 0"><img alt="Summary" src="img/chain-9-answer.png" style="max-width:70%;border:1px solid #ccc"/><figcaption style="font-size:0.75em;color:#555;max-width:70%"><em>Summary at the end. Look at: the headings “Gefunden” (found), “Prüfung anhand der Titelblätter” (check against the title pages) and “Erledigt” (done) – and whether everything you asked for was carried out.</em></figcaption></figure>
 </div>
 </div>
 </div>
@@ -7869,19 +7895,20 @@ Abilities that need a missing plugin are greyed out (chapter 2).</li>
 </div>
 <div class="jp-InputArea jp-Cell-inputArea"><div class="jp-InputPrompt jp-InputArea-prompt">
 </div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput" data-mime-type="text/markdown">
-<h2 id="5.14-Ask-a-book-a-substantive-question">5.14 Ask a book a substantive question<a class="anchor-link" href="#5.14-Ask-a-book-a-substantive-question">¶</a></h2><p><strong>You write (PDF chat, chapter 3):</strong> <em>Which phases does the book distinguish in the life cycle of research data, and what does it concretely demand of researchers in the planning phase? Give the passages with page numbers.</em></p>
-<p>So far the examples translated Zotero tasks into language. Here it is about the literature itself: you want to <strong>work out a procedure from a long book</strong> – the phases of a model, and what follows from it for your own project. This is a question to <em>one</em> book (Schlenz et al., 109 pages), hence the PDF chat in the side pane: it reads the whole book and gives page references.</p>
+<h2 id="5.14-Ask-a-book-a-substantive-question">5.14 Ask a book a substantive question<a class="anchor-link" href="#5.14-Ask-a-book-a-substantive-question">¶</a></h2><p><strong>You write (PDF chat, chapter 3):</strong> <em>According to the book, what parts should a data management plan consist of? For each part, state what it is supposed to determine, and which example wordings the book gives for it. Support every statement with the page.</em></p>
+<p>So far the examples translated Zotero tasks into language. Here it is about the literature itself: you want to <strong>work out a procedure from a long book</strong> – here the structure of a data management plan together with model texts. This is a question to <em>one</em> book (Schlenz et al., 109 pages), hence the PDF chat in the side pane: it reads the whole book and gives page references.</p>
 <ol>
-<li>Select the item and ask the question in the section “Chat mit PDF”. Phrase <strong>two sub-questions</strong> and ask for <strong>page references</strong>.</li>
+<li>Select the item and ask the question in the section “Chat mit PDF”. Phrase <strong>a clear structure</strong> (“for each part …”) and ask for <strong>page references</strong>.</li>
 <li>The line above the answer shows what was read (here: full text, 109 pages).</li>
-<li><strong>Click the page links</strong> before you adopt anything: does the passage say what the answer claims?</li>
-<li>Do not tick the question off if only the first part was answered: ask again (<em>“And what does the book concretely demand in the planning phase?”</em>).</li>
+<li><strong>Click the page links</strong> before you adopt anything: does the passage say what the answer claims? For the <strong>literal example wordings</strong> this is a must – they are quotations.</li>
+<li>Count: the answer names <strong>six parts</strong>. In the book these are sections 4.1 to 4.6 of chapter 4; open the chapter and compare.</li>
+<li>You can save the chat as a note (chapter 6) if you want to continue working with the result.</li>
 </ol>
 <blockquote>
-<p><strong>Result (beginning of the answer, translated):</strong> The book does not describe the life cycle as a fixed list of phases but refers to a typical life cycle of collection, processing/data analysis, publication, archiving and sharing of data [S. 11].</p>
+<p><strong>Result (shortened, translated):</strong> According to the book, the data management plan has six parts (ch. 4, pp. 21–26), among them <em>data exchange and long-term accessibility</em> and <em>responsibility and resources</em>. For each part the answer states what it <strong>determines</strong> and gives an <strong>example wording</strong> from the book with the page.</p>
 </blockquote>
-<p><strong>Keep in mind:</strong> The model answers what is asked and can smooth over vagueness in the book. Here it is notable that the book does <em>not</em> prescribe a fixed list of phases – precisely such hints in the text are what you want to read yourself. For a <strong>comparison with a second book</strong> continue with 5.15.</p>
-<figure style="margin:0.6em 0"><img alt="Question to a book" src="img/deep-1-book.png" style="max-width:70%;border:1px solid #ccc"/><figcaption style="font-size:0.75em;color:#555;max-width:70%"><em>The question and the beginning of the answer in the side pane. Look at: the statement “vollständiger Text, 109 Seiten” (full text, 109 pages) and the page link [S. 11] at the end of the first sentence.</em></figcaption></figure>
+<p><strong>Keep in mind:</strong> The model answers what is asked and rearranges the material. What stands in quotation marks belongs to the book; the structure and the headings above it are the model's.</p>
+<figure style="margin:0.6em 0"><img alt="Question to a book: end of the answer" src="img/deep-1-book.png" style="max-width:80%;border:1px solid #ccc"/><figcaption style="font-size:0.75em;color:#555;max-width:80%"><em>The end of the answer in the side pane (the pane is widened here). Look at: the line “vollständiger Text, 109 Seiten” (full text, 109 pages), the structure into “Festlegung” (what it determines) and “Beispielformulierung” (example wording), the literal quotations with page link (e.g. [S. 24–25]) and, at the bottom, the buttons “Als Notiz” (as note), “Verlauf als Notiz speichern” (save chat as note) and “Chat als .md speichern” (save chat as .md).</em></figcaption></figure>
 </div>
 </div>
 </div>
@@ -7895,17 +7922,17 @@ Abilities that need a missing plugin are greyed out (chapter 2).</li>
 <h2 id="5.15-Compare-two-books">5.15 Compare two books<a class="anchor-link" href="#5.15-Compare-two-books">¶</a></h2><p><strong>You write:</strong> <em>Compare what “Forschungsdatenmanagement – eine praxisorientierte Einführung” and “Forschungsdaten-Policies für Forschungsprojekte” say about how a project should set its rules for handling research data. Where do the books complement each other, where do they set different emphases? Support every statement with book and page.</em></p>
 <p>This is a question like the ones you ask when writing a state of research. The model searches both books (SeekBook, chapter 2), reads the passages and orders them. The run took several minutes here (many search and reading steps); the intermediate steps are in the collapsed block.</p>
 <blockquote>
-<p><strong>Result (shortened, translated):</strong> The two books treat the same question on two levels. Schmiederer &amp; Kuberek (2022) describe <em>how</em> a project arrives at a binding research data policy (participants, four phases, adoption, hierarchy of norms). Schlenz et al. (2026) show <em>what</em> has to be in the rules and treat the data management plan as the central document. In their contents they complement each other most; on whether a separate policy is needed at all, they set different emphases.</p>
+<p><strong>Result (shortened, translated):</strong> The books treat <em>different documents</em>: Schlenz et al. (2026) the <strong>data management plan</strong> as the central instrument (ch. 4, pp. 21–26), Schmiederer &amp; Kuberek (2022) the project's <strong>research data policy</strong> (pp. 4–25) – and they delimit the two from each other (Schmiederer, p. 19). <strong>Process:</strong> Schmiederer describes participants, four phases and a period of several months in detail (pp. 7–9, 15–16); Schlenz recommends pragmatically a simple text file (pp. 21–22). <strong>Contents:</strong> both cover similar topics; Schmiederer adds scope, definitions and degree of obligation, Schlenz supplies example texts that Schmiederer deliberately leaves out.</p>
 </blockquote>
 <p><strong>How to read the result:</strong></p>
 <ol>
 <li>Every statement has book and page. <strong>Look up at least the passages you want to cite</strong> – the model can misattribute or shorten passages.</li>
 <li>Check the comparison: did the model really use <em>both</em> books for every point, or is there only one book at some point?</li>
-<li>Statements like “book X says nothing about this” are the most delicate part: the model has only read what the search showed it. Ask again (<em>“Search book X specifically for …”</em>) before you adopt something like that.</li>
+<li>Statements like “not explicit” or “book X says nothing about this” are the most delicate part: the model has only read what the search showed it. Ask again (<em>“Search book X specifically for …”</em>) before you adopt something like that.</li>
 </ol>
-<p><strong>Keep in mind:</strong> The answer is a working draft for your own text, not a source. Save it as a note (chapter 6) if you want to continue working with it.</p>
-<figure style="margin:0.6em 0"><img alt="Comparison, sections 1 and 2" src="img/deep-2-10-answer-tools-opened.png" style="max-width:70%;border:1px solid #ccc"/><figcaption style="font-size:0.75em;color:#555;max-width:70%"><em>Middle part of the answer (in German). Look at: the structure by questions (Which document regulates …? Who is involved?), the quotes in quotation marks with page numbers and the lines “→ Ergänzung” (complement) and “→ Unterschiedlicher Schwerpunkt” (different emphasis), in which the model sets the books against each other.</em></figcaption></figure>
-<figure style="margin:0.6em 0"><img alt="Comparison, summary" src="img/deep-2-9-answer.png" style="max-width:70%;border:1px solid #ccc"/><figcaption style="font-size:0.75em;color:#555;max-width:70%"><em>End of the answer (in German). Look at: the summary with “Ergänzung” and “Unterschiedliche Schwerpunkte” and the list of sources with the pages that were actually used.</em></figcaption></figure>
+<p><strong>Keep in mind:</strong> The answer is a working draft for your own text, not a source. The chat over the library has no save button yet (chapter 6): have the answer created as a note if you want to keep it. A table in the answer currently appears as text with vertical bars (<code>| topic | … |</code>); readable, but not pretty.</p>
+<figure style="margin:0.6em 0"><img alt="Comparison: beginning of the answer" src="img/deep-2-8-answer-tools-opened.png" style="max-width:75%;border:1px solid #ccc"/><figcaption style="font-size:0.75em;color:#555;max-width:75%"><em>Beginning of the answer (the window text is German). Look at: the note “Wichtig vorab” (important up front) that the books treat different documents, the structure by questions, the literal quotes with page numbers and the lines “→ Schwerpunktunterschied” (difference of emphasis), in which the model sets the books against each other.</em></figcaption></figure>
+<figure style="margin:0.6em 0"><img alt="Comparison: summary" src="img/deep-2-7-answer.png" style="max-width:75%;border:1px solid #ccc"/><figcaption style="font-size:0.75em;color:#555;max-width:75%"><em>End of the answer. Look at: the summary “Ergänzen sich” (complement each other) and “Unterschiedliche Schwerpunkte” (different emphases) with page references, and the “Praktische Konsequenz” (practical consequence) at the end.</em></figcaption></figure>
 </div>
 </div>
 </div>
@@ -7946,7 +7973,8 @@ Abilities that need a missing plugin are greyed out (chapter 2).</li>
 <h2 id="7-What-to-keep-in-mind">7 What to keep in mind<a class="anchor-link" href="#7-What-to-keep-in-mind">¶</a></h2><ul>
 <li><strong>It is a language model, not a researcher.</strong> It can summarize things wrongly or overlook hits. Page links and previews are there so that you check the source (5.14, 5.15).</li>
 <li><strong>Confirming means checking.</strong> Look at changes in the preview, especially with many items. Zotero has no “undo” button for metadata; for mass changes make a backup first.</li>
-<li><strong>Clear requests help:</strong> “only the type” (5.6), “only in this collection”, “at most 20 items”.</li>
+<li><strong>The model likes to do more than you asked.</strong> Even with “change only the type” it sometimes adds title, DOI or pages (5.6, 5.13). Clear requests help (“only in this collection”, “at most 20 items”) but do not replace looking at the preview: untick there what you do not want.</li>
+<li><strong>Red lines in the tool block</strong> are failed calls; the model usually repeats them by itself (5.9). If the error keeps coming back, phrase the request differently or smaller.</li>
 <li><strong>No index, no hits:</strong> PDFs that ZotSeek or SeekBook have not indexed yet stay invisible to the search (chapter 2).</li>
 <li><strong>Data protection:</strong> Text goes only to <code>ollama.ils.local</code>, the server in the server room, and only if it is entered under “Allowed remote hosts” – not to a cloud service.</li>
 <li><strong>Computing time:</strong> The server is shared. Tasks over many items or whole books take minutes; you can keep working meanwhile.</li>
@@ -8014,8 +8042,8 @@ require(
             transition: "slide",
             slideNumber: "",
             plugins: [RevealNotes],
-            width: 960,
-			      height: 700,
+            width: 1400,
+			      height: 850,
 
         });
 
@@ -8028,7 +8056,7 @@ require(
         Reveal.addEventListener('slidechanged', update);
 
         function setScrollingSlide() {
-            var scroll = false
+            var scroll = true
             if (scroll === true) {
               var h = $('.reveal').height() * 0.95;
               $('section.present').find('section')

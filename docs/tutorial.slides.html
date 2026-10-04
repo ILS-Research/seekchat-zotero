@@ -7441,8 +7441,29 @@ main {
 </div>
 <div class="jp-InputArea jp-Cell-inputArea"><div class="jp-InputPrompt jp-InputArea-prompt">
 </div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput" data-mime-type="text/markdown">
-<h1 id="SeekChat-%E2%80%93-Literaturarbeit-in-Zotero-mit-einem-Sprachmodell">SeekChat – Literaturarbeit in Zotero mit einem Sprachmodell<a class="anchor-link" href="#SeekChat-%E2%80%93-Literaturarbeit-in-Zotero-mit-einem-Sprachmodell">¶</a></h1><p><strong>Was sich bei deiner Arbeit mit der Zotero-Bibliothek abnehmen lässt – und wo du selbst genau hinsehen musst.</strong>
-Ein Tutorial für ILS-Kolleginnen und -Kollegen. Das Modell läuft auf unserer GPU-Maschine im Serverraum, nicht in einer fremden Cloud.</p>
+<style>
+/* Folien: die Breite des Fensters nutzen, lange Folien scrollen, Bilder nicht höher als der Bildschirm */
+.reveal .slides { text-align: left; }
+.reveal .slides section { width: 100%; box-sizing: border-box; padding: 0 1.2em; }
+.reveal .slides section img { max-height: 58vh; width: auto; }
+.reveal .slides section figure { margin: 0.5em 0; }
+.reveal .slides > section, .reveal .slides > section > section { overflow-y: auto; max-height: 100%; }
+.reveal h1, .reveal h2 { text-transform: none; }
+.reveal ol, .reveal ul { display: block; }
+</style>
+<h1 id="SeekChat-%E2%80%93-Literaturarbeit-in-Zotero-mit-einem-Sprachmodell">SeekChat – Literaturarbeit in Zotero mit einem Sprachmodell<a class="anchor-link" href="#SeekChat-%E2%80%93-Literaturarbeit-in-Zotero-mit-einem-Sprachmodell">¶</a></h1><p><strong>Was sich bei deiner Arbeit mit der Zotero-Bibliothek abnehmen lässt – und wo du selbst genau hinsehen musst.</strong></p>
+<p>Ein Tutorial für ILS-Kolleginnen und -Kollegen. Das Modell läuft auf unserer GPU-Maschine im Serverraum, nicht in einer fremden Cloud.</p>
+<p><em>Alle Bilder zeigen einen echten Lauf mit einer Beispielbibliothek und dem ILS-Modell.</em></p>
+</div>
+</div>
+</div>
+</div></section></section><section><section>
+<div class="jp-Cell jp-MarkdownCell jp-Notebook-cell" id="cell-id=3a450bca">
+<div class="jp-Cell-inputWrapper" tabindex="0">
+<div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
+</div>
+<div class="jp-InputArea jp-Cell-inputArea"><div class="jp-InputPrompt jp-InputArea-prompt">
+</div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput" data-mime-type="text/markdown">
 <h2 id="Inhalt">Inhalt<a class="anchor-link" href="#Inhalt">¶</a></h2><ol>
 <li><strong>Wofür das gut ist</strong></li>
 <li><strong>Einrichtung</strong> – Plugins installieren, Modellserver eintragen, Indizes anlegen (ZotSeek, SeekBook)</li>
@@ -7592,16 +7613,21 @@ Jede Seitenangabe in der Antwort (z. B. <code>[S. 12]</code>) ist ein Link, der 
 </div>
 <div class="jp-InputArea jp-Cell-inputArea"><div class="jp-InputPrompt jp-InputArea-prompt">
 </div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput" data-mime-type="text/markdown">
-<h2 id="3-Lange-Dokumente">3 Lange Dokumente<a class="anchor-link" href="#3-Lange-Dokumente">¶</a></h2><p>Passt ein Text nicht ganz ins Modell, wählt SeekChat die zur Frage passenden Seiten aus; die Antwort sagt dir, welche das waren.
-Bücher mit eigenem Index (SeekBook) werden gezielt durchsucht – dafür muss der Index fertig sein (Kapitel 2).</p>
+<h2 id="3-Lange-Dokumente">3 Lange Dokumente<a class="anchor-link" href="#3-Lange-Dokumente">¶</a></h2><p>Passt ein Text nicht ganz ins Modell (hier: eine Dissertation mit 207 Seiten), erscheint beim Öffnen des Chats ein Kasten <strong>„Dokument zu groß für den Kontext“</strong>. Pro Frage kann nur ein Teil gelesen werden; du wählst, wie SeekChat die Seiten aussucht:</p>
+<ul>
+<li><strong>Semantische Suche (SeekBook / ZotSeek):</strong> Die besten Seiten kommen aus dem Index. Voraussetzung ist ein fertiger Index (Kapitel 2); sonst ist die Option ausgegraut, und ein Knopf <strong>„Eintrag an ZotSeek übergeben“</strong> schickt das Dokument dorthin.</li>
+<li><strong>Stichwort-Erweiterung durch das Modell:</strong> Das Modell erzeugt zur Frage Suchbegriffe (Synonyme, Fachbegriffe) in der Sprache des Dokuments; die Seiten mit den meisten Treffern gehen mit.</li>
+<li><strong>Nur in ausgewählten Kapiteln suchen:</strong> Du wählst im Inhaltsverzeichnis des Dokuments die Kapitel aus, die in Frage kommen.</li>
+</ul>
+<p>Nach der Antwort steht über ihr, <strong>welche Seiten gelesen wurden</strong> („Auszüge: S. 1–2, 13–44 … von 207 Seiten“) und mit welchen Suchbegriffen. Auch bei langen Dokumenten gilt: Seitenlinks anklicken und prüfen.</p>
+<p>Weitere Hinweise:</p>
 <ul>
 <li>Ist das PDF im <strong>Reader</strong> geöffnet, geht die <strong>aktuelle Seite</strong> mit („erkläre mir diese Seite“).</li>
 <li>Eigene <strong>Notizen</strong> zum Eintrag lassen sich per Häkchen („Notizen als Kontext“) mitschicken.</li>
 <li>Webseiten-Schnappschüsse, E-Books und Textdateien gehen ebenfalls, aber ohne Seitenzahlen.</li>
-<li>Eine inhaltlich anspruchsvolle Frage an ein ganzes Buch findest du in 5.14.</li>
-<li>Was mit dem Verlauf passiert und wie du ihn sicherst: Kapitel 6.</li>
+<li>Eine inhaltlich anspruchsvolle Frage an ein ganzes Buch findest du in 5.14; was mit dem Chat passiert und wie du ihn sicherst: Kapitel 6.</li>
 </ul>
-<figure style="margin:0.6em 0"><img alt="Langes Dokument" src="img/pdf-3-long-document.png" style="max-width:65%;border:1px solid #ccc"/><figcaption style="font-size:0.75em;color:#555;max-width:65%"><em>Eine Dissertation als Eintrag. Achte auf: Der Abschnitt ist derselbe wie beim Aufsatz; erst die Antwort verrät, wie viele Seiten gelesen wurden.</em></figcaption></figure>
+<figure style="margin:0.6em 0"><img alt="Lange Dokumente: Strategiekasten und Antwort" src="img/pdf-4-long-document-answer.png" style="max-width:75%;border:1px solid #ccc"/><figcaption style="font-size:0.75em;color:#555;max-width:75%"><em>Die Dissertation „Überörtliche Raumplanung“ mit einer Frage nach der Definition. Achte auf: den orange umrandeten Kasten mit den drei Möglichkeiten, die Zeile „Auszüge: S. … von 207 Seiten (89 Seiten mit Treffern)“ über der Antwort und die Suchbegriffe darunter.</em></figcaption></figure>
 </div>
 </div>
 </div>
@@ -7670,13 +7696,13 @@ Ausgegraut sind Fähigkeiten, für die ein Plugin fehlt (Kapitel 2).</li>
 <div class="jp-InputArea jp-Cell-inputArea"><div class="jp-InputPrompt jp-InputArea-prompt">
 </div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput" data-mime-type="text/markdown">
 <h2 id="5.1-Quellen-aus-einer-Literaturliste-importieren">5.1 Quellen aus einer Literaturliste importieren<a class="anchor-link" href="#5.1-Quellen-aus-einer-Literaturliste-importieren">¶</a></h2><p><strong>Du schreibst:</strong> <em>Importiere diese Quellen: Oke 1982 …, Kuttler 2011 …, Wilkinson 2016 …</em></p>
-<p>Füge die Literaturliste ins Feld ein. Jeder Eintrag wird aufgelöst (über DOI, ISBN, arXiv-Kennung oder Titel); frei verfügbare PDFs werden mitgeladen. Prüfe die Vorschau, bevor du bestätigst.</p>
+<p>Füge die Literaturliste ins Feld ein. SeekChat versucht jeden Eintrag aufzulösen (über DOI, ISBN, arXiv-Kennung oder Titel); frei verfügbare PDFs werden mitgeladen. In der Vorschau steht pro Quelle, <strong>woher die Angaben stammen</strong>, und du hakst ab, was importiert werden soll. Prüfe sie, bevor du bestätigst.</p>
 <blockquote>
 <p><strong>Ergebnis:</strong> Zwei von drei Quellen importiert; Wilkinson (2016) war schon vorhanden und wurde nicht doppelt angelegt.</p>
 </blockquote>
-<p><strong>Zu beachten:</strong> Quellen ohne DOI werden über den Titel gesucht und können falsch zugeordnet werden – vergleiche die Titel in der Vorschau. Mit <code>Find Online References</code> (Kapitel 2) wird die Titelsuche besser.</p>
-<figure style="margin:0.6em 0"><img alt="Vorschau des Imports" src="img/import-1-confirm-import_references.png" style="max-width:70%;border:1px solid #ccc"/><figcaption style="font-size:0.75em;color:#555;max-width:70%"><em>Importvorschau. Achte auf: pro Quelle Titel, Autoren, Jahr und die Herkunft der Daten; Quellen, die schon in der Bibliothek sind, sind markiert.</em></figcaption></figure>
-<figure style="margin:0.6em 0"><img alt="Ergebnis" src="img/import-3-answer.png" style="max-width:70%;border:1px solid #ccc"/><figcaption style="font-size:0.75em;color:#555;max-width:70%"><em>Ergebnis. Achte auf: die Zahl der importierten Quellen und den Hinweis auf die Dublette.</em></figcaption></figure>
+<p><strong>Zu beachten:</strong> Nur Quellen mit DOI oder anderer Kennung werden wirklich nachgeschlagen („gefunden“). Bei den anderen entsteht der Eintrag <strong>nur aus dem Quellentext</strong> („Text“: nicht nachgeschlagen) – kontrolliere Autoren, Titel und Jahr selbst. Mit <code>Find Online References</code> (Kapitel 2) wird die Titelsuche besser.</p>
+<figure style="margin:0.6em 0"><img alt="Vorschau des Imports" src="img/import-2-confirm-import_references.png" style="max-width:70%;border:1px solid #ccc"/><figcaption style="font-size:0.75em;color:#555;max-width:70%"><em>Importvorschau. Achte auf: die Markierungen „gefunden“ (über DOI nachgeschlagen), „Text“ (nur aus dem Quellentext, nicht nachgeschlagen) und „vorhanden“ (steht schon in der Bibliothek, deshalb nicht angehakt, mit Link zum vorhandenen Eintrag).</em></figcaption></figure>
+<figure style="margin:0.6em 0"><img alt="Ergebnis" src="img/import-4-answer.png" style="max-width:70%;border:1px solid #ccc"/><figcaption style="font-size:0.75em;color:#555;max-width:70%"><em>Ergebnis nach „Ausgewählte importieren“. Achte auf: die Zahl der importierten Quellen und den Hinweis auf die Dublette.</em></figcaption></figure>
 </div>
 </div>
 </div>
@@ -7742,14 +7768,14 @@ Ausgegraut sind Fähigkeiten, für die ein Plugin fehlt (Kapitel 2).</li>
 </div>
 <div class="jp-InputArea jp-Cell-inputArea"><div class="jp-InputPrompt jp-InputArea-prompt">
 </div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput" data-mime-type="text/markdown">
-<h2 id="5.6-Metadaten-pr%C3%BCfen-und-korrigieren">5.6 Metadaten prüfen und korrigieren<a class="anchor-link" href="#5.6-Metadaten-pr%C3%BCfen-und-korrigieren">¶</a></h2><p><strong>Du schreibst:</strong> <em>Prüfe, ob der Eintragstyp von „GIS and green infrastructure“ stimmt; ändere nur den Typ.</em></p>
-<p>Das Modell sieht sich das Titelblatt an, begründet seinen Vorschlag und zeigt die Änderung vor. Felder, die der neue Typ nicht kennt, werden vorher genannt.</p>
+<h2 id="5.6-Metadaten-pr%C3%BCfen-und-korrigieren">5.6 Metadaten prüfen und korrigieren<a class="anchor-link" href="#5.6-Metadaten-pr%C3%BCfen-und-korrigieren">¶</a></h2><p><strong>Du schreibst:</strong> <em>Der Eintrag „GIS and green infrastructure“ ist als Buch angelegt. Prüfe anhand der ersten Seite, ob der Typ stimmt, und korrigiere ihn nur, wenn nötig. Ändere sonst nichts.</em></p>
+<p>Das Modell liest die erste Seite, begründet seinen Vorschlag und zeigt die Änderung vorher als Vorschau. Felder, die der neue Typ nicht kennt, werden dabei genannt.</p>
 <blockquote>
 <p><strong>Ergebnis:</strong> Es ist ein Zeitschriftenartikel (PLOS ONE), kein Buch – der Typ wurde geändert.</p>
 </blockquote>
-<p><strong>Zu beachten:</strong> Schreib, was geändert werden soll („nur den Typ“). Sonst schlägt das Modell mitunter weitere Felder vor, etwa das Jahr. Im Beispiel war das nützlich, sollte aber bewusst passieren.</p>
-<figure style="margin:0.6em 0"><img alt="Vorschau" src="img/fix-one-1-confirm-update_item.png" style="max-width:70%;border:1px solid #ccc"/><figcaption style="font-size:0.75em;color:#555;max-width:70%"><em>Vorschau. Achte auf: „book → journalArticle“ und auf Hinweise zu Feldern, die wegfallen.</em></figcaption></figure>
-<figure style="margin:0.6em 0"><img alt="Ergebnis" src="img/fix-one-2-answer.png" style="max-width:70%;border:1px solid #ccc"/><figcaption style="font-size:0.75em;color:#555;max-width:70%"><em>Ergebnis mit Begründung. Achte auf: ob die Begründung zum Titelblatt passt.</em></figcaption></figure>
+<p><strong>Zu beachten:</strong> Trotz „Ändere sonst nichts“ schlägt das Modell hier <strong>mehr</strong> vor als den Typ: den vollständigen Titel, DOI, Heft, Seiten, Zeitschrift und Band, jeweils von der ersten Seite abgelesen. Das ist hier sachlich nützlich, aber es ist nicht, was du verlangt hast. <strong>Genau deshalb gibt es die Vorschau:</strong> Hake in der Liste ab, was du nicht willst, und bestätige erst dann. Schau auch auf den Kasten „0 Einträge ändern – fehlgeschlagen“ im Block: Der erste Versuch des Modells ist fehlgeschlagen, es hat dann selbst einen zweiten gemacht; geändert wurde nichts, bevor du bestätigt hast.</p>
+<figure style="margin:0.6em 0"><img alt="Vorschau" src="img/fix-one-1-confirm-update_item.png" style="max-width:75%;border:1px solid #ccc"/><figcaption style="font-size:0.75em;color:#555;max-width:75%"><em>Vorschau, der Block ist aufgeklappt, weil das Modell auf deine Bestätigung wartet. Achte auf: „Typ: Book → Journal Article“ und die zusätzlichen Zeilen darunter (DOI, Issue, Pages, Publication, Title, Volume), den roten Kasten des fehlgeschlagenen ersten Versuchs und die Knöpfe „Änderungen übernehmen“ und „Abbrechen“.</em></figcaption></figure>
+<figure style="margin:0.6em 0"><img alt="Ergebnis" src="img/fix-one-3-answer.png" style="max-width:75%;border:1px solid #ccc"/><figcaption style="font-size:0.75em;color:#555;max-width:75%"><em>Ergebnis mit Begründung. Achte auf: ob die Begründung zur ersten Seite passt und welche Felder das Modell zusätzlich ergänzt hat.</em></figcaption></figure>
 </div>
 </div>
 </div>
@@ -7773,12 +7799,12 @@ Ausgegraut sind Fähigkeiten, für die ein Plugin fehlt (Kapitel 2).</li>
 </div>
 <div class="jp-InputArea jp-Cell-inputArea"><div class="jp-InputPrompt jp-InputArea-prompt">
 </div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput" data-mime-type="text/markdown">
-<h2 id="5.8-Sammlungen-anlegen-und-f%C3%BCllen">5.8 Sammlungen anlegen und füllen<a class="anchor-link" href="#5.8-Sammlungen-anlegen-und-f%C3%BCllen">¶</a></h2><p><strong>Du schreibst:</strong> <em>Lege alle Einträge mit FDM-Schlagwörtern in eine neue Sammlung „Projekt A / FDM-Grundlagen“.</em></p>
-<p>Sammlungen und Untersammlungen (mit <code>/</code>) werden bei Bedarf angelegt; Einträge werden hinzugefügt, nicht verschoben.</p>
+<h2 id="5.8-Sammlungen-anlegen-und-f%C3%BCllen">5.8 Sammlungen anlegen und füllen<a class="anchor-link" href="#5.8-Sammlungen-anlegen-und-f%C3%BCllen">¶</a></h2><p><strong>Du schreibst:</strong> <em>Lege alle Einträge aus der Sammlung „Forschungsdaten“, die ein Schlagwort mit FDM tragen, in eine neue Sammlung „Projekt A / FDM-Grundlagen“.</em></p>
+<p>Sammlungen und Untersammlungen (mit <code>/</code>) werden bei Bedarf angelegt; Einträge werden hinzugefügt, nicht verschoben. Vorher zeigt eine Vorschau, welche Einträge hineinkommen (wie in 5.13).</p>
 <blockquote>
-<p><strong>Ergebnis:</strong> 13 Einträge in die neue Sammlung gelegt.</p>
+<p><strong>Ergebnis:</strong> Zwei Einträge mit dem Schlagwort FDM (Schlenz 2026, Wilkinson 2016) wurden in die neue Sammlung „Projekt A / FDM-Grundlagen“ gelegt.</p>
 </blockquote>
-<figure style="margin:0.6em 0"><img alt="Antwort" src="img/collect-1-answer.png" style="max-width:70%;border:1px solid #ccc"/><figcaption style="font-size:0.75em;color:#555;max-width:70%"><em>Ergebnis. Achte auf: die Zahl der abgelegten Einträge – öffne danach in Zotero die neue Sammlung und sieh stichprobenartig nach.</em></figcaption></figure>
+<figure style="margin:0.6em 0"><img alt="Antwort" src="img/collect-2-answer.png" style="max-width:70%;border:1px solid #ccc"/><figcaption style="font-size:0.75em;color:#555;max-width:70%"><em>Ergebnis (unten, nach der Notiz aus 5.9). Achte auf: die Namen der abgelegten Einträge – öffne danach in Zotero die neue Sammlung und sieh nach, ob alle Einträge mit dem Schlagwort dabei sind. Ein Schlagwort in anderer Schreibweise (z. B. „fdm“, siehe 5.7) fällt sonst durch.</em></figcaption></figure>
 </div>
 </div>
 </div>
@@ -7789,12 +7815,12 @@ Ausgegraut sind Fähigkeiten, für die ein Plugin fehlt (Kapitel 2).</li>
 </div>
 <div class="jp-InputArea jp-Cell-inputArea"><div class="jp-InputPrompt jp-InputArea-prompt">
 </div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput" data-mime-type="text/markdown">
-<h2 id="5.9-Notizen-zu-Texten-schreiben">5.9 Notizen zu Texten schreiben<a class="anchor-link" href="#5.9-Notizen-zu-Texten-schreiben">¶</a></h2><p><strong>Du schreibst:</strong> <em>Schreibe eine Notiz mit den drei wichtigsten Aussagen zu diesem Beitrag.</em></p>
+<h2 id="5.9-Notizen-zu-Texten-schreiben">5.9 Notizen zu Texten schreiben<a class="anchor-link" href="#5.9-Notizen-zu-Texten-schreiben">¶</a></h2><p><strong>Du schreibst:</strong> <em>Lege an diesem Eintrag („Nahversorgung in ländlichen Räumen“) eine Notiz mit den drei wichtigsten Aussagen an.</em></p>
 <p>Die Notiz erscheint als Zotero-Notiz am Eintrag, in einer Sammlung oder in der Bibliothek. Sie bleibt, auch wenn du den Chat schließt.</p>
-<p><strong>Zu beachten:</strong> Die Notiz ist ein Entwurf des Modells. Als Grundlage für eigene Zusammenfassungen gut, als Zitatquelle nicht – prüfe sie vor der Übernahme gegen den Text.</p>
+<p><strong>Zu beachten:</strong> Die Notiz ist ein Entwurf des Modells. Als Grundlage für eigene Zusammenfassungen gut, als Zitatquelle nicht – prüfe sie vor der Übernahme gegen den Text. Eine <strong>rot markierte Zeile</strong> im Werkzeugblock heißt: Ein Aufruf ist fehlgeschlagen (hier stimmte der Eintragsschlüssel nicht); das Modell versucht es danach meist selbst noch einmal. Klapp den Block auf, wenn du wissen willst, was passiert ist.</p>
 <p><em>Siehe auch: Kapitel 6 (so sicherst du auch den Chat selbst).</em></p>
 <figure style="margin:0.6em 0"><img alt="Notiz-Vorschau" src="img/note-1-confirm-create_note.png" style="max-width:70%;border:1px solid #ccc"/><figcaption style="font-size:0.75em;color:#555;max-width:70%"><em>Notizvorschau. Achte auf: den Text der Notiz und das Ziel (an welchem Eintrag sie hängt).</em></figcaption></figure>
-<figure style="margin:0.6em 0"><img alt="Ergebnis" src="img/note-2-answer.png" style="max-width:70%;border:1px solid #ccc"/><figcaption style="font-size:0.75em;color:#555;max-width:70%"><em>Ergebnis. Achte auf: die Rückmeldung, an welchem Eintrag die Notiz angelegt wurde.</em></figcaption></figure>
+<figure style="margin:0.6em 0"><img alt="Ergebnis" src="img/note-3-answer.png" style="max-width:70%;border:1px solid #ccc"/><figcaption style="font-size:0.75em;color:#555;max-width:70%"><em>Ergebnis, darüber die vorherige Frage nach der ersten Seite (5.5). Achte auf: den roten Titel „3 Werkzeugaufrufe … fertig“ (ein Aufruf war fehlgeschlagen) und die Rückmeldung, an welchem Eintrag die Notiz angelegt wurde.</em></figcaption></figure>
 </div>
 </div>
 </div>
@@ -7832,14 +7858,14 @@ Ausgegraut sind Fähigkeiten, für die ein Plugin fehlt (Kapitel 2).</li>
 </div>
 <div class="jp-InputArea jp-Cell-inputArea"><div class="jp-InputPrompt jp-InputArea-prompt">
 </div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput" data-mime-type="text/markdown">
-<h2 id="5.12-Viele-Eintr%C3%A4ge-auf-einmal-pr%C3%BCfen">5.12 Viele Einträge auf einmal prüfen<a class="anchor-link" href="#5.12-Viele-Eintr%C3%A4ge-auf-einmal-pr%C3%BCfen">¶</a></h2><p><strong>Du schreibst:</strong> <em>Prüfe alle Einträge der Sammlung „Typen prüfen“ auf den richtigen Eintragstyp.</em></p>
-<p>Bei vielen Einträgen übergibt das Modell die Lesearbeit an einen <strong>Hilfsagenten</strong>. Er geht sie in Paketen zu 20 durch, liest nur und gibt am Ende ein Ergebnis zurück; der Chat bleibt übersichtlich. Geändert wird erst nach deiner Bestätigung. Ein eigener Knopf <strong>Subagent stoppen</strong> bricht nur ihn ab; was er bis dahin hatte, bleibt.</p>
+<h2 id="5.12-Viele-Eintr%C3%A4ge-auf-einmal-pr%C3%BCfen">5.12 Viele Einträge auf einmal prüfen<a class="anchor-link" href="#5.12-Viele-Eintr%C3%A4ge-auf-einmal-pr%C3%BCfen">¶</a></h2><p><strong>Du schreibst:</strong> <em>Prüfe in der Sammlung „Typen prüfen“ für jeden Eintrag anhand der ersten Seiten, ob der Eintragstyp stimmt. Lass das den Subagenten erledigen und ändere danach nur die Typen, die falsch sind.</em></p>
+<p>Bei vielen Einträgen übergibt das Modell die Lesearbeit an einen <strong>Hilfsagenten</strong> (im Programm „Subagent“). Er geht sie in Paketen zu 20 durch, liest nur und gibt am Ende ein Ergebnis zurück; der Chat bleibt übersichtlich. Geändert wird erst nach deiner Bestätigung. Ein eigener Knopf <strong>„Subagent stoppen“</strong> bricht nur ihn ab; was er bis dahin hatte, bleibt.</p>
 <blockquote>
-<p><strong>Ergebnis:</strong> Von fünf Einträgen hatten zwei den falschen Typ: eine Dissertation war als Zeitschriftenartikel erfasst, ein Konferenzbeitrag ebenso.</p>
+<p><strong>Ergebnis:</strong> Von fünf Einträgen hatten zwei den falschen Typ: eine Dissertation war als Zeitschriftenartikel erfasst („thesis“), ein Konferenzbeitrag ebenso („conferencePaper“).</p>
 </blockquote>
 <p><strong>Zu beachten:</strong> Bei hunderten Einträgen dauert das Minuten bis Stunden, je nach Auslastung des Servers.</p>
-<figure style="margin:0.6em 0"><img alt="Hilfsagent arbeitet" src="img/subagent-2-running.png" style="max-width:70%;border:1px solid #ccc"/><figcaption style="font-size:0.75em;color:#555;max-width:70%"><em>Der Hilfsagent arbeitet. Achte auf: die Fortschrittszeile und den Knopf zum Stoppen.</em></figcaption></figure>
-<figure style="margin:0.6em 0"><img alt="Ergebnis" src="img/subagent-8-answer.png" style="max-width:70%;border:1px solid #ccc"/><figcaption style="font-size:0.75em;color:#555;max-width:70%"><em>Ergebnis. Achte auf: welche Einträge als falsch erkannt wurden und mit welcher Begründung.</em></figcaption></figure>
+<figure style="margin:0.6em 0"><img alt="Hilfsagent arbeitet" src="img/subagent-2-running.png" style="max-width:75%;border:1px solid #ccc"/><figcaption style="font-size:0.75em;color:#555;max-width:75%"><em>Der Hilfsagent arbeitet. Achte auf: unten die Zeile „Subagent: For each item in the collection … – läuft“ mit dem Knopf „Subagent stoppen“ (die Aufgabenbeschreibung an den Hilfsagenten ist englisch).</em></figcaption></figure>
+<figure style="margin:0.6em 0"><img alt="Ergebnis" src="img/subagent-7-answer.png" style="max-width:75%;border:1px solid #ccc"/><figcaption style="font-size:0.75em;color:#555;max-width:75%"><em>Ergebnis. Achte auf: die zwei als falsch erkannten Einträge mit altem und neuem Typ und die Tabelle am Ende (sie erscheint als Text mit senkrechten Strichen).</em></figcaption></figure>
 </div>
 </div>
 </div>
@@ -7850,14 +7876,15 @@ Ausgegraut sind Fähigkeiten, für die ein Plugin fehlt (Kapitel 2).</li>
 </div>
 <div class="jp-InputArea jp-Cell-inputArea"><div class="jp-InputPrompt jp-InputArea-prompt">
 </div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput" data-mime-type="text/markdown">
-<h2 id="5.13-Mehrere-Schritte-in-einer-Anfrage">5.13 Mehrere Schritte in einer Anfrage<a class="anchor-link" href="#5.13-Mehrere-Schritte-in-einer-Anfrage">¶</a></h2><p><strong>Du schreibst:</strong> <em>Suche die FDM-Einträge, prüfe Typ und Jahr am Titelblatt, lege sie in „Literatur / FDM“ und schreibe eine Übersichtsnotiz.</em></p>
+<h2 id="5.13-Mehrere-Schritte-in-einer-Anfrage">5.13 Mehrere Schritte in einer Anfrage<a class="anchor-link" href="#5.13-Mehrere-Schritte-in-einer-Anfrage">¶</a></h2><p><strong>Du schreibst:</strong> <em>Suche in meiner Bibliothek die Einträge zu Forschungsdatenmanagement, prüfe bei jedem anhand des Titelblatts, ob Eintragstyp und Jahr stimmen, lege sie in die Sammlung „Literatur / FDM“ und schreibe zum Schluss eine Notiz in diese Sammlung mit einer Übersicht der Einträge in einem Satz je Eintrag.</em></p>
 <p>Das Modell führt die Schritte nacheinander aus und fragt vor jeder Änderung nach – du bestätigst mehrfach hintereinander.</p>
 <blockquote>
-<p><strong>Ergebnis:</strong> Vier Einträge gefunden, bei einem das Jahr 2026 auf 2025 korrigiert (laut Titelblatt), alle in die Sammlung gelegt, Übersichtsnotiz angelegt.</p>
+<p><strong>Ergebnis:</strong> Fünf Einträge gefunden, die Jahresangaben stimmen. Bei <strong>drei</strong> Einträgen hat das Modell den <strong>Typ auf „report“</strong> geändert (ein Arbeitspapier, ein Leitfaden, eine Schriftenreihe) und dabei DOI, Ort und Institution ergänzt. Alle fünf liegen in der neuen Sammlung „Literatur / FDM“, die Übersichtsnotiz ist angelegt.</p>
 </blockquote>
-<figure style="margin:0.6em 0"><img alt="Korrektur bestätigen" src="img/chain-2-confirm-update_item.png" style="max-width:60%;border:1px solid #ccc"/><figcaption style="font-size:0.75em;color:#555;max-width:60%"><em>Erste Bestätigung (Korrektur). Achte auf: Jahr 2026 → 2025.</em></figcaption></figure>
-<figure style="margin:0.6em 0"><img alt="Sammlung bestätigen" src="img/chain-3-confirm-save_to_collection.png" style="max-width:60%;border:1px solid #ccc"/><figcaption style="font-size:0.75em;color:#555;max-width:60%"><em>Zweite Bestätigung (Sammlung). Achte auf: den Namen der neuen Sammlung und die Liste der Einträge.</em></figcaption></figure>
-<figure style="margin:0.6em 0"><img alt="Zusammenfassung" src="img/chain-6-answer.png" style="max-width:60%;border:1px solid #ccc"/><figcaption style="font-size:0.75em;color:#555;max-width:60%"><em>Zusammenfassung am Ende. Achte auf: ob alles ausgeführt wurde, was du verlangt hattest.</em></figcaption></figure>
+<p><strong>Zu beachten:</strong> Ob „Bausteine Forschungsdatenmanagement“ ein Bericht oder ein Zeitschriftenartikel ist, ist eine <strong>Einschätzung des Modells</strong>, nicht ausgemacht. Du hast es in der Hand: Die Vorschau zeigt alt → neu für jeden Eintrag, und du kannst einzelne abwählen. Bei längeren Aufträgen wie diesem lohnt es sich, jede Vorschau wirklich zu lesen.</p>
+<figure style="margin:0.6em 0"><img alt="Korrektur bestätigen" src="img/chain-4-confirm-update_item.png" style="max-width:70%;border:1px solid #ccc"/><figcaption style="font-size:0.75em;color:#555;max-width:70%"><em>Bestätigung der Typänderungen. Achte auf: „Typ: Journal Article → Report“, die ergänzten Felder (DOI, Place, Institution) und die Zeilen „Ausgelassen (kein Feld von Report): publicationTitle“ – Angaben, die der neue Typ nicht kennt und die dabei verloren gehen.</em></figcaption></figure>
+<figure style="margin:0.6em 0"><img alt="Sammlung bestätigen" src="img/chain-3-confirm-save_to_collection.png" style="max-width:70%;border:1px solid #ccc"/><figcaption style="font-size:0.75em;color:#555;max-width:70%"><em>Bestätigung der Sammlung. Achte auf: „Neue Sammlung ‚Literatur / FDM‘ wird angelegt, 5 Einträge kommen hinein“, die Liste der Einträge mit Häkchen und die Analyse des Modells darunter.</em></figcaption></figure>
+<figure style="margin:0.6em 0"><img alt="Zusammenfassung" src="img/chain-9-answer.png" style="max-width:70%;border:1px solid #ccc"/><figcaption style="font-size:0.75em;color:#555;max-width:70%"><em>Zusammenfassung am Ende. Achte auf: die Rubriken „Gefunden“, „Prüfung anhand der Titelblätter“ und „Erledigt“ – und ob alles ausgeführt wurde, was du verlangt hattest.</em></figcaption></figure>
 </div>
 </div>
 </div>
@@ -7868,19 +7895,20 @@ Ausgegraut sind Fähigkeiten, für die ein Plugin fehlt (Kapitel 2).</li>
 </div>
 <div class="jp-InputArea jp-Cell-inputArea"><div class="jp-InputPrompt jp-InputArea-prompt">
 </div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput" data-mime-type="text/markdown">
-<h2 id="5.14-Ein-Buch-inhaltlich-befragen">5.14 Ein Buch inhaltlich befragen<a class="anchor-link" href="#5.14-Ein-Buch-inhaltlich-befragen">¶</a></h2><p><strong>Du schreibst (PDF-Chat, Kapitel 3):</strong> <em>Welche Phasen unterscheidet das Buch im Lebenszyklus von Forschungsdaten, und was verlangt es in der Planungsphase konkret von Forschenden? Nenne die Stellen mit Seitenangabe.</em></p>
-<p>Bisher haben die Beispiele Zotero-Aufgaben in Sprache übersetzt. Hier geht es um die Literatur selbst: Du willst ein <strong>Vorgehen aus einem langen Buch herausarbeiten</strong> – die Phasen eines Modells, und was daraus für dein eigenes Projekt folgt. Das ist eine Frage an <em>ein</em> Buch (Schlenz et al., 109 Seiten), deshalb der PDF-Chat in der Seitenleiste: Er liest das Buch ganz und belegt mit Seiten.</p>
+<h2 id="5.14-Ein-Buch-inhaltlich-befragen">5.14 Ein Buch inhaltlich befragen<a class="anchor-link" href="#5.14-Ein-Buch-inhaltlich-befragen">¶</a></h2><p><strong>Du schreibst (PDF-Chat, Kapitel 3):</strong> <em>Aus welchen Teilen soll nach dem Buch ein Datenmanagementplan bestehen? Stelle für jeden Teil dar, was er festlegen soll, und gib an, welche Beispielformulierungen das Buch dazu nennt. Belege jede Angabe mit der Seite.</em></p>
+<p>Bisher haben die Beispiele Zotero-Aufgaben in Sprache übersetzt. Hier geht es um die Literatur selbst: Du willst ein <strong>Vorgehen aus einem langen Buch herausarbeiten</strong> – hier den Aufbau eines Datenmanagementplans samt Mustertexten. Das ist eine Frage an <em>ein</em> Buch (Schlenz et al., 109 Seiten), deshalb der PDF-Chat in der Seitenleiste: Er liest das Buch ganz und belegt mit Seiten.</p>
 <ol>
-<li>Eintrag auswählen, im Abschnitt „Chat mit PDF“ die Frage stellen. Formuliere <strong>zwei Teilfragen</strong> und verlange <strong>Seitenangaben</strong>.</li>
+<li>Eintrag auswählen, im Abschnitt „Chat mit PDF“ die Frage stellen. Formuliere <strong>eine klare Gliederung</strong> („für jeden Teil …“) und verlange <strong>Seitenangaben</strong>.</li>
 <li>Die Zeile über der Antwort zeigt, was gelesen wurde (hier: vollständiger Text, 109 Seiten).</li>
-<li><strong>Klick auf die Seitenlinks</strong>, bevor du etwas übernimmst: Steht an der Stelle, was die Antwort behauptet?</li>
-<li>Hake die Frage nicht ab, wenn nur der erste Teil beantwortet ist: Frag nach (<em>„Und was verlangt das Buch in der Planungsphase konkret?“</em>).</li>
+<li><strong>Klick auf die Seitenlinks</strong>, bevor du etwas übernimmst: Steht an der Stelle, was die Antwort behauptet? Bei den <strong>wörtlichen Beispielformulierungen</strong> ist das Pflicht – sie sind Zitate.</li>
+<li>Zähl nach: Die Antwort nennt <strong>sechs Teile</strong>. Im Buch sind es die Abschnitte 4.1 bis 4.6 von Kapitel 4; schlag das Kapitel auf und vergleiche.</li>
+<li>Den Chat kannst du als Notiz speichern (Kapitel 6), wenn du mit dem Ergebnis weiterarbeiten willst.</li>
 </ol>
 <blockquote>
-<p><strong>Ergebnis (Beginn der Antwort):</strong> Das Buch beschreibt den Lebenszyklus nicht als feste Liste von Phasen, sondern verweist auf einen typischen Lebenszyklus aus Erfassung, Prozessierung/Datenanalyse, Publikation, Archivierung und Teilen von Daten [S. 11].</p>
+<p><strong>Ergebnis (gekürzt):</strong> Der Datenmanagementplan besteht nach dem Buch aus sechs Teilen (Kap. 4, S. 21–26), darunter <em>Datenaustausch und dauerhafte Zugänglichkeit</em> und <em>Verantwortlichkeit und Ressourcen</em>. Zu jedem Teil nennt die Antwort, was er <strong>festlegt</strong>, und eine <strong>Beispielformulierung</strong> aus dem Buch mit Seite.</p>
 </blockquote>
-<p><strong>Zu beachten:</strong> Das Modell antwortet auf das, was gefragt ist, und kann Unschärfen im Buch glätten. Hier fällt auf, dass das Buch gar <em>keine</em> feste Phasenliste vorgibt – genau solche Hinweise im Text sind es, die du selbst lesen willst. Für einen <strong>Vergleich mit einem zweiten Buch</strong> weiter mit 5.15.</p>
-<figure style="margin:0.6em 0"><img alt="Frage an ein Buch" src="img/deep-1-book.png" style="max-width:70%;border:1px solid #ccc"/><figcaption style="font-size:0.75em;color:#555;max-width:70%"><em>Die Frage und der Beginn der Antwort in der Seitenleiste. Achte auf: die Angabe „vollständiger Text, 109 Seiten“ und den Seitenlink [S. 11] am Ende des ersten Satzes.</em></figcaption></figure>
+<p><strong>Zu beachten:</strong> Das Modell antwortet auf das, was gefragt ist, und ordnet das Material neu. Was als Zitat in Anführungszeichen steht, gehört dem Buch; die Gliederung und die Überschriften darüber sind die des Modells.</p>
+<figure style="margin:0.6em 0"><img alt="Frage an ein Buch: Ende der Antwort" src="img/deep-1-book.png" style="max-width:80%;border:1px solid #ccc"/><figcaption style="font-size:0.75em;color:#555;max-width:80%"><em>Das Ende der Antwort in der Seitenleiste (die Leiste ist hier verbreitert). Achte auf: die Zeile „vollständiger Text, 109 Seiten“, die Gliederung in „Festlegung“ und „Beispielformulierung“, die wörtlichen Zitate mit Seitenlink (z. B. [S. 24–25]) und unten die Knöpfe „Als Notiz“, „Verlauf als Notiz speichern“ und „Chat als .md speichern“.</em></figcaption></figure>
 </div>
 </div>
 </div>
@@ -7894,17 +7922,17 @@ Ausgegraut sind Fähigkeiten, für die ein Plugin fehlt (Kapitel 2).</li>
 <h2 id="5.15-Zwei-B%C3%BCcher-vergleichen">5.15 Zwei Bücher vergleichen<a class="anchor-link" href="#5.15-Zwei-B%C3%BCcher-vergleichen">¶</a></h2><p><strong>Du schreibst:</strong> <em>Vergleiche, was „Forschungsdatenmanagement – eine praxisorientierte Einführung“ und „Forschungsdaten-Policies für Forschungsprojekte“ dazu sagen, wie ein Projekt seine Regeln zum Umgang mit Forschungsdaten festlegen soll. Wo ergänzen sich die Bücher, wo setzen sie unterschiedliche Schwerpunkte? Belege jede Aussage mit Buch und Seite.</em></p>
 <p>Das ist eine Frage, wie du sie beim Schreiben eines Forschungsstands stellst. Das Modell sucht in beiden Büchern (SeekBook, Kapitel 2), liest die Passagen nach und ordnet sie. Der Lauf dauerte hier einige Minuten (mehrere Such- und Leseschritte); die Zwischenschritte stehen im eingeklappten Block.</p>
 <blockquote>
-<p><strong>Ergebnis (gekürzt):</strong> Die beiden Bücher behandeln dieselbe Frage auf zwei Ebenen. Schmiederer &amp; Kuberek (2022) beschreiben, <em>wie</em> ein Projekt zu einer verbindlichen Forschungsdaten-Policy kommt (Beteiligte, vier Phasen, Verabschiedung, Normenhierarchie). Schlenz et al. (2026) zeigen, <em>was</em> in den Regeln stehen muss, und behandeln den Datenmanagementplan als zentrales Dokument. Bei den Inhalten ergänzen sie sich am stärksten; bei der Frage, ob eine eigene Policy nötig ist, setzen sie verschiedene Schwerpunkte.</p>
+<p><strong>Ergebnis (gekürzt):</strong> Die Bücher behandeln <em>verschiedene Dokumente</em>: Schlenz et al. (2026) den <strong>Datenmanagementplan</strong> als zentrales Instrument (Kap. 4, S. 21–26), Schmiederer &amp; Kuberek (2022) die <strong>Forschungsdaten-Policy</strong> des Projekts (S. 4–25) – und grenzen beide voneinander ab (Schmiederer, S. 19). <strong>Prozess:</strong> Schmiederer beschreibt ausführlich Beteiligte, vier Phasen und einen Zeitraum von mehreren Monaten (S. 7–9, 15–16); Schlenz empfiehlt pragmatisch eine einfache Textdatei (S. 21–22). <strong>Inhalte:</strong> Beide decken ähnliche Themen ab; Schmiederer ergänzt Geltungsbereich, Definitionen und Verpflichtungsgrad, Schlenz liefert Beispieltexte, die Schmiederer bewusst weglässt.</p>
 </blockquote>
 <p><strong>So liest du das Ergebnis:</strong></p>
 <ol>
 <li>Jede Aussage hat Buch und Seite. <strong>Schlag mindestens die Stellen auf, die du zitieren willst</strong> – das Modell kann Passagen falsch zuordnen oder verkürzen.</li>
 <li>Prüfe die Gegenüberstellung: Hat das Modell wirklich <em>beide</em> Bücher zu jedem Punkt herangezogen, oder steht bei einem Punkt nur ein Buch?</li>
-<li>Aussagen wie „Buch X sagt dazu nichts“ sind der heikelste Teil: Das Modell hat nur gelesen, was die Suche ihm zeigte. Frag nach (<em>„Suche im Buch X gezielt nach …“</em>), bevor du so etwas übernimmst.</li>
+<li>Aussagen wie „nicht explizit“ oder „Buch X sagt dazu nichts“ sind der heikelste Teil: Das Modell hat nur gelesen, was die Suche ihm zeigte. Frag nach (<em>„Suche im Buch X gezielt nach …“</em>), bevor du so etwas übernimmst.</li>
 </ol>
-<p><strong>Zu beachten:</strong> Die Antwort ist ein Arbeitsentwurf für deinen eigenen Text, keine Quelle. Sichere sie als Notiz (Kapitel 6), wenn du damit weiterarbeiten willst.</p>
-<figure style="margin:0.6em 0"><img alt="Vergleich, Abschnitt 1 und 2" src="img/deep-2-10-answer-tools-opened.png" style="max-width:70%;border:1px solid #ccc"/><figcaption style="font-size:0.75em;color:#555;max-width:70%"><em>Mittelteil der Antwort. Achte auf: die Gliederung nach Fragen (Welches Dokument regelt …? Wer ist beteiligt?), die Zitate in Anführungszeichen mit Seitenzahl und die Zeilen mit „→ Ergänzung“ bzw. „→ Unterschiedlicher Schwerpunkt“, in denen das Modell die Bücher gegeneinander stellt.</em></figcaption></figure>
-<figure style="margin:0.6em 0"><img alt="Vergleich, Zusammenfassung" src="img/deep-2-9-answer.png" style="max-width:70%;border:1px solid #ccc"/><figcaption style="font-size:0.75em;color:#555;max-width:70%"><em>Ende der Antwort. Achte auf: die Zusammenfassung mit „Ergänzung“ und „Unterschiedliche Schwerpunkte“ und die Quellenliste mit den Seiten, die tatsächlich verwendet wurden.</em></figcaption></figure>
+<p><strong>Zu beachten:</strong> Die Antwort ist ein Arbeitsentwurf für deinen eigenen Text, keine Quelle. Der Chat über die Bibliothek hat noch keinen Speichern-Knopf (Kapitel 6): Lass dir die Antwort als Notiz anlegen, wenn du sie behalten willst. Eine Tabelle in der Antwort erscheint derzeit als Text mit senkrechten Strichen (<code>| Thema | … |</code>); lesbar, aber nicht schön.</p>
+<figure style="margin:0.6em 0"><img alt="Vergleich: Anfang der Antwort" src="img/deep-2-8-answer-tools-opened.png" style="max-width:75%;border:1px solid #ccc"/><figcaption style="font-size:0.75em;color:#555;max-width:75%"><em>Anfang der Antwort (der Fenstertext ist deutsch). Achte auf: den Hinweis „Wichtig vorab“, dass die Bücher verschiedene Dokumente behandeln, die Gliederung nach Fragen, die wörtlichen Zitate mit Seitenzahl und die Zeilen „→ Schwerpunktunterschied“, in denen das Modell die Bücher gegeneinander stellt.</em></figcaption></figure>
+<figure style="margin:0.6em 0"><img alt="Vergleich: Zusammenfassung" src="img/deep-2-7-answer.png" style="max-width:75%;border:1px solid #ccc"/><figcaption style="font-size:0.75em;color:#555;max-width:75%"><em>Ende der Antwort. Achte auf: die Zusammenfassung „Ergänzen sich“ und „Unterschiedliche Schwerpunkte“ mit Seitenangaben und die „Praktische Konsequenz“ zum Schluss.</em></figcaption></figure>
 </div>
 </div>
 </div>
@@ -7945,7 +7973,8 @@ Ausgegraut sind Fähigkeiten, für die ein Plugin fehlt (Kapitel 2).</li>
 <h2 id="7-Was-du-beachten-solltest">7 Was du beachten solltest<a class="anchor-link" href="#7-Was-du-beachten-solltest">¶</a></h2><ul>
 <li><strong>Es ist ein Sprachmodell, kein Rechercheur.</strong> Es kann Dinge falsch zusammenfassen oder Treffer übersehen. Seitenlinks und Vorschauen sind dazu da, an der Quelle nachzusehen (5.14, 5.15).</li>
 <li><strong>Bestätigen heißt prüfen.</strong> Sieh dir Änderungen in der Vorschau an, besonders bei vielen Einträgen. Zotero kennt für Metadaten keinen „Rückgängig“-Knopf; bei Massenänderungen vorher eine Sicherung ziehen.</li>
-<li><strong>Klare Aufträge helfen:</strong> „nur den Typ“ (5.6), „nur in dieser Sammlung“, „höchstens 20 Einträge“.</li>
+<li><strong>Das Modell macht gern mehr, als du verlangt hast.</strong> Auch bei „ändere nur den Typ“ ergänzt es mitunter Titel, DOI oder Seiten (5.6, 5.13). Klare Aufträge helfen („nur in dieser Sammlung“, „höchstens 20 Einträge“), ersetzen aber nicht den Blick in die Vorschau: dort abwählen, was du nicht willst.</li>
+<li><strong>Rote Zeilen im Werkzeugblock</strong> sind fehlgeschlagene Aufrufe; das Modell wiederholt sie meist selbst (5.9). Wiederholt sich der Fehler, formuliere die Anfrage anders oder kleiner.</li>
 <li><strong>Ohne Index keine Treffer:</strong> PDFs, die ZotSeek oder SeekBook noch nicht erfasst haben, bleiben bei der Suche unsichtbar (Kapitel 2).</li>
 <li><strong>Datenschutz:</strong> Texte gehen nur an <code>ollama.ils.local</code>, den Server im Serverraum, und nur, wenn er unter „Erlaubte entfernte Hosts“ eingetragen ist – nicht an einen Cloud-Dienst.</li>
 <li><strong>Rechenzeit:</strong> Der Server wird von mehreren geteilt. Aufgaben über viele Einträge oder ganze Bücher dauern Minuten; währenddessen kannst du weiterarbeiten.</li>
@@ -8013,8 +8042,8 @@ require(
             transition: "slide",
             slideNumber: "",
             plugins: [RevealNotes],
-            width: 960,
-			      height: 700,
+            width: 1400,
+			      height: 850,
 
         });
 
@@ -8027,7 +8056,7 @@ require(
         Reveal.addEventListener('slidechanged', update);
 
         function setScrollingSlide() {
-            var scroll = false
+            var scroll = true
             if (scroll === true) {
               var h = $('.reveal').height() * 0.95;
               $('section.present').find('section')

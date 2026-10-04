@@ -166,7 +166,7 @@ Extending: new sources are new `ContextProvider`s; session, prompt and turn rend
   tutorial (`docs/tutorial.ipynb`, German, and its English translation `docs/tutorial-en.ipynb`) so that it illustrates the
   feature: a use case with a real-model scenario (`tutorial: …` in `test/e2e/scenarios.ts`, screenshots `tut-*`) and its
   picture(s) in `docs/img/` (screenshots stay German), plus the table of contents. Edit the notebooks cell by cell
-  (NotebookEdit), not with generator scripts. Regenerate the slides: `jupyter nbconvert --to slides docs/tutorial.ipynb`
+  (NotebookEdit), not with generator scripts. Regenerate the slides (both languages): `jupyter nbconvert --to slides docs/tutorial.ipynb --SlidesExporter.reveal_url_prefix=https://cdn.jsdelivr.net/npm/reveal.js@4.6.1 --SlidesExporter.reveal_scroll=True --SlidesExporter.reveal_width=1400 --SlidesExporter.reveal_height=850` (the first cell holds the slide CSS)
   (conda env `/home/ils_ubuntu/.local/share/mamba/envs/ils_env`; the slides file `docs/tutorial.slides.html` is committed).
 - Tutorial run (practice test, always part of a live E2E run): `E2E_ONLY="tutorial"` with the same environment as the live
   tool chat run above (real plugins, `E2E_LIVE_URL`), ~60 min; `E2E_ONLY` takes alternatives separated by `|`.

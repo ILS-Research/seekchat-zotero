@@ -132,6 +132,8 @@ async function openLiveToolChat(): Promise<void> {
   openToolsChat();
   await waitFor('tool chat window', () => getToolsChatWindow(), 10000);
   const view = await waitFor('tool chat view', () => getToolsChatView(), 10000);
+  getToolsChatWindow().resizeTo(1100, 820);
+  await delay(300);
   view.setTarget(`l${Zotero.Libraries.userLibraryID}`);
   getToolSession().clear();
 }
@@ -271,11 +273,14 @@ async function askThroughUi(section: Element, question: string, timeoutMs = 2000
   const before = section.querySelectorAll('.seekchat-msg.assistant:not(.notice)').length;
   textarea.value = question;
   textarea.dispatchEvent(new (doc.defaultView as any).KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
-  return waitFor('assistant answer with citation', () => {
+  const answer = await waitFor('assistant answer with citation', () => {
     const answers = section.querySelectorAll('.seekchat-msg.assistant:not(.notice)');
     const last = answers[answers.length - 1];
     return answers.length > before && last?.querySelector('.seekchat-cite') ? last : null;
   }, timeoutMs);
+  // The first citation shows up while the answer still streams: wait until the send button is back (no "Stop").
+  await waitFor('answer finished', () => !Array.from(section.querySelectorAll('button')).some((b) => /^Stopp?$/.test(b.textContent?.trim() || '')) || null, timeoutMs);
+  return answer;
 }
 
 export const scenarios: Scenario[] = [
@@ -2266,6 +2271,14 @@ export const scenarios: Scenario[] = [
   ['tutorial: seed library with real documents (collections, tags, two wrong item types)', async (ctx) => {
     useLiveServer(ctx);
     const lib = Zotero.Libraries.userLibraryID;
+    // A big window for the tutorial pictures: more of the item list and the side pane is visible.
+    Zotero.getMainWindow().moveTo(0, 0);
+    Zotero.getMainWindow().resizeTo(1560, 960);
+    await delay(800);
+    // A wider item pane, so that the chat in it is readable.
+    const itemPaneEl = Zotero.getMainWindow().document.getElementById('zotero-item-pane') as any;
+    if (itemPaneEl) { itemPaneEl.setAttribute('width', '640'); itemPaneEl.style.width = '640px'; }
+    await delay(500);
     const col = async (name: string) => { const c = new Zotero.Collection({ libraryID: lib, name }); await c.saveTx(); return c; };
     const fdm = await col('Forschungsdaten');
     const typen = await col('Typen prüfen');
@@ -2383,11 +2396,18 @@ export const scenarios: Scenario[] = [
     await delay(500);
     await screenshot(ctx, 'tut-pdf-2-answer');
     await reportLive(ctx, { step: 'tutorial-pdf-chat', answer: answer.textContent });
-    // A long document: strategies and chapter choice.
+    // A long document: SeekChat picks the pages that fit the question and says which ones it read.
     const long = ctx.tut['tud-diss-ueberoertliche-raumplanung.pdf'];
-    await openSectionInLibrary(long.id);
-    await delay(1500);
+    const longSection = await openSectionInLibrary(long.id);
+    await waitFor('strategy panel of the long document', () => /zu groß|too large/i.test(longSection.textContent || '') || null, 90000);
+    await delay(500);
     await screenshot(ctx, 'tut-pdf-3-long-document');
+    const longAnswer = await askThroughUi(longSection,
+      'Was versteht die Arbeit unter überörtlicher Raumplanung, und welche Aufgaben ordnet sie ihr zu? Nenne die Seiten.', 420000);
+    await (longSection.closest('item-details') as any)?.scrollToPane(longSection.getAttribute('data-pane'), 'instant');
+    await delay(500);
+    await screenshot(ctx, 'tut-pdf-4-long-document-answer');
+    await reportLive(ctx, { step: 'tutorial-pdf-long', answer: longAnswer.textContent });
     win.Zotero_Tabs.select('zotero-pane');
   }],
 
@@ -2482,11 +2502,15 @@ export const scenarios: Scenario[] = [
     const section = await openSectionInLibrary(book.id);
     await delay(500);
     const answer = await askThroughUi(section,
-      'Welche Phasen unterscheidet das Buch im Lebenszyklus von Forschungsdaten, und was verlangt es in der Planungsphase konkret von Forschenden? '
-      + 'Nenne die Stellen mit Seitenangabe.', 420000);
+      'Aus welchen Teilen soll nach dem Buch ein Datenmanagementplan bestehen? Stelle für jeden Teil dar, was er festlegen soll, '
+      + 'und gib an, welche Beispielformulierungen das Buch dazu nennt. Belege jede Angabe mit der Seite.', 420000);
     await (section.closest('item-details') as any)?.scrollToPane(section.getAttribute('data-pane'), 'instant');
     await delay(500);
     await screenshot(ctx, 'tut-deep-1-book');
+    // The pane shows the end of the answer already; scroll to its start for a second picture.
+    answer.scrollIntoView({ block: 'start' });
+    await delay(500);
+    await screenshot(ctx, 'tut-deep-1-book-start');
     await reportLive(ctx, { step: 'tutorial-deep-book', answer: answer.textContent });
     win.Zotero_Tabs.select('zotero-pane');
     // Two books against each other in the tool chat (search through SeekBook, reading the passages).
