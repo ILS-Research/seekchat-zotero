@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.24.3 – 2026-10-04
+
+- **Fix: a field the item type does not have no longer blocks the whole change.** Found in the live test: the model
+  proposed `thesis` with a field `degree` and `conferencePaper` with `year`, and both items stayed unchanged
+  ("not possible"). Now the type and all valid fields are changed; fields the type does not have are left out and
+  named in the preview and the result. Common names are mapped to Zotero's fields (year → date, degree → type of
+  thesis, journal → publication, doi → DOI …).
+- The main chat trusts the subagent's result instead of reading the documents again.
+
 ## 0.24.2 – 2026-10-04
 
 - Tests for the subagent (unit and E2E: packages, read-only tools, only the result reaches the chat, stop button) and

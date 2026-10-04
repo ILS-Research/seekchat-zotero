@@ -117,6 +117,11 @@ test('item changes: arguments read into changes, bad ones refused with a reason 
   assert.equal(matchName('nope', ['book']), undefined);
   assert.deepEqual(tagDelta(['a', 'b'], ['b', 'c', 'c'], ['a', 'z']), { add: ['c'], remove: ['a'] });
   assert.equal(dash(' '), '–');
+  const { fieldAlias } = await import('../src/core/tools/library/edit-plan');
+  assert.equal(fieldAlias('Year'), 'date');
+  assert.equal(fieldAlias('degree'), 'thesisType');
+  assert.equal(fieldAlias('Journal'), 'publicationTitle');
+  assert.equal(fieldAlias('publisher'), 'publisher');
 });
 
 test('read_document: the window of pages is cut by page count and characters, and says where to go on', async () => {

@@ -9,7 +9,7 @@ import { t, tn } from '../../../i18n';
 import { logger } from '../../../util/log';
 import type { ToolRunItem } from '../../turn';
 import type { Tool } from '../types';
-import { dash, matchName, NON_REGULAR_TYPES, parseChanges, tagDelta, type ItemChange } from './edit-plan';
+import { dash, fieldAlias, matchName, NON_REGULAR_TYPES, parseChanges, tagDelta, type ItemChange } from './edit-plan';
 import { field, itemByKey, summarize } from './zotero-library';
 
 const L = logger('Library');
@@ -31,8 +31,10 @@ interface Plan {
   lost: Record<string, string>;
   addTags: string[];
   removeTags: string[];
-  /** Why this change cannot be made (item missing, field not in the type …). */
+  /** Why this change cannot be made at all (item missing, not a regular item, unknown type). */
   problem?: string;
+  /** Fields left out because the (new) type does not have them; the rest of the change is still made. */
+  skipped: string[];
 }
 
 const typeName = (id: number) => Zotero.ItemTypes.getName(id);
@@ -53,7 +55,7 @@ function currentValue(item: any, fieldID: number, newType: number): string {
 /** Checks one change against its item and works out what would change. Does not touch the item. */
 function planChange(libraryID: number, change: ItemChange): Plan {
   const item = itemByKey(libraryID, change.key);
-  const plan: Plan = { change, item, label: change.key, edits: [], lost: {}, addTags: [], removeTags: [] };
+  const plan: Plan = { change, item, label: change.key, edits: [], lost: {}, addTags: [], removeTags: [], skipped: [] };
   if (!item) return { ...plan, problem: t('update.problem.missing') };
   if (!item.isRegularItem?.()) return { ...plan, problem: t('update.problem.notRegular') };
   plan.label = summarize(item).label;
@@ -77,7 +79,8 @@ function planChange(libraryID: number, change: ItemChange): Plan {
   }
 
   const valid: string[] = Zotero.ItemFields.getItemTypeFields(typeID).map((id: number) => Zotero.ItemFields.getName(id));
-  for (const [wanted, to] of Object.entries(change.fields)) {
+  for (const [given, to] of Object.entries(change.fields)) {
+    const wanted = fieldAlias(given);
     let fieldID: number | false = false;
     const own = matchName(wanted, valid);
     if (own) fieldID = Zotero.ItemFields.getID(own);
@@ -87,7 +90,10 @@ function planChange(libraryID: number, change: ItemChange): Plan {
       const base = any && Zotero.ItemFields.getID(any);
       fieldID = (base && Zotero.ItemFields.getFieldIDFromTypeAndBase(typeID, base)) || false;
     }
-    if (!fieldID) return { ...plan, problem: t('update.problem.field', { field: wanted, type: typeLabel(typeID) }) };
+    if (!fieldID) {
+      plan.skipped.push(given);
+      continue;
+    }
     const name = Zotero.ItemFields.getName(fieldID);
     const from = currentValue(item, fieldID, typeID);
     if (from !== to) plan.edits.push({ fieldID, name, from, to });
@@ -113,7 +119,16 @@ function describe(p: Plan): string {
   if (lost.length) lines.push(t('update.line.lost', { fields: lost.map((f) => `${f} („${p.lost[f].slice(0, 40)}“)`).join(', ') }));
   if (p.addTags.length) lines.push(t('update.line.tagsAdd', { tags: p.addTags.join(', ') }));
   if (p.removeTags.length) lines.push(t('update.line.tagsRemove', { tags: p.removeTags.join(', ') }));
+  if (p.skipped.length) lines.push(t('update.line.skipped', { fields: p.skipped.join(', '), type: typeLabel(p.newTypeID ?? p.item.itemTypeID) }));
   return lines.join('\n') || t('update.nothingHere');
+}
+
+/** What could not be done, for the model: whole changes refused and fields left out. */
+function problemsOf(plans: Plan[]): { key: string; problem: string }[] {
+  return plans.flatMap((p) => [
+    ...(p.problem ? [{ key: p.change.key, problem: p.problem }] : []),
+    ...(p.skipped.length ? [{ key: p.change.key, problem: `fields not in the type ${typeName(p.newTypeID ?? p.item.itemTypeID)}, left out: ${p.skipped.join(', ')}` }] : []),
+  ]);
 }
 
 export const updateItemTool = (): Tool => ({
@@ -180,9 +195,9 @@ export const updateItemTool = (): Tool => ({
     });
     const n = () => run.items!.filter((i) => i.checked).length;
     if (!plans.some(hasChange)) {
-      run.state = plans.some((p) => p.problem) ? 'error' : 'done';
+      run.state = problemsOf(plans).length ? 'error' : 'done';
       run.status = t('update.nothing');
-      return JSON.stringify({ status: 'nothing to change', problems: plans.filter((p) => p.problem).map((p) => ({ key: p.change.key, problem: p.problem })) });
+      return JSON.stringify({ status: 'nothing to change', problems: problemsOf(plans) });
     }
     run.status = tn('update.confirm', n());
     run.confirmLabel = t('update.button');
@@ -227,6 +242,9 @@ export const updateItemTool = (): Tool => ({
     run.state = failed.length && !changed.length ? 'error' : 'done';
     run.status = tn('update.done', changed.length) + (failed.length ? ` ${tn('update.failed', failed.length)}` : '');
     L.info(`update_item: ${changed.length} changed, ${failed.length} failed`);
-    return JSON.stringify({ changed, failed, notChanged: plans.length - changed.length - failed.length });
+    return JSON.stringify({
+      changed, failed, notChanged: plans.length - changed.length - failed.length,
+      ...(problemsOf(plans).length ? { problems: problemsOf(plans) } : {}),
+    });
   },
 });

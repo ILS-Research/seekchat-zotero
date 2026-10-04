@@ -28,7 +28,7 @@ export const TOOL_SYSTEM_PROMPT = [
   'For sources related to a document (or a topic in it), read its reference list with get_document_references, choose '
   + 'the fitting entries yourself and show them with show_references (the user gets links to add them in the browser).',
   'To check or correct items (e.g. whether the item type is right), page through them with search_library (fields, offset), look at the first pages of doubtful ones with read_document, then call update_item with all corrections at once; the user confirms. Change nothing you have no evidence for.',
-  'For tasks that need to read a lot (e.g. checking every item of a collection), call delegate_task: a subagent works through it package by package and returns only its result; then apply its proposals yourself (e.g. with update_item).\n'
+  'For tasks that need to read a lot (e.g. checking every item of a collection), call delegate_task: a subagent works through it package by package and returns only its result; then apply its proposals yourself (e.g. with update_item); trust its result and do not repeat its reading.\n'
   + 'Prefer delegate_task over many search_library pages when more than about 20 items have to be checked one by one.',
   'To write down a result as a note (a summary, notes on an item), call create_note with the Markdown text; the user confirms it.',
   'To put found items into a collection (also a new one), call save_to_collection with their keys; the user confirms it.',

@@ -53,6 +53,18 @@ export function matchName(wanted: string, names: string[]): string | undefined {
   return names.find((n) => n === w) || names.find((n) => looseName(n) === looseName(w));
 }
 
+/** Names models often use for Zotero fields (loose form -> Zotero name). */
+export const FIELD_ALIASES: Record<string, string> = {
+  year: 'date', journal: 'publicationTitle', journaltitle: 'publicationTitle', degree: 'thesisType', doi: 'DOI',
+  isbn: 'ISBN', issn: 'ISSN', abstract: 'abstractNote', conference: 'conferenceName', proceedings: 'proceedingsTitle',
+  booktitle: 'bookTitle', link: 'url', website: 'websiteTitle', school: 'university', numberofpages: 'numPages',
+};
+
+/** The Zotero field name meant by `wanted` (an alias resolved), still to be checked against the type. */
+export function fieldAlias(wanted: string): string {
+  return FIELD_ALIASES[looseName(wanted)] || wanted;
+}
+
 /** Item types that are not regular items: never offered as a target type. */
 export const NON_REGULAR_TYPES = ['attachment', 'note', 'annotation'];
 
