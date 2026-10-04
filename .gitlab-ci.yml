@@ -74,6 +74,52 @@ e2e:
     paths: [e2e/out/]
     expire_in: 2 weeks
 
+# Optional practice test (manual, may fail): the live scenarios and the tutorial scenarios against ollama.ils.local with
+# the real plugins (Find Online References, SeekBook, ZotSeek from the portal) and the real documents of zotero-reference's
+# test set. Needs a runner that reaches ollama.ils.local and zotero.ils.local. Screenshots land in the artifacts
+# (e2e/out/screenshot-tut-*.png) and are the pictures of docs/tutorial.ipynb. Start it by hand in the pipeline.
+e2e-live:
+  stage: e2e
+  extends: .dind
+  needs: [unit]
+  when: manual
+  allow_failure: true
+  timeout: 1h
+  variables:
+    E2E_LIVE_URL: https://ollama.ils.local
+    E2E_LIVE_MODEL: qwen3_8_27b_128k:latest
+    E2E_ONLY: ""
+  script:
+    - apk add --no-cache curl git unzip jq
+    - mkdir -p plugins
+    # The plugins from the portal, named by their add-on id as run-in-container.sh expects.
+    - |
+      for p in zotero-find-online-references seekbook zotseek; do
+        curl -fsSL --cacert e2e/certs/ils-gum-ca.crt "https://zotero.ils.local/downloads/$p/latest" -o "plugins/$p.xpi"
+        id=$(unzip -p "plugins/$p.xpi" manifest.json | jq -r '.applications.zotero.id // .browser_specific_settings.zotero.id')
+        mv "plugins/$p.xpi" "plugins/$id.xpi"
+      done
+    - git clone -q --depth 1 --filter=blob:none --sparse https://github.com/jannefleischer/zotero-reference.git refsrc
+    - git -C refsrc sparse-checkout set test/assets
+    - docker build --build-arg ZOTERO_VERSION="$ZOTERO_VERSION" -t "$E2E_IMAGE" e2e/
+    - |
+      HOSTS=""
+      for h in ollama.ils.local zotero.ils.local; do
+        ip=$(getent hosts "$h" | awk '{print $1; exit}'); [ -n "$ip" ] && HOSTS="$HOSTS --add-host $h:$ip"
+      done
+      cid=$(docker create $HOSTS -e E2E_TIMEOUT=3300 -e E2E_ONLY="$E2E_ONLY" -e E2E_LIVE_URL -e E2E_LIVE_MODEL -e E2E_PORTAL=true "$E2E_IMAGE")
+      docker cp dist/. "$cid:/dist"
+      docker cp plugins/. "$cid:/plugins"
+      docker cp refsrc/test/assets/. "$cid:/refassets"
+      status=0; docker start -a "$cid" || status=$?
+      mkdir -p e2e/out && docker cp "$cid:/out/." e2e/out/ || true
+      docker rm -f "$cid" >/dev/null
+      exit $status
+  artifacts:
+    when: always
+    paths: [e2e/out/]
+    expire_in: 4 weeks
+
 release:
   stage: release
   image: registry.gitlab.com/gitlab-org/release-cli:latest
