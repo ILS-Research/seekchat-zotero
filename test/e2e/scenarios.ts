@@ -262,7 +262,7 @@ function describePanes(root: Element | null): string {
   return `looking for ${getRegisteredPaneID()}, found ${ids.join(', ') || 'none'}`;
 }
 
-async function askThroughUi(section: Element, question: string): Promise<Element> {
+async function askThroughUi(section: Element, question: string, timeoutMs = 20000): Promise<Element> {
   const doc = section.ownerDocument!;
   const textarea = await waitFor('chat input enabled', () => {
     const t = section.querySelector('textarea.seekchat-input') as HTMLTextAreaElement | null;
@@ -275,7 +275,7 @@ async function askThroughUi(section: Element, question: string): Promise<Element
     const answers = section.querySelectorAll('.seekchat-msg.assistant:not(.notice)');
     const last = answers[answers.length - 1];
     return answers.length > before && last?.querySelector('.seekchat-cite') ? last : null;
-  }, 20000);
+  }, timeoutMs);
 }
 
 export const scenarios: Scenario[] = [
@@ -2257,6 +2257,220 @@ export const scenarios: Scenario[] = [
     assert(!turn.error, `error: ${turn.content}`);
     const search = turn.toolRuns?.find((r) => r.name === 'search_library');
     assert(search?.state === 'done' && (search.items?.length || 0) >= 1, `no search hits: ${JSON.stringify(runsReport(turn)).slice(0, 400)}`);
+    getToolsChatWindow()?.close();
+  }],
+
+  // ---- Tutorial screenshots (docs/tutorial.ipynb): a small realistic library, each use case with a real model. ----
+  // Run: E2E_ONLY=tutorial with E2E_LIVE_URL and E2E_PLUGINS (see CLAUDE.md); pictures: e2e/out/screenshot-tut-*.png.
+
+  ['tutorial: seed library with real documents (collections, tags, two wrong item types)', async (ctx) => {
+    useLiveServer(ctx);
+    const lib = Zotero.Libraries.userLibraryID;
+    const col = async (name: string) => { const c = new Zotero.Collection({ libraryID: lib, name }); await c.saveTx(); return c; };
+    const fdm = await col('Forschungsdaten');
+    const typen = await col('Typen prüfen');
+    const docs: [string, string, string, string, string, string, number[], string[]][] = [
+      // type, title, author, year, file, venue, collections, tags
+      ['book', 'Forschungsdatenmanagement – eine praxisorientierte Einführung', 'Schlenz', '2026', 'Schlenz et al. - 2026 - Forschungsdatenmanagement - Eine praxisorientierte Einführung.pdf', '', [fdm.id], ['FDM']],
+      ['book', 'Forschungsdaten-Policies für Forschungsprojekte', 'Schmiederer', '2022', 'Schmiederer und Kuberek - 2022 - Forschungsdaten-Policies für Forschungsprojekte ein strukturierter Leitfaden.pdf', '', [fdm.id], ['fdm', 'Policy']],
+      ['journalArticle', 'Bausteine Forschungsdatenmanagement', 'Düvel', '2025', 'bausteine-fdm-duevel-2025-de.pdf', 'Bausteine FDM', [fdm.id], ['Forschungsdaten']],
+      ['journalArticle', 'Digitales Publizieren', 'Kollektiv', '2021', 'zfdg-2021-digitales-publizieren-de.pdf', 'ZfdG', [fdm.id], ['Publizieren']],
+      ['journalArticle', 'The FAIR Guiding Principles for scientific data management and stewardship', 'Wilkinson', '2016', 'scidata-fair-principles-2016.pdf', 'Scientific Data', [fdm.id, typen.id], ['FDM', 'FAIR']],
+      ['journalArticle', 'Nahversorgung in ländlichen Räumen', 'Küpper', '2024', 'rur-kuepper-2024-de.pdf', 'Raumforschung und Raumordnung', [typen.id], ['RuR', 'ländlicher Raum']],
+      ['book', 'GIS and green infrastructure', 'Wu', '2025', 'plos-gis-green-infrastructure-2025.pdf', '', [typen.id], ['Grünflächen']],
+      ['journalArticle', 'Überörtliche Raumplanung', 'Kießling', '2022', 'tud-diss-ueberoertliche-raumplanung.pdf', '', [typen.id], ['Raumplanung']],
+      ['journalArticle', 'Attention Is All You Need', 'Vaswani', '2017', 'arxiv-attention-2017.pdf', '', [typen.id], ['KI']],
+    ];
+    ctx.tut = {};
+    for (const [type, title, author, year, file, venue, cols, tags] of docs) {
+      const item = new Zotero.Item(type);
+      item.setField('title', title);
+      item.setField('date', year);
+      if (venue) item.setField(type === 'journalArticle' ? 'publicationTitle' : 'publisher', venue);
+      item.setCreators([{ creatorType: 'author', firstName: '', lastName: author }]);
+      item.setCollections(cols);
+      for (const tag of tags) item.addTag(tag);
+      await item.saveTx();
+      await Zotero.Attachments.importFromFile({ file: Zotero.File.pathToFile(`${refAssets()}/${file}`), parentItemID: item.id });
+      ctx.tut[file] = item;
+    }
+    const win = Zotero.getMainWindow();
+    win.Zotero_Tabs.select('zotero-pane');
+    await win.ZoteroPane.collectionsView.selectLibrary(lib);
+    await delay(800);
+    await screenshot(ctx, 'tut-library');
+  }],
+
+  ['tutorial: build the indexes (SeekBook on the model server, ZotSeek with its built-in model) before the use cases', async (ctx) => {
+    useLiveServer(ctx);
+    const t0 = Date.now();
+    const report: Record<string, unknown> = {};
+    const sb = (Zotero as any).SeekBook;
+    if (sb?.indexer) {
+      const url: string = Zotero.Prefs.get('seekchat.e2e.liveUrl');
+      Zotero.Prefs.set('seekbook.provider', 'ollama');
+      Zotero.Prefs.set('seekbook.baseUrl', url);
+      Zotero.Prefs.set('seekbook.model', 'qwen3-embedding:8b');
+      Zotero.Prefs.set('seekbook.allowedRemoteHosts', new URL(url).hostname);
+      // Books and long documents (30 pages and more), as SeekBook selects them.
+      const books = Object.values<any>(ctx.tut).filter((i) => i.itemType === 'book' || /ueberoertliche/.test(i.getField('title')) || i.getField('title') === 'Überörtliche Raumplanung');
+      await sb.indexer.indexBooks(books, true);
+      try {
+        await waitFor('books indexed', async () => {
+          for (const b of books) if (!(await sb.isIndexed('user', b.key))) return false;
+          return true;
+        }, 1500000);
+        report.seekbook = `${books.length} books in ${Math.round((Date.now() - t0) / 1000)} s`;
+      } catch (e: any) {
+        report.seekbook = `not finished: ${e.message}`;
+      }
+    } else report.seekbook = 'not installed';
+    if ((Zotero as any).ZotSeek) {
+      // ZotSeek (ILS version) embeds with qwen3-embedding on the model server instead of its built-in CPU model.
+      const url: string = Zotero.Prefs.get('seekchat.e2e.liveUrl');
+      Zotero.Prefs.set('zotseek.server.allowedRemoteHosts', new URL(url).hostname, true);
+      Zotero.Prefs.set('zotseek.serverModels', JSON.stringify([{
+        id: 'server:qwen3-embedding-8b', label: 'qwen3-embedding:8b (ollama.ils.local)', baseUrl: url,
+        serverModelName: 'qwen3-embedding:8b', dimensions: 4096, queryPrefix: '', docPrefix: '',
+      }]), true);
+      Zotero.Prefs.set('zotseek.embeddingModel', 'server:qwen3-embedding-8b', true);
+      report.zotseekModel = 'qwen3-embedding:8b on the model server';
+      const t1 = Date.now();
+      try {
+        // "Ready" is true after the first paper: wait until all seeded papers are in, or the count stops growing for 3 minutes.
+        const want = Object.keys(ctx.tut).length;
+        let last = -1;
+        let lastChange = Date.now();
+        await waitFor('ZotSeek index complete', async () => {
+          const st = await getZotSeekStatus();
+          const n = st.available ? st.stats.indexedPapers : 0;
+          if (n !== last) { last = n; lastChange = Date.now(); }
+          return n >= want || (n > 0 && Date.now() - lastChange > 180000);
+        }, 2400000);
+        report.zotseek = `${last} of ${want} papers after ${Math.round((Date.now() - t1) / 1000)} s`;
+      } catch (e: any) {
+        report.zotseek = `not ready: ${e.message}`;
+      }
+    } else report.zotseek = 'not installed';
+    await reportLive(ctx, { step: 'tutorial-indexes', ...report });
+    await screenshot(ctx, 'tut-library-indexed');
+    // The settings panes for the set-up chapter of the tutorial.
+    for (const [name, part] of [['zotseek', 'zotseek'], ['seekbook', 'seekbook'], ['seekchat', 'seekchat']] as const) {
+      try {
+        const pane = (Zotero.PreferencePanes?.pluginPanes || []).find((p: any) => String(p.pluginID || p.id).toLowerCase().includes(part));
+        if (!pane) continue;
+        Zotero.Utilities.Internal.openPreferences(pane.id);
+        const pw = await waitFor(`${name} settings`, () => Services.wm.getMostRecentWindow('zotero:pref'), 15000);
+        await delay(1500);
+        await screenshot(ctx, `tut-settings-${name}`, pw);
+        pw.close();
+        await delay(500);
+      } catch (e: any) {
+        Zotero.debug(`[SeekChat E2E] settings screenshot ${name} failed: ${e}`);
+      }
+    }
+  }],
+
+  ['tutorial: simple PDF chat in the item pane', async (ctx) => {
+    useLiveServer(ctx);
+    const item = ctx.tut['rur-kuepper-2024-de.pdf'];
+    const win = Zotero.getMainWindow();
+    const section = await openSectionInLibrary(item.id);
+    await delay(500);
+    await screenshot(ctx, 'tut-pdf-1-section');
+    const answer = await askThroughUi(section, 'Was sind die wichtigsten Ergebnisse dieses Beitrags? Antworte in drei Stichpunkten.', 240000);
+    await (section.closest('item-details') as any)?.scrollToPane(section.getAttribute('data-pane'), 'instant');
+    await delay(500);
+    await screenshot(ctx, 'tut-pdf-2-answer');
+    await reportLive(ctx, { step: 'tutorial-pdf-chat', answer: answer.textContent });
+    // A long document: strategies and chapter choice.
+    const long = ctx.tut['tud-diss-ueberoertliche-raumplanung.pdf'];
+    await openSectionInLibrary(long.id);
+    await delay(1500);
+    await screenshot(ctx, 'tut-pdf-3-long-document');
+    win.Zotero_Tabs.select('zotero-pane');
+  }],
+
+  ['tutorial: tool chat window and tool list', async (ctx) => {
+    useLiveServer(ctx);
+    await openLiveToolChat();
+    const toolsWin = getToolsChatWindow();
+    await delay(500);
+    await screenshot(ctx, 'tut-window-1-empty', toolsWin);
+    (toolsWin.document.querySelector('.seekchat-tools-list') as HTMLDetailsElement).open = true;
+    await delay(400);
+    await screenshot(ctx, 'tut-window-2-tool-list', toolsWin);
+    toolsWin.close();
+  }],
+
+  ['tutorial: import references from text', async (ctx) => {
+    useLiveServer(ctx);
+    await openLiveToolChat();
+    const turn = await liveToolAsk(ctx, 'tut-import',
+      'Importiere bitte diese Quellen:\n\n'
+      + 'Oke, T. R. (1982): The energetic basis of the urban heat island. Quarterly Journal of the Royal Meteorological Society 108, 1-24. https://doi.org/10.1002/qj.49710845502\n'
+      + 'Kuttler, W. (2011): Klimawandel im urbanen Bereich. Teil 1, Wirkungen. Environmental Sciences Europe 23, 1-12.\n'
+      + 'Wilkinson, M. D. et al. (2016): The FAIR Guiding Principles for scientific data management and stewardship. Scientific Data 3, 160018.');
+    await reportLive(ctx, { step: 'tutorial-import', answer: turn.content, runs: runsReport(turn) });
+    getToolsChatWindow()?.close();
+  }],
+
+  ['tutorial: ask the library, selection, tags', async (ctx) => {
+    useLiveServer(ctx);
+    await openLiveToolChat();
+    let turn = await liveToolAsk(ctx, 'tut-ask', 'Welche Einträge in meiner Bibliothek behandeln Forschungsdatenmanagement? Nenne sie mit Jahr.');
+    await reportLive(ctx, { step: 'tutorial-ask', answer: turn.content, runs: runsReport(turn) });
+    turn = await liveToolAsk(ctx, 'tut-tags', 'Welche Schlagwörter verwende ich für Forschungsdaten? Gibt es doppelte Schreibweisen?');
+    await reportLive(ctx, { step: 'tutorial-tags', answer: turn.content, runs: runsReport(turn) });
+    const win = Zotero.getMainWindow();
+    win.Zotero_Tabs.select('zotero-pane');
+    await win.ZoteroPane.selectItems([ctx.tut['scidata-fair-principles-2016.pdf'].id, ctx.tut['bausteine-fdm-duevel-2025-de.pdf'].id]);
+    turn = await liveToolAsk(ctx, 'tut-selection', 'Fasse die beiden markierten Einträge in je einem Satz zusammen.');
+    await reportLive(ctx, { step: 'tutorial-selection', answer: turn.content, runs: runsReport(turn) });
+    getToolsChatWindow()?.close();
+  }],
+
+  ['tutorial: read a document, write a note, collect into a collection', async (ctx) => {
+    useLiveServer(ctx);
+    const item = ctx.tut['rur-kuepper-2024-de.pdf'];
+    await openLiveToolChat();
+    let turn = await liveToolAsk(ctx, 'tut-read', `Lies die ersten beiden Seiten des Eintrags „${item.getField('title')}“ und sag mir in zwei Sätzen, worum es geht.`);
+    await reportLive(ctx, { step: 'tutorial-read', answer: turn.content, runs: runsReport(turn) });
+    turn = await liveToolAsk(ctx, 'tut-note', `Lege an diesem Eintrag („${item.getField('title')}“) eine Notiz mit den drei wichtigsten Aussagen an.`);
+    await reportLive(ctx, { step: 'tutorial-note', answer: turn.content, runs: runsReport(turn), note: Zotero.Items.get(item.getNotes())[0]?.getNote() });
+    turn = await liveToolAsk(ctx, 'tut-collect', 'Lege alle Einträge aus der Sammlung „Forschungsdaten“, die ein Schlagwort mit FDM tragen, in eine neue Sammlung „Projekt A / FDM-Grundlagen“.');
+    await reportLive(ctx, { step: 'tutorial-collect', answer: turn.content, runs: runsReport(turn) });
+    getToolsChatWindow()?.close();
+  }],
+
+  ['tutorial: check and correct item types, with and without the subagent', async (ctx) => {
+    useLiveServer(ctx);
+    await openLiveToolChat();
+    let turn = await liveToolAsk(ctx, 'tut-fix-one', 'Der Eintrag „GIS and green infrastructure“ ist als Buch angelegt. Prüfe anhand der ersten Seite, ob der Typ stimmt, und korrigiere ihn nur, wenn nötig. Ändere sonst nichts.');
+    await reportLive(ctx, { step: 'tutorial-fix-one', answer: turn.content, runs: runsReport(turn) });
+    turn = await liveToolAsk(ctx, 'tut-subagent',
+      'Prüfe in der Sammlung „Typen prüfen“ für jeden Eintrag anhand der ersten Seiten, ob der Eintragstyp stimmt. Lass das den Subagenten erledigen und ändere danach nur die Typen, die falsch sind.');
+    await reportLive(ctx, { step: 'tutorial-subagent', answer: turn.content, runs: runsReport(turn) });
+    getToolsChatWindow()?.close();
+  }],
+
+  ['tutorial: reference list and related sources', async (ctx) => {
+    useLiveServer(ctx);
+    if (!(Zotero as any).FindOnlineReferences?.api?.getReferences) throw new SkipError('Find Online References not installed (E2E_PLUGINS)');
+    const item = ctx.tut['plos-gis-green-infrastructure-2025.pdf'];
+    await openLiveToolChat();
+    const turn = await liveToolAsk(ctx, 'tut-refs', `Lies die Literaturliste des Eintrags „${item.getField('title')}“ und zeige mir mit Links die Quellen, die sich mit Hitze oder Stadtklima befassen. Prüfe auch, welche davon schon in meiner Bibliothek sind.`);
+    await reportLive(ctx, { step: 'tutorial-refs', answer: turn.content, runs: runsReport(turn) });
+    getToolsChatWindow()?.close();
+  }],
+
+  ['tutorial: chain – search, read, correct, collect, note in one request', async (ctx) => {
+    useLiveServer(ctx);
+    await openLiveToolChat();
+    const turn = await liveToolAsk(ctx, 'tut-chain',
+      'Suche in meiner Bibliothek die Einträge zu Forschungsdatenmanagement, prüfe bei jedem anhand des Titelblatts, ob Eintragstyp und Jahr stimmen, '
+      + 'lege sie in die Sammlung „Literatur / FDM“ und schreibe zum Schluss eine Notiz in diese Sammlung mit einer Übersicht der Einträge in einem Satz je Eintrag.');
+    await reportLive(ctx, { step: 'tutorial-chain', answer: turn.content, runs: runsReport(turn) });
     getToolsChatWindow()?.close();
   }],
 

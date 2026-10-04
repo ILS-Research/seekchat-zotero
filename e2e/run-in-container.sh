@@ -35,6 +35,17 @@ user_pref("extensions.zotero.seekchat.e2e.only", "${E2E_ONLY:-}");
 user_pref("extensions.zotero.seekchat.locale", "de");
 PREFS
 
+# ZotSeek's "AI Agent Access" (its REST endpoints for SeekChat) and Zotero's local HTTP server: on when plugins are loaded.
+if ls /plugins/*.xpi >/dev/null 2>&1 || [ -f /seekbook.xpi ]; then
+  cat >> "$PROFILE/user.js" <<PREFS
+user_pref("zotseek.mcpServer.enabled", true);
+user_pref("zotseek.autoIndex", true);
+user_pref("zotseek.autoIndexDelay", 1);
+user_pref("zotseek.indexingMode", "full");
+user_pref("extensions.zotero.httpServer.enabled", true);
+PREFS
+fi
+
 # Trust the in-house CAs in Zotero (NSS database of the profile).
 certutil -N -d "sql:$PROFILE" --empty-password
 for crt in /usr/local/share/ca-certificates/inhouse/*.crt; do
