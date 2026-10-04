@@ -1,6 +1,6 @@
 {
   "name": "seekchat",
-  "version": "0.22.0",
+  "version": "0.23.0",
   "description": "SeekChat - chat with your PDFs in Zotero using a self-hosted LLM (Ollama or OpenAI-compatible)",
   "author": "ILS",
   "license": "MIT",

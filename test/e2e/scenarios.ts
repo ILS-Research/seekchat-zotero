@@ -1440,7 +1440,7 @@ export const scenarios: Scenario[] = [
     const session = getToolSession();
     session.clear();
     const list = doc.querySelector('.seekchat-tools-list') as HTMLDetailsElement;
-    assert(list && /9 von 11/.test(list.querySelector('summary')!.textContent!), `summary ${list?.querySelector('summary')?.textContent}`);
+    assert(list && /10 von 12/.test(list.querySelector('summary')!.textContent!), `summary ${list?.querySelector('summary')?.textContent}`);
     list.open = true;
     const item = () => doc.querySelector('.seekchat-tools-item[data-tool="import_references"]') as HTMLElement;
     const select = () => item().querySelector('select[data-option="parser"]') as HTMLSelectElement;
@@ -1451,7 +1451,7 @@ export const scenarios: Scenario[] = [
     const box = item().querySelector('input[type=checkbox]') as HTMLInputElement;
     box.click();
     assert(Zotero.Prefs.get('seekchat.tools.disabled') === 'import_references', `pref ${Zotero.Prefs.get('seekchat.tools.disabled')}`);
-    assert(/8 von 11/.test(doc.querySelector('.seekchat-tools-list summary')!.textContent!), 'summary not updated');
+    assert(/9 von 12/.test(doc.querySelector('.seekchat-tools-list summary')!.textContent!), 'summary not updated');
     view.input.value = 'Bitte importiere das';
     await view.send();
     const req = await mockLastRequest();
@@ -1854,6 +1854,51 @@ export const scenarios: Scenario[] = [
       assert(one3.result.text.length === 1 && one3.result.text[0].page === 2, `page 2 ${JSON.stringify(one3.result).slice(0, 200)}`);
       const none = await call('read_document', { key: one.key });
       assert(none.run.state === 'error', 'item without file not reported');
+    } finally {
+      toolsWin.close();
+    }
+  }],
+
+  ['tool chat: tool calls sit in one closed block that opens only while the user is asked; create_note writes a child note after confirmation', async (ctx) => {
+    setPref('provider', 'ollama');
+    setPref('baseUrl', MOCK);
+    setPref('model', 'mock-model');
+    const lib = Zotero.Libraries.userLibraryID;
+    const item = new Zotero.Item('book');
+    item.setField('title', 'E2E Notizbuch');
+    await item.saveTx();
+    openToolsChat();
+    const toolsWin = await waitFor('tool chat window', () => getToolsChatWindow(), 10000);
+    const view = await waitFor('tool chat view', () => getToolsChatView(), 10000);
+    view.setTarget(`l${lib}`);
+    const session = getToolSession();
+    session.clear();
+    try {
+      const doc = toolsWin.document;
+      const block = () => Array.from(doc.querySelectorAll('.seekchat-tools-block') as NodeListOf<HTMLDetailsElement>).pop();
+      view.input.value = `TOOL create_note ${JSON.stringify({ key: item.key, title: 'Zusammenfassung', text: '- Punkt **eins**\n- Punkt zwei' })}`;
+      const sending = view.send();
+      const run = await waitFor('note preview', () => session.turns[session.turns.length - 1]?.toolRuns?.find((r) => r.state === 'confirm'), 10000);
+      assert(/Punkt \*\*eins\*\*/.test(run.items![0].detail!) && /E2E Notizbuch/.test(run.items![0].label), `preview ${JSON.stringify(run.items)}`);
+      await waitFor('block open while asking', () => block()?.open === true, 5000);
+      assert(item.getNotes().length === 0, 'note created before confirmation');
+      const ok = await waitFor('confirm button', () => doc.querySelector('.seekchat-tool-ok') as HTMLButtonElement, 5000);
+      assert(ok.textContent === 'Notiz anlegen', `button ${ok.textContent}`);
+      ok.click();
+      await sending;
+      const notes = Zotero.Items.get(item.getNotes());
+      assert(notes.length === 1 && /<h1>Zusammenfassung<\/h1>/.test(notes[0].getNote()) && /<strong>eins<\/strong>/.test(notes[0].getNote()), `note ${notes[0]?.getNote()}`);
+      // Done: the block is a single closed line; a click on it opens it, and it stays open.
+      await waitFor('block closed after the answer', () => block() && block()!.open === false, 5000);
+      const summary = block()!.querySelector('summary') as HTMLElement;
+      assert(/Notiz/.test(summary.textContent || '') && !summary.textContent!.includes('\n'), `summary ${summary.textContent}`);
+      summary.click();
+      await waitFor('block opened by the user', () => block()?.open === true, 5000);
+
+      // Without key and collection the note goes to the library root; a missing parent is refused.
+      view.input.value = `TOOL create_note ${JSON.stringify({ key: 'NOSUCHKY', text: 'x' })}`;
+      await view.send();
+      assert(session.turns[session.turns.length - 1].toolRuns![0].state === 'error', 'unknown parent not refused');
     } finally {
       toolsWin.close();
     }

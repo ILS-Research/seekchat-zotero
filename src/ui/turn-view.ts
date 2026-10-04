@@ -121,6 +121,31 @@ function toolRunBox(doc: Document, run: ToolRun, handlers: CitationHandlers): HT
   return box;
 }
 
+/** Blocks the user opened (true) or closed (false) by hand; without an entry the block follows the rule. */
+const toolBlockChoice = new WeakMap<Turn, boolean>();
+
+/**
+ * All tool calls of an answer in one block, closed to a single status line; it opens by itself only while a call waits
+ * for the user (preview/confirmation) – and when the user opens it.
+ */
+function toolBlock(doc: Document, turn: Turn, handlers: CitationHandlers): HTMLElement {
+  const runs = turn.toolRuns!;
+  const last = runs[runs.length - 1];
+  const waiting = runs.some((r) => r.state === 'confirm');
+  const failed = runs.some((r) => r.state === 'error');
+  const block = el(doc, 'details', `seekchat-tools-block${failed ? ' has-error' : ''}`) as HTMLDetailsElement;
+  block.open = waiting || (toolBlockChoice.get(turn) ?? false);
+  const summary = el(doc, 'summary', 'seekchat-tools-block-summary', tn('tools.summary', runs.length, {
+    title: last.title,
+    state: t(`tools.state.${last.state}` as Key),
+  }));
+  // The choice is taken from the click; a block that waits for the user stays open.
+  summary.addEventListener('click', () => toolBlockChoice.set(turn, !block.open));
+  block.append(summary);
+  for (const run of runs) block.append(toolRunBox(doc, run, handlers));
+  return block;
+}
+
 function sourceList(doc: Document, sources: LibrarySource[], cited: Set<number>, handlers: CitationHandlers): HTMLElement {
   const box = el(doc, 'div', 'seekchat-sources');
   box.append(el(doc, 'div', 'seekchat-sources-title', t('lib.sourceList', { cited: cited.size, total: sources.length })));
@@ -167,7 +192,7 @@ function renderMessage(doc: Document, turn: Turn, handlers: CitationHandlers, pe
     return box;
   }
   if (turn.bookProgress?.length) box.append(bookList(doc, turn, handlers));
-  for (const run of turn.toolRuns || []) box.append(toolRunBox(doc, run, handlers));
+  if (turn.toolRuns?.length) box.append(toolBlock(doc, turn, handlers));
   if (turn.error) {
     box.append(doc.createTextNode(turn.content));
     return box;

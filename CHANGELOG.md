@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.23.0 – 2026-10-04
+
+- **Tool calls in one closed block.** All tool calls of an answer sit in a single block that shows one status line
+  ("🛠 Save to collection … – done", with the count and the last call when there are several). It opens by itself only
+  while a call waits for you (preview, confirmation); you can open it any time and it then stays open. An error colours
+  the line red.
+- **New tool: create a note.** The model writes a Zotero note from Markdown text – a child note of an item, a
+  standalone note in an existing collection, or in the chat's target. You see the text and confirm first.
+
 ## 0.22.0 – 2026-10-04
 
 - **New tool: change items.** The tool chat can change the item type, fields and tags of items – e.g. "go through my

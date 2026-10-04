@@ -130,3 +130,9 @@ test('read_document: the window of pages is cut by page count and characters, an
   assert.deepEqual(pageWindow(5, 99, undefined, lens), { from: 5, to: 5 });
   assert.deepEqual(pageWindow(100, 1, 2, [20000, 20000]), { from: 1, to: 1, next: 2 }, 'a huge page is still read alone');
 });
+
+test('note text: Markdown to note HTML with an escaped title', async () => {
+  const { noteHtml } = await import('../src/core/tools/library/create-note');
+  assert.equal(noteHtml('A & B', '- eins\n- **zwei**'), '<h1>A &amp; B</h1>\n<ul><li>eins</li><li><strong>zwei</strong></li></ul>');
+  assert.equal(noteHtml('', 'Text <b>'), '<p>Text &lt;b&gt;</p>');
+});
