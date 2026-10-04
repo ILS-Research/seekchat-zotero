@@ -1,0 +1,95 @@
+# CI for SeekChat: unit tests, typecheck and E2E tests (real Zotero under Xvfb, mock LLM) on every push;
+# on a tag vX.Y.Z after green tests: the .xpi goes into the project's generic package registry and a GitLab
+# release with that file is created.
+#
+# Everything runs in Docker-in-Docker, like ./build.sh and ./e2e/run.sh locally. The dind daemon cannot see the job's
+# files, so sources go into the containers with `docker cp` (no bind mounts) and results come back the same way.
+# Written for our GitLab gitlab.ils-geomonitoring.de (project ils-research/seekchat-zotero, remote "origin").
+# Needs a runner there with the docker executor and privileged mode (for dind) and access to Docker Hub
+# (node, docker, Zotero download) and registry.gitlab.com (release-cli). If the runner has tags, add them under
+# `default: tags:`. Live tests against ollama.ils.local stay local (./e2e/run.sh with E2E_LIVE_URL).
+
+stages: [test, e2e, release]
+
+variables:
+  DOCKER_HOST: tcp://docker:2376
+  DOCKER_TLS_CERTDIR: /certs
+  DOCKER_TLS_VERIFY: "1"
+  DOCKER_CERT_PATH: /certs/client
+  BUILD_IMAGE: seekchat-build:ci
+  E2E_IMAGE: seekchat-e2e:ci
+  # Zotero version of the E2E image (e2e/Dockerfile); set in a manual pipeline for 7.0.32, 8.0.4, 9.0.4 …
+  ZOTERO_VERSION: "10.0.3"
+
+.dind:
+  image: docker:27
+  services:
+    - name: docker:27-dind
+      alias: docker
+  before_script:
+    - apk add --no-cache bash
+    - until docker info >/dev/null 2>&1; do sleep 1; done
+    # Build image (Node + zip + in-house CAs); docker/certs is generated from e2e/certs as in build.sh.
+    - rm -rf docker/certs && mkdir -p docker/certs && cp e2e/certs/*.crt docker/certs/
+    - docker build -q -t "$BUILD_IMAGE" docker/
+
+# Shell function: runs a command on a copy of the sources in the build image and copies dist/ back.
+.in_build: &in_build |
+  in_build() {
+    cid=$(docker create -w /src -e HOME=/tmp -e npm_config_update_notifier=false "$BUILD_IMAGE" bash -c "$1")
+    docker cp . "$cid:/src"
+    status=0
+    docker start -a "$cid" || status=$?
+    mkdir -p dist
+    docker cp "$cid:/src/dist/." dist/ 2>/dev/null || true
+    docker rm -f "$cid" >/dev/null
+    return $status
+  }
+
+unit:
+  stage: test
+  extends: .dind
+  script:
+    - *in_build
+    - in_build 'npm ci --no-audit --no-fund && npm test && npm run typecheck && npm run build -- --pack && npm run build -- --pack --e2e'
+  artifacts:
+    paths: [dist/]
+    expire_in: 1 week
+
+e2e:
+  stage: e2e
+  extends: .dind
+  needs: [unit]
+  script:
+    - docker build --build-arg ZOTERO_VERSION="$ZOTERO_VERSION" -t "$E2E_IMAGE" e2e/
+    # Like e2e/run.sh, but with docker cp instead of mounts: the E2E build of the plugin in, results out.
+    - cid=$(docker create -e E2E_TIMEOUT=600 -e E2E_ONLY="${E2E_ONLY:-}" "$E2E_IMAGE")
+    - docker cp dist/. "$cid:/dist"
+    - status=0; docker start -a "$cid" || status=$?
+    - mkdir -p e2e/out && docker cp "$cid:/out/." e2e/out/ || true
+    - docker rm -f "$cid" >/dev/null
+    - exit $status
+  artifacts:
+    when: always
+    paths: [e2e/out/]
+    expire_in: 2 weeks
+
+release:
+  stage: release
+  image: registry.gitlab.com/gitlab-org/release-cli:latest
+  needs: [unit, e2e]
+  rules:
+    - if: '$CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+$/'
+  script:
+    - apk add --no-cache curl jq
+    - VERSION="${CI_COMMIT_TAG#v}"
+    # The tag must match package.json (the only source of the version).
+    - test "$(jq -r .version package.json)" = "$VERSION" || { echo "tag $CI_COMMIT_TAG does not match package.json"; exit 1; }
+    - XPI="dist/seekchat-$VERSION.xpi"
+    - test -f "$XPI"
+    - URL="$CI_API_V4_URL/projects/$CI_PROJECT_ID/packages/generic/seekchat/$VERSION/seekchat-$VERSION.xpi"
+    - 'curl --fail --header "JOB-TOKEN: $CI_JOB_TOKEN" --upload-file "$XPI" "$URL"'
+    - >
+      release-cli create --name "SeekChat $VERSION" --tag-name "$CI_COMMIT_TAG"
+      --description "$(awk -v v="## $VERSION " 'index($0, v) == 1 {on=1; next} /^## / {on=0} on' CHANGELOG.md)"
+      --assets-link "{\"name\":\"seekchat-$VERSION.xpi\",\"url\":\"$URL\",\"link_type\":\"package\"}"
