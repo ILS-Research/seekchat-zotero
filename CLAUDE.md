@@ -162,6 +162,14 @@ Extending: new sources are new `ContextProvider`s; session, prompt and turn rend
   $D/zotseek/<xpi>" E2E_LIVE_URL=https://ollama.ils.local E2E_LIVE_MODEL=qwen3_8_27b_128k:latest E2E_ONLY="live tools"
   E2E_TIMEOUT=1700 ./e2e/run.sh` (~6 min; screenshots `e2e/out/screenshot-live-*.png`, report `live-report.json`).
   The tool chat needs a strong model with native tool calling; small models drop calls or answer empty.
+- **New feature = tests and tutorial.** Whenever a feature is added to SeekChat, adapt not only the tests but also the
+  tutorial (`docs/tutorial.ipynb`, German, and its English translation `docs/tutorial-en.ipynb`) so that it illustrates the
+  feature: a use case with a real-model scenario (`tutorial: …` in `test/e2e/scenarios.ts`, screenshots `tut-*`) and its
+  picture(s) in `docs/img/` (screenshots stay German), plus the table of contents. Edit the notebooks cell by cell
+  (NotebookEdit), not with generator scripts. Regenerate the slides: `jupyter nbconvert --to slides docs/tutorial.ipynb`
+  (conda env `/home/ils_ubuntu/.local/share/mamba/envs/ils_env`; the slides file `docs/tutorial.slides.html` is committed).
+- Tutorial run (practice test, always part of a live E2E run): `E2E_ONLY="tutorial"` with the same environment as the live
+  tool chat run above (real plugins, `E2E_LIVE_URL`), ~60 min; `E2E_ONLY` takes alternatives separated by `|`.
 - CI: `.gitlab-ci.yml` for gitlab.ils-geomonitoring.de (dind, `docker cp` instead of mounts): unit + typecheck,
   E2E with the mock, release with the xpi on tags `vX.Y.Z`. Live runs and the portal stay local.
 - In-house CAs: `e2e/certs/*.crt` (currently `ils-gum-ca.crt`, CN=ILS_GuM, signs `*.ils.local`) go into the
