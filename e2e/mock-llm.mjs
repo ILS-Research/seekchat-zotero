@@ -27,9 +27,14 @@ export const IMPORT_REFS = [
 ];
 
 async function toolCall(res, name, args, text = 'Ich importiere die Quellen. ') {
+  return toolCalls(res, [[name, args]], text);
+}
+
+/** Several tool calls in one answer, as real models do (e.g. six get_item at once). */
+async function toolCalls(res, calls, text = '') {
   res.writeHead(200, { 'Content-Type': 'application/x-ndjson' });
   if (text) res.write(JSON.stringify({ message: { role: 'assistant', content: text }, done: false }) + '\n');
-  res.write(JSON.stringify({ message: { role: 'assistant', content: '', tool_calls: [{ function: { name, arguments: args } }] }, done: false }) + '\n');
+  res.write(JSON.stringify({ message: { role: 'assistant', content: '', tool_calls: calls.map(([name, args]) => ({ function: { name, arguments: args } })) }, done: false }) + '\n');
   res.end(JSON.stringify({ message: { role: 'assistant', content: '' }, done: true }) + '\n');
 }
 
@@ -68,16 +73,25 @@ const server = http.createServer(async (req, res) => {
     requests.push(parsed);
     const system = parsed.messages?.[0]?.content || '';
     const last = parsed.messages?.[parsed.messages.length - 1] || {};
-    // Subagent (delegate_task): first a read-only tool call on the first item of its package, then a JSON list with
-    // one proposal per item of the package; "langsam" in the task: slow answers (stop button test).
+    // Subagent (delegate_task), as the real model behaved in the live test. Default: one get_item for every item of
+    // the package in ONE answer (no text), then a JSON list with one proposal per item. Words in the task:
+    // "langsam" slow answers (stop button), "groß" reads every document (10 pages, one per round, so old results
+    // get shortened), "vorrede" puts text around the fenced JSON, "felder" proposes fields Zotero names otherwise.
     if (system.includes('You are a subagent')) {
       const task = parsed.messages?.[1]?.content || '';
       if (/langsam/.test(task)) await new Promise((r) => setTimeout(r, 1500));
       const keys = [...task.matchAll(/^- (\w{8}):/gm)].map((m) => m[1]);
-      if (last.role === 'user') {
-        return keys.length ? toolCall(res, 'get_item', { key: keys[0] }, '') : toolCall(res, 'list_tags', {}, '');
+      const toolMsgs = parsed.messages.filter((m) => m.role === 'tool');
+      const finalRound = !parsed.tools?.length;
+      if (/groß/.test(task) && !finalRound && toolMsgs.length < keys.length) {
+        return toolCall(res, 'read_document', { key: keys[toolMsgs.length], from_page: 1, to_page: 10 }, '');
       }
-      return stream(res, '```json\n' + JSON.stringify(keys.map((key) => ({ key, item_type: 'book', reason: 'mock' }))) + '\n```');
+      if (last.role === 'user' && !finalRound) {
+        return keys.length ? toolCalls(res, keys.map((key) => ['get_item', { key }])) : toolCall(res, 'list_tags', {}, '');
+      }
+      const proposals = keys.map((key) => ({ key, item_type: 'book', ...(/felder/.test(task) ? { fields: { year: '2020', degree: 'PhD' } } : {}), reason: 'mock' }));
+      const json = '```json\n' + JSON.stringify(proposals) + '\n```';
+      return stream(res, /vorrede/.test(task) ? `Hier ist mein Ergebnis für das Paket:\n\n${json}\n\nAlle Einträge geprüft.` : json);
     }
     if (parsed.tools?.length) {
       if (last.role === 'tool') {
@@ -92,6 +106,9 @@ const server = http.createServer(async (req, res) => {
       // "TOOL <name> <json>": call that tool with those arguments (library tool scenarios).
       const direct = (last.content || '').match(/^TOOL (\w+) (\{[\s\S]*\})$/);
       if (direct) return toolCall(res, direct[1], JSON.parse(direct[2]), '');
+      // "TOOLS [[name, args], …]": several calls in one answer.
+      const several = (last.content || '').match(/^TOOLS (\[[\s\S]*\])$/);
+      if (several) return toolCalls(res, JSON.parse(several[1]));
       const offered = parsed.tools.map((x) => x.function?.name);
       if (/importiere/i.test(last.content || '') && offered.includes('import_references')) return toolCall(res, 'import_references', { references: IMPORT_REFS });
       return stream(res, 'Hallo aus dem Werkzeug-Chat.');

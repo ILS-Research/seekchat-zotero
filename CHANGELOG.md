@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.24.5 – 2026-10-04
+
+- **Subagent results with words around the JSON** ("Hier ist mein Ergebnis: ```json …``` Alle geprüft.") are now
+  recognised and joined across packages; before, such packages were passed on as text.
+- Mock model and E2E tests follow what the real model did in the live test: several tool calls in one answer (two
+  confirmations in a row, cancelling the first keeps the second), a subagent that reads a lot (old results shortened,
+  each document read once), JSON with a preamble in two packages, field names like `year`/`degree`, the progress line
+  during slow answers.
+
 ## 0.24.4 – 2026-10-04
 
 Fixes from the second live test (subagent checking item types, qwen3.8 27B):

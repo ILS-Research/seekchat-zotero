@@ -8,3 +8,4 @@ logs/
 # Real PDFs for local tests (large; check licenses): not committed, not baked into images
 test/assets/
 docker/certs/
+**.secret

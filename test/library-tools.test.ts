@@ -164,4 +164,11 @@ test('subagent: packages, read-only tools, old tool results shortened to fit, pa
   assert.deepEqual(joinResults([{ label: 'P1', text: '```json\n[{"key":"A"}]\n```' }, { label: 'P2', text: '[{"key":"B"}]' }]), [{ key: 'A' }, { key: 'B' }]);
   assert.deepEqual(joinResults([{ label: 'P1', text: '{"ok":true}' }]), { ok: true });
   assert.equal(joinResults([{ label: 'P1', text: 'eins' }, { label: 'P2', text: '[1]' }]), '## P1\neins\n\n## P2\n[1]');
+  // Words around the JSON, as real models write it.
+  assert.deepEqual(joinResults([
+    { label: 'P1', text: 'Hier ist mein Ergebnis:\n\n```json\n[{"key":"A"}]\n```\n\nAlle geprüft.' },
+    { label: 'P2', text: 'Ergebnis: [{"key":"B"}] – fertig.' },
+  ]), [{ key: 'A' }, { key: 'B' }]);
+  const { extractJson } = await import('../src/core/tools/agent/plan');
+  assert.equal(extractJson('kein JSON hier'), undefined);
 });

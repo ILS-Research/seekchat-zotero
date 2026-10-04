@@ -2040,6 +2040,8 @@ export const scenarios: Scenario[] = [
       const stop = await waitFor('stop button in the block line', () => doc.querySelector('.seekchat-tools-block > summary .seekchat-tool-stop') as HTMLButtonElement, 5000);
       const block = stop.closest('details') as HTMLDetailsElement;
       assert(!block.open, 'block opened for a running subagent');
+      // Slow answers (real models take up to a minute): the closed line shows where the subagent is.
+      await waitFor('progress in the status line', () => /Paket 1 von 3 · \d+ Werkzeugaufrufe/.test(running.status || ''), 8000);
       await screenshot(ctx, 'tools-subagent-running', toolsWin);
       stop.click();
       await slow;
@@ -2051,6 +2053,93 @@ export const scenarios: Scenario[] = [
       assert(/cancelled by the user/.test(stopped.status) && stopped.notWorkedThrough.length >= 25, `stopped ${JSON.stringify(stopped).slice(0, 300)}`);
       const answer = session.turns[session.turns.length - 1];
       assert(!answer.cancelled && !answer.error && /Ergebnis delegate_task/.test(answer.content), `chat did not go on: ${answer.content}`);
+    } finally {
+      toolsWin.close();
+    }
+  }],
+
+  ['tool chat: patterns of real models – several calls per answer, two confirmations in a row, long subagent reading shortened, JSON with words around it, field names Zotero does not use', async (ctx) => {
+    setPref('provider', 'ollama');
+    setPref('baseUrl', MOCK);
+    setPref('model', 'mock-model');
+    const lib = Zotero.Libraries.userLibraryID;
+    const make = async (title: string, col?: number, pdf = false) => {
+      const item = new Zotero.Item('journalArticle');
+      item.setField('title', title);
+      if (col) item.setCollections([col]);
+      await item.saveTx();
+      if (pdf) await Zotero.Attachments.importFromFile({ file: Zotero.File.pathToFile(`${ctx.fixturesDir}/seekchat-long.pdf`), parentItemID: item.id });
+      return item;
+    };
+    openToolsChat();
+    const toolsWin = await waitFor('tool chat window', () => getToolsChatWindow(), 10000);
+    const view = await waitFor('tool chat view', () => getToolsChatView(), 10000);
+    view.setTarget(`l${lib}`);
+    const session = getToolSession();
+    session.clear();
+    const toolResults = (req: any) => req.messages.filter((m: any) => m.role === 'tool').map((m: any) => m.content);
+    try {
+      // 1. Several calls in one answer run in order, each its own run.
+      const a = await make('E2E Muster A');
+      const b = await make('E2E Muster B');
+      view.input.value = `TOOLS ${JSON.stringify([['get_item', { key: a.key }], ['get_item', { key: b.key }]])}`;
+      await view.send();
+      let turn = session.turns[session.turns.length - 1];
+      assert(turn.toolRuns!.length === 2 && turn.toolRuns!.every((r) => r.state === 'done') && turn.toolRuns![1].items![0].itemID === b.id, `runs ${JSON.stringify(turn.toolRuns?.map((r) => [r.name, r.state]))}`);
+      const sent = toolResults(await mockLastRequest());
+      assert(sent.length === 2 && JSON.parse(sent[0]).key === a.key && JSON.parse(sent[1]).key === b.key, 'results not in call order');
+
+      // Two changes as two calls in one answer: two confirmations one after the other; cancelling the first keeps the second.
+      view.input.value = `TOOLS ${JSON.stringify([['update_item', { changes: [{ key: a.key, item_type: 'book' }] }], ['update_item', { changes: [{ key: b.key, item_type: 'report' }] }]])}`;
+      const twice = view.send();
+      const first = await waitFor('first confirmation', () => session.turns[session.turns.length - 1]?.toolRuns?.find((r) => r.state === 'confirm'), 10000);
+      await delay(200);
+      await screenshot(ctx, 'tools-patterns-first-confirm', toolsWin);
+      (await waitFor('cancel', () => toolsWin.document.querySelector('.seekchat-tool-cancel') as HTMLButtonElement, 5000)).click();
+      const second = await waitFor('second confirmation', () => session.turns[session.turns.length - 1]?.toolRuns?.find((r) => r.state === 'confirm' && r !== first), 10000);
+      (await waitFor('ok', () => toolsWin.document.querySelector('.seekchat-tool-ok') as HTMLButtonElement, 5000)).click();
+      await twice;
+      assert(first.state === 'cancelled' && second.state === 'done', `states ${first.state} / ${second.state}`);
+      assert(a.itemType === 'journalArticle' && b.itemType === 'report', `types ${a.itemType} / ${b.itemType}`);
+
+      // 5. A subagent that reads a lot: old tool results are shortened and say not to read them again.
+      const big = new Zotero.Collection({ libraryID: lib, name: 'E2E Grosse Dokumente' });
+      await big.saveTx();
+      for (let i = 0; i < 6; i++) await make(`E2E Langes Dokument ${i + 1}`, big.id, true);
+      const before = (await mockRequests()).length;
+      view.input.value = `TOOL delegate_task ${JSON.stringify({ task: 'Lies groß jedes Dokument.', collection: 'E2E Grosse Dokumente' })}`;
+      await view.send();
+      turn = session.turns[session.turns.length - 1];
+      assert(turn.toolRuns![0].state === 'done', `subagent ${turn.toolRuns![0].state} ${turn.toolRuns![0].status}`);
+      const sub = (await mockRequests()).slice(before).filter((r: any) => (r.messages?.[0]?.content || '').includes('You are a subagent'));
+      const lastSub = sub[sub.length - 1];
+      const shortened = toolResults(lastSub).filter((c: string) => /do not call it again/.test(c));
+      assert(shortened.length >= 1, `nothing shortened (${toolResults(lastSub).map((c: string) => c.length)})`);
+      const reads = sub.flatMap((r: any) => r.messages.filter((m: any) => m.role === 'assistant').flatMap((m: any) => (m.tool_calls || []).map((c: any) => c.function.arguments.key)));
+      assert(new Set(reads).size === 6, `documents read: ${reads.length} calls, ${new Set(reads).size} different`);
+      const all = lastSub.messages.reduce((n: number, m: any) => n + (m.content || '').length, 0);
+      assert(all < 60000, `subagent conversation ${all} chars`);
+
+      // 6. JSON with words around it in two packages, joined; fields named like the model does (year, degree).
+      const many = new Zotero.Collection({ libraryID: lib, name: 'E2E Vorrede' });
+      await many.saveTx();
+      const items = [];
+      for (let i = 0; i < 25; i++) items.push(await make(`E2E Vorrede ${i + 1}`, many.id));
+      view.input.value = `TOOL delegate_task ${JSON.stringify({ task: 'Prüfe mit vorrede und felder.', collection: 'E2E Vorrede' })}`;
+      await view.send();
+      const joined = JSON.parse(toolResults(await mockLastRequest()).pop());
+      assert(joined.packages === 2 && Array.isArray(joined.result) && joined.result.length === 25, `joined ${JSON.stringify(joined).slice(0, 300)}`);
+      // The main chat applies the first proposal as it comes: year becomes the date, degree is left out for a book.
+      view.input.value = `TOOL update_item ${JSON.stringify({ changes: [joined.result[0]] })}`;
+      const applying = view.send();
+      const prev = await waitFor('preview', () => session.turns[session.turns.length - 1]?.toolRuns?.find((r) => r.state === 'confirm'), 10000);
+      assert(/2020/.test(prev.items![0].detail!) && /Ausgelassen \(kein Feld von Book\): degree/.test(prev.items![0].detail!), `detail ${prev.items![0].detail}`);
+      await delay(200);
+      await screenshot(ctx, 'tools-patterns-fields-preview', toolsWin);
+      (await waitFor('ok', () => toolsWin.document.querySelector('.seekchat-tool-ok') as HTMLButtonElement, 5000)).click();
+      await applying;
+      const changed = items.find((x) => x.key === joined.result[0].key)!;
+      assert(changed.itemType === 'book' && changed.getField('date') === '2020', `applied ${changed.itemType} ${changed.getField('date')}`);
     } finally {
       toolsWin.close();
     }

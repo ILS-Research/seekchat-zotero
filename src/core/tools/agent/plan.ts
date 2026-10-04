@@ -34,10 +34,21 @@ export function shortenOldToolResults(messages: ChatMessage[], budgetChars: numb
   }
 }
 
-/** A result text without a Markdown code fence around it. */
-function unfence(text: string): string {
-  const m = text.trim().match(/^```[\w-]*\n([\s\S]*?)\n```$/);
-  return m ? m[1] : text.trim();
+/**
+ * The JSON in a model's result: the whole text, else a fenced block anywhere in it, else the span from the first
+ * bracket to the last (models put words before and after). Undefined when there is none.
+ */
+export function extractJson(text: string): unknown {
+  const t = text.trim();
+  const tries = [t, t.match(/```[\w-]*\n([\s\S]*?)\n```/)?.[1]];
+  const start = t.search(/[[{]/);
+  const end = Math.max(t.lastIndexOf(']'), t.lastIndexOf('}'));
+  if (start >= 0 && end > start) tries.push(t.slice(start, end + 1));
+  for (const x of tries) {
+    if (!x) continue;
+    try { return JSON.parse(x); } catch { /* next */ }
+  }
+  return undefined;
 }
 
 /**
@@ -45,12 +56,8 @@ function unfence(text: string): string {
  * with their package as heading.
  */
 export function joinResults(results: { label: string; text: string }[]): unknown {
-  if (results.length === 1) {
-    try { return JSON.parse(unfence(results[0].text)); } catch { return results[0].text; }
-  }
-  const parsed = results.map((r) => {
-    try { return JSON.parse(unfence(r.text)); } catch { return undefined; }
-  });
+  if (results.length === 1) return extractJson(results[0].text) ?? results[0].text;
+  const parsed = results.map((r) => extractJson(r.text));
   if (results.length && parsed.every((p) => Array.isArray(p))) return parsed.flat();
   return results.map((r) => `## ${r.label}\n${r.text}`).join('\n\n');
 }
