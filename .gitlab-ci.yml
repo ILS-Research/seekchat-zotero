@@ -137,9 +137,10 @@ release:
     - XPI="dist/seekchat-$VERSION.xpi"
     - test -f "$XPI"
     # Installed plugins update from updates.json in the repository (manifest.json update_url), which links this URL.
+    # filepath: fixed name for the permalink -/releases/permalink/latest/downloads/seekchat.xpi (portal download page).
     - URL="$CI_API_V4_URL/projects/$CI_PROJECT_ID/packages/generic/seekchat/$VERSION/seekchat-$VERSION.xpi"
     - 'curl --fail --header "JOB-TOKEN: $CI_JOB_TOKEN" --upload-file "$XPI" "$URL"'
     - >
       release-cli create --name "SeekChat $VERSION" --tag-name "$CI_COMMIT_TAG"
       --description "$(awk -v v="## $SEMVER " 'index($0, v) == 1 {on=1; next} /^## / {on=0} on' CHANGELOG.md)"
-      --assets-link "{\"name\":\"seekchat-$VERSION.xpi\",\"url\":\"$URL\",\"link_type\":\"package\"}"
+      --assets-link "{\"name\":\"seekchat-$VERSION.xpi\",\"url\":\"$URL\",\"link_type\":\"package\",\"filepath\":\"/seekchat.xpi\"}"

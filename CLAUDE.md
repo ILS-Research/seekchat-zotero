@@ -21,7 +21,7 @@ they use `docker` or fall back to `sudo docker`, and run containers with the cal
 | E2E build only (`dist/seekchat-<v>-e2e.xpi`) | `./build.sh e2e` | `logs/build.log` |
 | E2E run (real Zotero under Xvfb + mock LLM) | `./e2e/run.sh` | `logs/e2e.log`, `e2e/out/` |
 | Shell in build container | `./build.sh shell` | |
-| Publish built xpi to the portal downloads | `scripts/publish.py ../zotero_selfhost_src/data/downloads` | |
+| Portal: copy `updates.json` (gitlab.com links) for installations from before 1.0.0rc1 | `scripts/publish.py ../zotero_selfhost_src/data/downloads` | |
 | Add the version to `updates.json` (release itself: gitlab.com CI on the tag) | `scripts/publish-gitlab.py` | |
 | Publish the tutorial (slides, PDFs, pictures) to the portal | `scripts/publish-tutorial.py ../zotero_selfhost_src/data/downloads` | |
 
@@ -33,8 +33,10 @@ they use `docker` or fall back to `sudo docker`, and run containers with the cal
   gitlab.com CI on the tag (job `release`: xpi into the generic package registry, release). Before tagging,
   `scripts/publish-gitlab.py` adds the version to `updates.json` in the repo root (link to that package URL); commit it,
   tag, push `master` and the tag to remote `gitlab`.
-  `scripts/publish.py` still copies the xpi to the portal downloads (links to the portal, `PORTAL_BASE`) and
-  regenerates the portal's `updates.json` for installations from before 1.0.0rc1. The E2E profile disables updates.
+  The portal no longer mirrors the xpi (user decision, variant 2): `scripts/publish.py` only copies this `updates.json`
+  to the portal (installations from before 1.0.0rc1 look there), and the portal's download page links gitlab.com's
+  `-/releases/permalink/latest` (the CI sets `filepath` `/seekchat.xpi`, so
+  `-/releases/permalink/latest/downloads/seekchat.xpi` works from the first release made with it). The E2E profile disables updates.
 - Pre-releases: `package.json` semver `1.0.0-rc.1`, XPI version `1.0.0rc1` (build.mjs, both publish scripts), tag `v1.0.0-rc.1`.
 - Portal: `https://zotero.ils.local` (this server; until IT switches DNS, `/etc/hosts` maps it to 192.168.125.23).
   Its reverse proxy serves a certificate signed by the in-house CA ILS_GuM (`e2e/certs/ils-gum-ca.crt`, installed in
