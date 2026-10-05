@@ -177,7 +177,10 @@ Extending: new sources are new `ContextProvider`s; session, prompt and turn rend
   then publish them with `scripts/publish-tutorial.py` (portal copy with local reveal.js, PDFs via headless Chrome).
 - Tutorial run (practice test, always part of a live E2E run): `E2E_ONLY="tutorial"` with the same environment as the live
   tool chat run above (real plugins, `E2E_LIVE_URL`), ~60 min; `E2E_ONLY` takes alternatives separated by `|`.
-- CI: `.gitlab-ci.yml` for gitlab.ils-geomonitoring.de (dind, `docker cp` instead of mounts): unit + typecheck,
-  E2E with the mock, release with the xpi on tags `vX.Y.Z`. Live runs and the portal stay local.
+- CI: `.gitlab-ci.yml` (gitlab.com and gitlab.ils-geomonitoring.de; dind, `docker cp` instead of mounts) and
+  `.github/workflows/ci.yml` (same steps): unit + typecheck, E2E with the mock, release with the xpi on tags
+  `vX.Y.Z` / `vX.Y.Z-rc.N` (pre-release on GitHub). GitHub can release an existing tag by hand
+  (`gh workflow run ci.yml -f release_tag=v…`; the workflow file of `master` is used). The live job `e2e-live` is
+  GitLab only (needs ollama.ils.local). Live runs and the portal stay local.
 - In-house CAs: `e2e/certs/*.crt` (currently `ils-gum-ca.crt`, CN=ILS_GuM, signs `*.ils.local`) go into the
   image's system store and, via `certutil`, into the profile's NSS db — Zotero ignores the system store.
