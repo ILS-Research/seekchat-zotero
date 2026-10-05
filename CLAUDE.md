@@ -22,6 +22,7 @@ they use `docker` or fall back to `sudo docker`, and run containers with the cal
 | E2E run (real Zotero under Xvfb + mock LLM) | `./e2e/run.sh` | `logs/e2e.log`, `e2e/out/` |
 | Shell in build container | `./build.sh shell` | |
 | Publish built xpi to the portal downloads | `scripts/publish.py ../zotero_selfhost_src/data/downloads` | |
+| Publish the tutorial (slides, PDFs, pictures) to the portal | `scripts/publish-tutorial.py ../zotero_selfhost_src/data/downloads` | |
 
 - Scripts write their **full output** to `logs/*.log` (tee, line-buffered). Run them with output
   discarded and read the log tail: `./e2e/run.sh >/dev/null 2>&1; tail -12 logs/e2e.log`.
@@ -167,7 +168,8 @@ Extending: new sources are new `ContextProvider`s; session, prompt and turn rend
   feature: a use case with a real-model scenario (`tutorial: …` in `test/e2e/scenarios.ts`, screenshots `tut-*`) and its
   picture(s) in `docs/img/` (screenshots stay German), plus the table of contents. Edit the notebooks cell by cell
   (NotebookEdit), not with generator scripts. Regenerate the slides (both languages): `jupyter nbconvert --to slides docs/tutorial.ipynb --SlidesExporter.reveal_url_prefix=https://cdn.jsdelivr.net/npm/reveal.js@4.6.1 --SlidesExporter.reveal_scroll=True --SlidesExporter.reveal_width=1400 --SlidesExporter.reveal_height=850` (the first cell holds the slide CSS)
-  (conda env `/home/ils_ubuntu/.local/share/mamba/envs/ils_env`; the slides file `docs/tutorial.slides.html` is committed).
+  (conda env `/home/ils_ubuntu/.local/share/mamba/envs/ils_env`; the slides file `docs/tutorial.slides.html` is committed),
+  then publish them with `scripts/publish-tutorial.py` (portal copy with local reveal.js, PDFs via headless Chrome).
 - Tutorial run (practice test, always part of a live E2E run): `E2E_ONLY="tutorial"` with the same environment as the live
   tool chat run above (real plugins, `E2E_LIVE_URL`), ~60 min; `E2E_ONLY` takes alternatives separated by `|`.
 - CI: `.gitlab-ci.yml` for gitlab.ils-geomonitoring.de (dind, `docker cp` instead of mounts): unit + typecheck,

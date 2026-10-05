@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.24.6 – 2026-10-05
+
+- **Tutorial in the portal:** `scripts/publish-tutorial.py <downloads-dir>` publishes both notebooks as reveal.js slides
+  (with a local copy of reveal.js and require.js, since the portal shows HTML in a CSP sandbox without CDNs), as PDFs
+  and with their pictures to `<downloads-dir>/seekchat-tutorial/`. The portal page links them.
+- Tutorial: wider slides with scrolling, contents on their own slide, bigger Zotero window in the pictures, long
+  documents and book questions with complete answers.
+
 ## 0.24.5 – 2026-10-04
 
 - **Subagent results with words around the JSON** ("Hier ist mein Ergebnis: ```json …``` Alle geprüft.") are now
