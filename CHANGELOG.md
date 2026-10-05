@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.25.1 – 2026-10-05
+
+- E2E: the tool chat scenario saves the chat as .md and checks question, tool call items and title.
+- Tutorial (chapter 6, both languages): the tool chat window's "⤓ Chat als .md" replaces the note that it had no
+  save button.
+
 ## 0.25.0 – 2026-10-05
 
 - **Tool chat: "⤓ Chat as .md"** saves the whole tool chat as Markdown: questions, tool calls with their result line

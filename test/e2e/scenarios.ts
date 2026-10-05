@@ -1561,6 +1561,23 @@ export const scenarios: Scenario[] = [
       assert(/Quellentext/.test(run.items![1].detail || ''), `second falls back to text: ${run.items![1].detail}`);
       session.confirm(run, false);
       await asked;
+      // "Chat als .md" writes question, tool call with its items and the answer (file picker skipped in tests).
+      const mdPath = `${ctx.outDir}/tool-chat-export.md`;
+      setSaveChatTestPath(mdPath);
+      const saveBtn = doc.querySelector('.seekchat-library-footer .seekchat-save') as HTMLButtonElement;
+      await waitFor('save button enabled', () => !saveBtn.disabled, 5000);
+      saveBtn.click();
+      const exported = await waitFor('exported tool chat', async () => {
+        try {
+          const text: string = await Zotero.File.getContentsAsync(mdPath);
+          return text.includes('Werkzeug:') ? text : null;
+        } catch {
+          return null;
+        }
+      }, 5000);
+      setSaveChatTestPath(null);
+      assert(exported.startsWith('# SeekChat – Werkzeug-Chat (') && exported.includes('> Bitte importiere diese Quellen')
+        && exported.includes('Klimawandel im urbanen Bereich (OpenAlex)'), `export: ${exported.slice(0, 600)}`);
     } finally {
       delete (Zotero as any).FindOnlineReferences;
       Zotero.Prefs.set('seekchat.tools.import_references.parser', 'zotero');
