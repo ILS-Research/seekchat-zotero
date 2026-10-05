@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.0.0-rc.3 – 2026-10-05 (XPI version 1.0.0rc3)
+
+- **Server error 5xx: one more try.** A request that the model server answers with HTTP 5xx before anything was
+  streamed is sent once more after a second. Ollama answers 500 when it cannot parse a tool call the model wrote
+  ("XML syntax error … unexpected EOF", seen in the live test with a subagent); the second sample usually works.
+
 ## 1.0.0-rc.2 – 2026-10-05 (XPI version 1.0.0rc2)
 
 - **Only the OpenAI-compatible interface:** chat, model list and tools go through `/v1/models` and

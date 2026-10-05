@@ -127,3 +127,20 @@ test('host guard and https rule stop the request before fetch', async () => {
     assert.equal(calls.length, 0);
   });
 });
+
+test('HTTP 5xx before streaming is tried once more; 4xx and a second 5xx are not', async () => {
+  const ok = stream(['data: {"choices":[{"delta":{"content":"ok"}}]}\n\ndata: [DONE]\n\n']);
+  const e500 = () => new Response('{"error":{"message":"XML syntax error on line 3: unexpected EOF"}}', { status: 500 });
+  await withFetch([e500, ok], async (calls) => {
+    assert.equal(await new OpenAiClient(LOCAL).streamChat(req, () => {}), 'ok');
+    assert.equal(calls.length, 2);
+  });
+  await withFetch([e500, e500], async (calls) => {
+    await assert.rejects(new OpenAiClient(LOCAL).streamChat(req, () => {}), /HTTP 500: XML syntax error/);
+    assert.equal(calls.length, 2, 'only one repeat');
+  });
+  await withFetch([() => new Response('{"error":{"message":"bad"}}', { status: 404 })], async (calls) => {
+    await assert.rejects(new OpenAiClient(LOCAL).streamChat(req, () => {}), /HTTP 404/);
+    assert.equal(calls.length, 1);
+  });
+});

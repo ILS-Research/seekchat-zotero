@@ -22,6 +22,20 @@ export function apiBase(baseUrl: string): string {
   }
 }
 
+/** Short wait before repeating a request after a server error; ends early when the request is cancelled. */
+export const RETRY_DELAY_MS = 1000;
+
+function serverPause(signal?: AbortSignal): Promise<void> {
+  return new Promise((resolve) => {
+    const z = (globalThis as any).Zotero;
+    const done = () => resolve();
+    signal?.addEventListener('abort', done, { once: true });
+    if (typeof setTimeout === 'function') setTimeout(done, RETRY_DELAY_MS);
+    else if (z?.Promise?.delay) void z.Promise.delay(RETRY_DELAY_MS).then(done);
+    else done();
+  });
+}
+
 /**
  * Thinking on or off, as the common servers understand it: Ollama `reasoning_effort` ("none" switches it off),
  * vLLM/SGLang `chat_template_kwargs.enable_thinking` (Qwen3 and similar templates). Undefined: the server decides.
@@ -67,7 +81,7 @@ export class OpenAiClient implements LlmClient {
     return (await this.streamTurn(req, onDelta)).text;
   }
 
-  async streamTurn(req: ChatRequest, onDelta: (text: string) => void): Promise<ChatResult> {
+  async streamTurn(req: ChatRequest, onDelta: (text: string) => void, retried = false): Promise<ChatResult> {
     const thinkKey = `${this.api.baseUrl}|${req.model}`;
     const thinking = noThink.has(thinkKey) ? {} : thinkingFields(req.think);
     let resp: Response;
@@ -86,12 +100,18 @@ export class OpenAiClient implements LlmClient {
         },
       });
     } catch (e: any) {
+      // HTTP 5xx before anything was streamed: once more. Ollama answers 500 when it cannot parse a tool call the model
+      // wrote ("XML syntax error … unexpected EOF"); a second sample usually comes out right.
+      if (!retried && e instanceof HttpError && e.status >= 500 && !req.signal?.aborted) {
+        await serverPause(req.signal);
+        return this.streamTurn(req, onDelta, true);
+      }
       // HTTP 400 about thinking/reasoning or the template fields: ask again without them. Other errors must not
       // switch thinking off for good.
       if (!Object.keys(thinking).length || !(e instanceof HttpError && e.status === 400)
         || !/think|reason|chat_template_kwargs/i.test(e.message)) throw e;
       noThink.add(thinkKey);
-      return this.streamTurn(req, onDelta);
+      return this.streamTurn(req, onDelta, retried);
     }
     let full = '';
     const calls = new ToolCallAccumulator();
