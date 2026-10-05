@@ -15,7 +15,7 @@ DOCKER=(docker)
 if ! docker info >/dev/null 2>&1; then DOCKER=(sudo docker); fi
 
 ./build.sh e2e
-"${DOCKER[@]}" build --progress=plain -t seekchat-e2e:latest e2e/
+"${DOCKER[@]}" build --progress=plain ${ZOTERO_VERSION:+--build-arg ZOTERO_VERSION="$ZOTERO_VERSION"} -t seekchat-e2e:latest e2e/
 mkdir -p e2e/out test/assets
 
 # Optional live scenarios against a real model server, e.g.

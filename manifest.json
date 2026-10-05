@@ -4,6 +4,7 @@
   "version": "0.0.0",
   "description": "Chat with your PDFs in Zotero using a self-hosted LLM (Ollama or OpenAI-compatible).",
   "author": "ILS",
+  "homepage_url": "https://gitlab.com/ils-research/zotero-plugins/seekchat-zotero",
   "icons": {
     "48": "content/icons/seekchat.svg",
     "96": "content/icons/seekchat.svg"
@@ -11,7 +12,7 @@
   "applications": {
     "zotero": {
       "id": "seekchat@ils-forschung.de",
-      "update_url": "https://zotero.ils.local/downloads/seekchat/updates.json",
+      "update_url": "https://gitlab.com/ils-research/zotero-plugins/seekchat-zotero/-/raw/master/updates.json",
       "strict_min_version": "7.0",
       "strict_max_version": "10.0.*"
     }

@@ -21,9 +21,11 @@ for (const dir of ['content', 'locale']) {
 for (const file of ['bootstrap.js', 'prefs.js']) {
   fs.copyFileSync(path.join(root, file), path.join(buildDir, file));
 }
-// package.json is the single source of the version
+// package.json is the single source of the version. Pre-releases are semver there (1.0.0-rc.1) and take Mozilla's
+// form in the XPI (1.0.0rc1, sorts before 1.0.0).
+const version = pkg.version.replace(/-([a-z]+)\.?(\d+)$/, '$1$2');
 const manifest = JSON.parse(fs.readFileSync(path.join(root, 'manifest.json'), 'utf8'));
-manifest.version = pkg.version;
+manifest.version = version;
 if (e2e) manifest.name += ' (E2E)';
 fs.writeFileSync(path.join(buildDir, 'manifest.json'), JSON.stringify(manifest, null, 2));
 
@@ -40,7 +42,7 @@ await esbuild.build({
 if (pack) {
   const distDir = path.join(root, 'dist');
   fs.mkdirSync(distDir, { recursive: true });
-  const xpi = path.join(distDir, `seekchat-${pkg.version}${e2e ? '-e2e' : ''}.xpi`);
+  const xpi = path.join(distDir, `seekchat-${version}${e2e ? '-e2e' : ''}.xpi`);
   fs.rmSync(xpi, { force: true });
   execFileSync('zip', ['-qr', xpi, '.'], { cwd: buildDir, stdio: 'inherit' });
   console.log(`Packed ${path.relative(root, xpi)}`);

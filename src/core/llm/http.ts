@@ -1,5 +1,5 @@
 import { assertAllowedUrl, assertSecureTransport } from '../host-guard';
-import { prepareTls } from '../tls';
+import { forgetServer, prepareTls } from '../tls';
 import { getFetch, newTextDecoder } from '../../util/env';
 import { LineBuffer } from './stream-parsers';
 import type { ClientConfig } from './types';
@@ -29,7 +29,7 @@ export async function request(
 ): Promise<Response> {
   const url = assertAllowedUrl(joinUrl(cfg.baseUrl, path), cfg.allowedRemoteHosts);
   assertSecureTransport(url, cfg.apiKey);
-  if (typeof Zotero !== 'undefined') await prepareTls(url, !!cfg.allowInvalidCerts);
+  if (typeof Zotero !== 'undefined') await prepareTls(url);
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
   if (cfg.apiKey) headers['Authorization'] = `Bearer ${cfg.apiKey}`;
   let resp: Response;
@@ -43,8 +43,10 @@ export async function request(
     });
   } catch (e: any) {
     // fetch rejects with a bare TypeError for DNS, refused connections and TLS problems.
-    if (init.signal?.aborted || url.protocol !== 'https:' || cfg.allowInvalidCerts) throw e;
-    throw new Error(`${e?.message || e} (invalid certificate? see "Accept invalid certificate" in the SeekChat settings)`);
+    if (init.signal?.aborted || url.protocol !== 'https:') throw e;
+    // The certificate may have changed since the check: check again next time.
+    if (typeof Zotero !== 'undefined') forgetServer(url.hostname, Number(url.port) || 443);
+    throw new Error(`${e?.message || e} (certificate problem? see "Certificates" in the SeekChat settings)`);
   }
   if (!resp.ok) {
     let detail = '';

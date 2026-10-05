@@ -1,5 +1,25 @@
 # Changelog
 
+## 1.0.0-rc.1 – 2026-10-05 (XPI version 1.0.0rc1)
+
+- **Certificates:** when a chat server is entered in the settings (server URL or allowed hosts changed, or "Check
+  certificate" clicked), SeekChat checks its https certificate. If the system does not trust it, a dialog shows the
+  certificate (subject, issuer, validity, SHA-256, reason; "Show certificate" with the PEM) and asks: trust or not
+  trust. The decisions and the certificates themselves (DER) are listed under "Certificates" in the settings, where each
+  can be switched between trusted and not trusted, shown, copied as PEM or removed.
+- Only a trusted certificate with exactly this fingerprint is accepted for its host and port (pinning); a new
+  certificate on the same server is refused until it is decided. Before, "Accept invalid certificate" accepted
+  whatever certificate the server showed first.
+- The old setting "Accept invalid certificate" is gone: who had it on gets the server's current certificate entered as
+  trusted once (visible in the list).
+- **Homepage and updates on gitlab.com:** the plugin's metadata link to
+  https://gitlab.com/ils-research/zotero-plugins/seekchat-zotero, and updates now come from the releases there
+  (`update_url` → `updates.json` in that repository; `scripts/publish-gitlab.py` makes a release). The portal still
+  offers the download and updates installations from before this version.
+- Pre-releases: `package.json` holds semver (`1.0.0-rc.1`), the XPI Mozilla's form (`1.0.0rc1`, before `1.0.0`);
+  `scripts/publish.py` sorts them so. E2E: the mock also serves https with a self-signed certificate;
+  `ZOTERO_VERSION=… ./e2e/run.sh` picks the Zotero version.
+
 ## 0.26.0 – 2026-10-05
 
 - **Warning for a small context window:** below 16,384 tokens (Ollama: loaded model, else Modelfile `num_ctx`, else the

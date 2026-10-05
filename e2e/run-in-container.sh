@@ -62,6 +62,11 @@ user_pref("extensions.zotero.seekchat.e2e.liveApiKey", "$(printf '%s' "${E2E_LIV
 PREFS
 fi
 
+# Self-signed certificate for the mock's https port (scenario "certificates"): never trusted by the system.
+mkdir -p /tmp/e2e-tls
+openssl req -x509 -newkey rsa:2048 -nodes -days 2 -subj "/CN=seekchat-e2e" \
+  -keyout /tmp/e2e-tls/key.pem -out /tmp/e2e-tls/cert.pem > /dev/null 2>&1 || echo "E2E: no openssl, https mock off" >&2
+
 node /e2e/mock-llm.mjs > /out/mock-llm.log 2>&1 &
 
 timeout "${E2E_TIMEOUT:-240}" xvfb-run -a -s "-screen 0 1600x1000x24" \

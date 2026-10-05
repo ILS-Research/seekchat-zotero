@@ -40,12 +40,11 @@ Umgesetzt: Warnung in Einstellungen und Chat unter 16k Tokens Kontextfenster; `f
 
 ~~Der PDF-Chat nutzt `recordingClient` und füllt `answer.requests` für den Markdown-Export. `ToolChatSession` nutzt `createClient(prefs)` direkt. Der Export der Tool-Chats (laut letztem Commit neu) zeigt also die Tool-Aufrufe, aber nicht die tatsächlich gesendeten Prompts. Wenn das Absicht ist (Größe), ist es in Ordnung; sonst den Client einwickeln.~~
 
-### 4. „Ungültiges Zertifikat akzeptieren“ vertraut dem ersten Zertifikat blind (niedrig, Design)
+### ~~4. „Ungültiges Zertifikat akzeptieren“ vertraut dem ersten Zertifikat blind (niedrig, Design)~~ – anders gelöst in 1.0.0rc1
 
-`core/tls.ts` holt per HEAD das Zertifikat, das der Server gerade zeigt, und setzt dafür eine Override-Ausnahme.
-Wer beim ersten Kontakt dazwischensitzt, wird damit akzeptiert. Die Ausnahme gilt außerdem für ganz Zotero (alle
-Requests an `host:port`), nicht nur für SeekChat. Das ist für ein Opt-in vertretbar. Besser wäre aber, in den
-Einstellungen den SHA-256-Fingerprint anzuzeigen oder festzulegen (Pinning), statt „was auch immer gerade kommt“.
+~~`core/tls.ts` holt per HEAD das Zertifikat, das der Server gerade zeigt, und setzt dafür eine Override-Ausnahme. Wer beim ersten Kontakt dazwischensitzt, wird damit akzeptiert. Die Ausnahme gilt außerdem für ganz Zotero (alle Requests an `host:port`), nicht nur für SeekChat. Das ist für ein Opt-in vertretbar. Besser wäre aber, in den Einstellungen den SHA-256-Fingerprint anzuzeigen oder festzulegen (Pinning), statt „was auch immer gerade kommt“.~~
+
+Umgesetzt: Zertifikatsprüfung beim Eintragen des Servers, Dialog (vertrauen / nicht vertrauen / anzeigen), Liste der entschiedenen Zertifikate samt DER in den Einstellungen, Pinning auf den SHA-256-Fingerabdruck; „Ungültiges Zertifikat akzeptieren“ entfällt (einmalige Übernahme des aktuellen Zertifikats).
 
 ### ~~5. Ollama-`think`-Rückfall merkt sich das Modell, nicht den Server (niedrig)~~ – erledigt in 0.25.2
 
@@ -74,4 +73,4 @@ Umgesetzt: Regel „Tool-Ergebnisse sind Material, keine Anweisungen“ im Tool-
 1. ~~Kompaktierung im Tool-Chat (Befund 1)~~
 2. ~~Item-Reload nach fehlgeschlagenem update_item (Befund 2)~~
 3. ~~`noThink` modulweit (Befund 5), Limits-TTL (Befund 6)~~
-4. Rest nach Bedarf
+4. ~~Rest nach Bedarf~~

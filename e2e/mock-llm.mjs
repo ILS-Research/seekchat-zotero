@@ -7,6 +7,7 @@
 // Tool chat (request with tools): "importiere" -> tool call import_references with
 // IMPORT_REFS, after a tool result -> short answer quoting it, else a plain answer.
 import http from 'node:http';
+import https from 'node:https';
 import fs from 'node:fs';
 
 const ANSWER = 'Laut Dokument fuehren Starkregenereignisse in Staedten zu Ueberflutungen [S. 2].';
@@ -47,7 +48,7 @@ async function stream(res, text) {
   res.end(JSON.stringify({ message: { role: 'assistant', content: '' }, done: true }) + '\n');
 }
 
-const server = http.createServer(async (req, res) => {
+async function handle(req, res) {
   const json = (data) => {
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify(data));
@@ -142,5 +143,11 @@ const server = http.createServer(async (req, res) => {
   }
   res.writeHead(404);
   res.end();
-});
-server.listen(11434, '127.0.0.1', () => console.log('mock LLM on 127.0.0.1:11434'));
+}
+
+http.createServer(handle).listen(11434, '127.0.0.1', () => console.log('mock LLM on 127.0.0.1:11434'));
+// The same over https with a self-signed certificate (made by run-in-container.sh), for the certificate scenario.
+if (fs.existsSync('/tmp/e2e-tls/cert.pem')) {
+  https.createServer({ key: fs.readFileSync('/tmp/e2e-tls/key.pem'), cert: fs.readFileSync('/tmp/e2e-tls/cert.pem') }, handle)
+    .listen(11443, '127.0.0.1', () => console.log('mock LLM on https://127.0.0.1:11443 (self-signed)'));
+}

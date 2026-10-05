@@ -2,7 +2,9 @@
 import { clearLimitsCache, contextWarning, resolveLimits } from '../core/limits';
 import { formatCount } from '../core/context/fit';
 import { createClient } from '../core/llm';
-import { parseAllowedHosts } from '../core/host-guard';
+import { assertAllowedUrl, parseAllowedHosts } from '../core/host-guard';
+import { findCert, probeCertificate, readCerts, removeCert, toPem, upsertCert, writeCerts, type CertInfo } from '../core/certs';
+import { decideCertificate, forgetServer } from '../core/tls';
 import { defaultSystemPrompt } from '../core/prompt';
 import { t, type Key } from '../i18n';
 import { getPref, readPrefs, setPref } from '../prefs';
@@ -29,7 +31,11 @@ export function onPrefsLoad(win: Window): void {
     const input = $<HTMLInputElement>(key);
     if (!input) continue;
     input.value = String(getPref(key) ?? '');
-    input.addEventListener('change', () => setPref(key, input.value.trim()));
+    input.addEventListener('change', () => {
+      setPref(key, input.value.trim());
+      // A new server: check its certificate (asks when the system does not trust it).
+      if (key === 'baseUrl') void certs.check('change');
+    });
   }
   for (const key of INT_PREFS) {
     const input = $<HTMLInputElement>(key);
@@ -41,14 +47,7 @@ export function onPrefsLoad(win: Window): void {
     });
   }
 
-  const invalidCerts = $<HTMLInputElement>('allowInvalidCerts');
-  if (invalidCerts) {
-    invalidCerts.checked = getPref('allowInvalidCerts') === true;
-    invalidCerts.addEventListener('change', () => {
-      setPref('allowInvalidCerts', invalidCerts.checked);
-      clearLimitsCache();
-    });
-  }
+  const certs = certificatesUi(win, $);
 
   const thinking = $<HTMLInputElement>('thinking');
   if (thinking) {
@@ -81,6 +80,7 @@ export function onPrefsLoad(win: Window): void {
       setPref('allowedRemoteHosts', parsed.join(','));
       hosts.value = parsed.join(', ');
       showHosts(parsed);
+      void certs.check('change');
     });
   }
 
@@ -148,4 +148,149 @@ export function onPrefsLoad(win: Window): void {
       setStatus(t('common.error', { message: String(e?.message || e) }));
     }
   });
+}
+
+/** What started a certificate check. */
+type CheckTrigger = 'load' | 'change' | 'button';
+
+type Lookup = <T extends HTMLElement>(id: string) => T | null;
+
+/** Details of a certificate, one per line (dialog, list). */
+function certDetails(c: CertInfo): string {
+  return t('prefs.certDetails', {
+    subject: c.subject || c.commonName || '–', issuer: c.issuer || '–', from: c.notBefore || '?', to: c.notAfter || '?', sha: c.sha256,
+  });
+}
+
+/**
+ * The certificate part of the settings: "Check certificate" next to the server, the dialog for a certificate the
+ * system does not trust (trust, do not trust, show it), and the list of decided certificates.
+ */
+function certificatesUi(win: Window, $: Lookup): { check(trigger: CheckTrigger): Promise<void> } {
+  const doc = win.document;
+  const services: any = (win as any).Services ?? Services;
+  const status = $('cert-status');
+  const setStatus = (text: string) => { if (status) status.textContent = text; };
+  const html = (tag: string, cls?: string, text?: string) => {
+    const e = doc.createElementNS('http://www.w3.org/1999/xhtml', tag) as HTMLElement;
+    if (cls) e.className = cls;
+    if (text !== undefined) e.textContent = text;
+    return e;
+  };
+
+  const show = (c: CertInfo) => services.prompt.alert(win, t('prefs.certShowTitle', { host: `${c.host}:${c.port}` }),
+    `${certDetails(c)}\n\n${c.der ? toPem(c.der) : ''}`);
+
+  /** The dialog: true = trust, false = do not trust. "Show certificate" shows it and asks again. */
+  const ask = (c: CertInfo): boolean => {
+    const p = services.prompt;
+    const flags = p.BUTTON_POS_0 * p.BUTTON_TITLE_IS_STRING + p.BUTTON_POS_1 * p.BUTTON_TITLE_IS_STRING
+      + p.BUTTON_POS_2 * p.BUTTON_TITLE_IS_STRING + p.BUTTON_POS_1_DEFAULT;
+    for (;;) {
+      const button = p.confirmEx(win, t('prefs.certDialogTitle'), t('prefs.certDialogText', {
+        host: `${c.host}:${c.port}`, reason: c.error ? t('prefs.certReason', { error: c.error }) : '', details: certDetails(c),
+      }), flags, t('prefs.certTrust'), t('prefs.certDistrust'), t('prefs.certShow'), null, {});
+      if (button === 2) {
+        show(c);
+        continue;
+      }
+      return button === 0;
+    }
+  };
+
+  const render = () => {
+    const box = $('certs');
+    if (!box) return;
+    const list = readCerts();
+    if (!list.length) {
+      box.replaceChildren(html('p', 'help', t('prefs.certsNone')));
+      return;
+    }
+    box.replaceChildren(...list.map((c) => {
+      const row = html('div', `cert ${c.trusted ? 'trusted' : 'untrusted'}`);
+      const head = html('div', 'cert-head');
+      const select = html('select') as HTMLSelectElement;
+      for (const [value, label] of [['yes', t('prefs.certTrustedOpt')], ['no', t('prefs.certUntrustedOpt')]]) {
+        const o = html('option', undefined, label) as HTMLOptionElement;
+        o.value = value;
+        select.append(o);
+      }
+      select.value = c.trusted ? 'yes' : 'no';
+      select.addEventListener('change', () => {
+        writeCerts(upsertCert(readCerts(), c, select.value === 'yes'));
+        forgetServer(c.host, c.port);
+        render();
+      });
+      const view = html('button', undefined, t('prefs.certShow'));
+      view.addEventListener('click', () => show(c));
+      const copy = html('button', undefined, t('prefs.certCopy'));
+      copy.addEventListener('click', () => Zotero.Utilities.Internal.copyTextToClipboard(toPem(c.der)));
+      const remove = html('button', undefined, t('prefs.certRemove'));
+      remove.addEventListener('click', () => {
+        writeCerts(removeCert(readCerts(), c));
+        forgetServer(c.host, c.port);
+        render();
+      });
+      head.append(html('span', 'cert-name', `${c.host}:${c.port} – ${c.commonName || c.subject}`), select, view, copy, remove);
+      row.append(head, html('div', 'cert-details', certDetails(c)));
+      return row;
+    }));
+  };
+
+  /**
+   * Checks the configured server. An unknown certificate opens the dialog when the server was just entered or the
+   * button was clicked (on opening the settings only the status line tells); the button also asks again about a
+   * certificate decided before.
+   */
+  const check = async (trigger: CheckTrigger) => {
+    const interactive = trigger === 'button';
+    const raw = String(getPref('baseUrl') || '').trim();
+    let u: URL;
+    try {
+      u = new URL(raw);
+    } catch {
+      setStatus('');
+      return;
+    }
+    if (u.protocol !== 'https:') {
+      setStatus(interactive ? t('prefs.certNotHttps') : '');
+      return;
+    }
+    try {
+      assertAllowedUrl(u.href, parseAllowedHosts(getPref('allowedRemoteHosts')));
+    } catch {
+      // The certificate check itself contacts the server: only allowed hosts.
+      setStatus(t('prefs.certHostNotAllowed'));
+      return;
+    }
+    setStatus(t('prefs.certChecking'));
+    const probe = await probeCertificate(u);
+    if (probe.state === 'valid') {
+      setStatus(t('prefs.certValid'));
+      return;
+    }
+    if (probe.state === 'unreachable') {
+      setStatus(t('prefs.certUnreachable'));
+      return;
+    }
+    const known = findCert(readCerts(), probe.info);
+    if (known && !interactive) {
+      setStatus(t(known.trusted ? 'prefs.certTrusted' : 'prefs.certRefusedStatus'));
+      return;
+    }
+    if (trigger === 'load') {
+      setStatus(t('prefs.certUnknownStatus'));
+      return;
+    }
+    const trusted = ask(probe.info);
+    decideCertificate(probe.info, probe.cert, trusted);
+    clearLimitsCache();
+    setStatus(t(trusted ? 'prefs.certTrusted' : 'prefs.certRefusedStatus'));
+    render();
+  };
+
+  $('cert-check')?.addEventListener('click', () => void check('button'));
+  render();
+  void check('load');
+  return { check };
 }

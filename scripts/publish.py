@@ -5,10 +5,11 @@
 
 Copies dist/seekchat-<version>.xpi (version from package.json) to <downloads-dir>/seekchat/ and
 regenerates updates.json there from all seekchat-*.xpi in that directory, so installed plugins
-update themselves. The download URL is derived from update_url in manifest.json, which must point
-to <portal>/downloads/seekchat/updates.json.
+update themselves (installations that came from the portal before 1.0.0rc1). Download links point to
+the portal (PORTAL_BASE); the update_url in manifest.json points to gitlab.com (scripts/publish-gitlab.py).
 """
 import json
+import os
 import re
 import shutil
 import sys
@@ -22,12 +23,10 @@ pkg = json.loads((root / 'package.json').read_text())
 manifest = json.loads((root / 'manifest.json').read_text())
 zotero = manifest['applications']['zotero']
 addon_id = zotero['id']
-update_url = zotero['update_url']
-if not update_url.endswith('/updates.json'):
-    sys.exit(f'update_url must end with /updates.json: {update_url}')
-base_url = update_url[: -len('updates.json')]
+base_url = os.environ.get('PORTAL_BASE', 'https://zotero.ils.local/downloads/seekchat/')
 
-version = pkg['version']
+# Pre-releases: semver in package.json (1.0.0-rc.1), Mozilla's form in the XPI (1.0.0rc1), as in build.mjs.
+version = re.sub(r'-([a-z]+)\.?(\d+)$', r'\1\2', pkg['version'])
 xpi = root / 'dist' / f'seekchat-{version}.xpi'
 if not xpi.is_file():
     sys.exit(f'{xpi} missing, run ./build.sh first')
@@ -39,11 +38,14 @@ shutil.copy2(xpi, target / xpi.name)
 
 
 def version_key(v):
-    return [int(x) for x in v.split('.')]
+    """1.0.0rc1 < 1.0.0 < 1.0.1 (Mozilla order for these forms)."""
+    m = re.fullmatch(r'([\d.]+?)(?:([a-z]+)(\d+))?', v)
+    nums = [int(x) for x in m.group(1).split('.')] + [0] * 4
+    return (nums[:4], 0 if m.group(2) else 1, int(m.group(3) or 0))
 
 
 versions = sorted(
-    (m.group(1) for f in target.glob('seekchat-*.xpi') if (m := re.fullmatch(r'seekchat-(\d+(?:\.\d+)+)\.xpi', f.name))),
+    (m.group(1) for f in target.glob('seekchat-*.xpi') if (m := re.fullmatch(r'seekchat-(\d+(?:\.\d+)+(?:[a-z]+\d+)?)\.xpi', f.name))),
     key=version_key,
 )
 updates = {

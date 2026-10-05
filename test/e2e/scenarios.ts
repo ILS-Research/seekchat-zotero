@@ -31,6 +31,9 @@ import { docKind } from '../../src/core/context/document';
 import { assert, delay, screenshot, SkipError, waitFor, type E2EContext } from './harness';
 import { noteText } from '../../src/core/context/notes';
 import type { ToolRun, Turn } from '../../src/core/turn';
+import { probeCertificate, readCerts, upsertCert, writeCerts } from '../../src/core/certs';
+import { decideCertificate, forgetServer, resetTlsChecks } from '../../src/core/tls';
+import { getPref } from '../../src/prefs';
 
 type Scenario = [string, (ctx: E2EContext) => Promise<void>];
 
@@ -2188,6 +2191,52 @@ export const scenarios: Scenario[] = [
     }
     const updates = Object.values<any>(json.addons)[0].updates;
     assert(updates.length && updates[updates.length - 1].update_link.startsWith('https://zotero.ils.local/'), JSON.stringify(json).slice(0, 200));
+  }],
+
+  ['certificates: a self-signed server is refused until trusted, pinned, refused again when not trusted', async () => {
+    const url = 'https://127.0.0.1:11443';
+    const probe = await probeCertificate(new URL(url));
+    if (probe.state === 'unreachable') throw new SkipError('no https mock in this image');
+    assert(probe.state === 'invalid', `probe: ${probe.state}`);
+    const info = probe.info;
+    assert(/^([0-9A-F]{2}:){31}[0-9A-F]{2}$/.test(info.sha256) && info.der.length > 500 && info.commonName === 'seekchat-e2e',
+      JSON.stringify({ ...info, der: info.der.length }));
+    const saved = { baseUrl: String(getPref('baseUrl') || ''), certs: String(getPref('certificates') || '') };
+    const models = async () => {
+      try {
+        return (await createClient(readPrefs()).listModels()).join(',');
+      } catch (e: any) {
+        return `error: ${e?.message || e}`;
+      }
+    };
+    setPref('baseUrl', url);
+    writeCerts([]);
+    resetTlsChecks();
+    try {
+      let out = await models();
+      assert(/noch nicht entschieden|not decided/.test(out), `unknown certificate: ${out}`);
+      decideCertificate(info, probe.cert, true);
+      out = await models();
+      assert(out.includes('mock-model'), `trusted: ${out}`);
+      const stored = readCerts();
+      assert(stored.length === 1 && stored[0].trusted && stored[0].der === info.der && stored[0].sha256 === info.sha256, JSON.stringify(stored).slice(0, 300));
+      // Switched to "not trusted" in the list: the exception is taken back, requests are refused.
+      writeCerts(upsertCert(readCerts(), info, false));
+      forgetServer('127.0.0.1', 11443);
+      out = await models();
+      assert(/nicht vertrauen|not trusted/.test(out), `not trusted: ${out}`);
+      // Old setting "Accept invalid certificate": the current certificate is entered as trusted once.
+      writeCerts([]);
+      forgetServer('127.0.0.1', 11443);
+      setPref('allowInvalidCerts', true);
+      out = await models();
+      assert(out.includes('mock-model') && getPref('allowInvalidCerts') === false && readCerts()[0]?.trusted === true, `migration: ${out}`);
+    } finally {
+      setPref('baseUrl', saved.baseUrl);
+      setPref('certificates', saved.certs);
+      setPref('allowInvalidCerts', false);
+      forgetServer('127.0.0.1', 11443);
+    }
   }],
 
   ['logging reaches the Browser Console ([SeekChat:<module>] [INFO])', async () => {

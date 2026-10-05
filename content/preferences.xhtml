@@ -14,6 +14,11 @@
   #seekchat-preferences .tab.selected { border-color: var(--fill-quinary); background: var(--material-background, Field); font-weight: 600; }
   #seekchat-preferences .tabpanel { padding: 8px 0 0; }
   #seekchat-preferences .tabpanel[hidden] { display: none; }
+  #seekchat-preferences .cert { max-width: 640px; border: 1px solid var(--fill-quinary); border-radius: 4px; padding: 6px 8px; margin: 0 0 6px 0; }
+  #seekchat-preferences .cert .cert-head { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  #seekchat-preferences .cert .cert-name { font-weight: 600; flex: 1; }
+  #seekchat-preferences .cert .cert-details { font-size: 11px; color: var(--fill-secondary); white-space: pre-wrap; word-break: break-all; margin-top: 4px; }
+  #seekchat-preferences .cert.untrusted .cert-name { text-decoration: line-through; }
 </html:style>
 
 <groupbox>
@@ -29,7 +34,7 @@
     <html:label for="seekchat-apiKey" data-i18n="prefs.apiKey">API key (optional):</html:label>
     <html:input type="password" id="seekchat-apiKey"/>
     <html:span/>
-    <html:label><html:input type="checkbox" id="seekchat-allowInvalidCerts"/> <html:span data-i18n="prefs.allowInvalidCerts">Accept invalid certificate</html:span></html:label>
+    <html:div><html:button id="seekchat-cert-check" data-i18n="prefs.certCheck">Check certificate</html:button> <html:span id="seekchat-cert-status" class="help"/></html:div>
     <html:span/>
     <html:div><html:button id="seekchat-test" data-i18n="prefs.test">Test connection</html:button> <html:span id="seekchat-status" class="help"/></html:div>
     <html:label for="seekchat-model" data-i18n="prefs.model">Chat model:</html:label>
@@ -46,6 +51,12 @@
       <html:input type="text" id="seekchat-allowedRemoteHosts" placeholder="ollama.example.local"/>
     </html:div>
     <html:p id="seekchat-remote-status" class="help"/>
+  </html:div>
+
+  <html:div class="certs">
+    <html:p style="margin: 10px 0 4px 0;"><html:b data-i18n="prefs.certsTitle">Certificates</html:b></html:p>
+    <html:p class="help" data-i18n="prefs.certsHelp">Certificates the system does not trust, with your decision.</html:p>
+    <html:div id="seekchat-certs"/>
   </html:div>
 </groupbox>
 

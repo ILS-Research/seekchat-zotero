@@ -31,6 +31,7 @@ pref("extensions.zotero.seekchat.allowedRemoteHosts", "");
 // With an API key, remote servers must use https. For a self-signed or otherwise invalid certificate of such a
 // server, a certificate exception can be added for the session.
 pref("extensions.zotero.seekchat.allowInvalidCerts", false);
+pref("extensions.zotero.seekchat.certificates", "");
 // Library chat (needs ZotSeek): passages requested per question (1-100).
 pref("extensions.zotero.seekchat.libraryTopK", 30);
 // "auto": context window, answer length and text budget from the model (server info minus 20 %),
