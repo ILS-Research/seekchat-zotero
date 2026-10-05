@@ -65,3 +65,24 @@ test('export: the book list of a library answer is complete (state, language, se
   assert.match(md, /Bücher:\n\n- JIRA – 3 Abschnitte\n  - Dokumentsprache: Englisch \(vom Modell erkannt\)\n  - Suchbegriffe: bug report\n  - Gesendet 3 von 304 Seiten: S\. 1–2, 304\n- Anderes Buch – keine Stichworttreffer\n  - Dokumentsprache: Deutsch \(aus Metadaten\)\n  - Keine Suchbegriffe erhalten/);
   setLocale(null);
 });
+
+test('chat export: tool calls with result line and items before the answer', () => {
+  setLocale('de');
+  const md = chatToMarkdown([
+    { role: 'user', content: 'Importiere das.' },
+    {
+      role: 'assistant', content: 'Erledigt.',
+      toolRuns: [{
+        id: '1', name: 'import_references', title: '2 Literaturangaben importieren', state: 'done', status: '1 gespeichert',
+        items: [{ label: 'Muster 2021', badge: 'gespeichert', detail: 'Buch' }, { label: 'Web', url: 'https://x.org' }],
+      }],
+    },
+  ], { subject: 'Werkzeug-Chat (Meine Bibliothek)', model: '', date });
+  assert.equal(md, [
+    '# SeekChat – Werkzeug-Chat (Meine Bibliothek)', '', 'Exportiert am 28.09.2026, 14:05',
+    '', '## Frage 1', '', '> Importiere das.',
+    '', '**Werkzeug: 2 Literaturangaben importieren** – 1 gespeichert', '',
+    '- *gespeichert* Muster 2021 – Buch', '- [Web](https://x.org)',
+    '', 'Erledigt.',
+  ].join('\n') + '\n');
+});

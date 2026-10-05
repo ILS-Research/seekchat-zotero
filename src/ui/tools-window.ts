@@ -10,6 +10,7 @@ import { logError } from '../util/log';
 import { TurnListView } from './turn-view';
 import { t } from '../i18n';
 import { getPrefsPaneID } from './library-window';
+import { saveChat } from './save-chat';
 import { choiceAvailable, effectiveOption, isToolEnabled, isToolUsable, setToolEnabled, setToolOption, storedOption } from '../core/tools/settings';
 
 const HTML_NS = 'http://www.w3.org/1999/xhtml';
@@ -96,6 +97,7 @@ export class ToolsChatView {
   readonly input: HTMLTextAreaElement;
   private sendBtn: HTMLButtonElement;
   private clearBtn: HTMLButtonElement;
+  private saveBtn: HTMLButtonElement;
   private unsubscribe: () => void;
   private renderTimer: any = null;
   private turnList = new TurnListView();
@@ -126,10 +128,14 @@ export class ToolsChatView {
       Zotero.Utilities.Internal.openPreferences(getPrefsPaneID() || undefined);
     });
     const close = this.button(t('common.close'), () => this.win.close());
+    this.saveBtn = this.button(t('common.saveMdShort'), () => {
+      void saveChat(this.session, t('tools.subject', { target: this.target?.label || '' }), this.win);
+    });
+    this.saveBtn.className = 'seekchat-save';
     const inputRow = this.el('div', 'seekchat-library-row');
     inputRow.append(this.input, this.sendBtn);
     const footer = this.el('div', 'seekchat-library-footer');
-    footer.append(settings, this.el('span', 'spacer'), this.clearBtn, close);
+    footer.append(settings, this.saveBtn, this.el('span', 'spacer'), this.clearBtn, close);
     root.replaceChildren(
       row(t('tools.target'), this.targetEl),
       row(t('lib.model'), this.modelEl),
@@ -264,6 +270,7 @@ export class ToolsChatView {
     this.sendBtn.textContent = s.busy ? t('common.stop') : t('common.send');
     this.sendBtn.disabled = !s.busy && !this.target;
     this.clearBtn.disabled = s.turns.length === 0;
+    this.saveBtn.disabled = s.busy || s.turns.length === 0;
     const atBottom = this.messages.scrollHeight - this.messages.scrollTop - this.messages.clientHeight < 40;
     if (!s.turns.length) {
       this.turnList.reset();

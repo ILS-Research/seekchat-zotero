@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.25.0 – 2026-10-05
+
+- **Tool chat: "⤓ Chat as .md"** saves the whole tool chat as Markdown: questions, tool calls with their result line
+  and items (links kept), answers. The Markdown export of the other chats lists tool calls the same way.
+
 ## 0.24.6 – 2026-10-05
 
 - **Tutorial in the portal:** `scripts/publish-tutorial.py <downloads-dir>` publishes both notebooks as reveal.js slides

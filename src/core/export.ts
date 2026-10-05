@@ -3,7 +3,7 @@
  * section and the library chat window. Answers are already Markdown; the
  * library chat's sources are appended as a numbered list per answer.
  */
-import type { LlmRequestLog, Turn } from './turn';
+import type { LlmRequestLog, ToolRun, Turn } from './turn';
 import { currentLocale, t } from '../i18n';
 import { formatPageGroups, pageGroups } from './library/sources';
 import { bookDetails, bookStateText } from './book-report';
@@ -46,7 +46,8 @@ export function chatToMarkdown(turns: Turn[], info: ExportInfo): string {
       out.push('', `## ${t('export.question', { n })}`, '', quote(turn.content));
       continue;
     }
-    out.push('', turn.error ? `**${turn.content.trim()}**` : turn.content.trim());
+    if (turn.toolRuns?.length) out.push('', ...toolRunsToMarkdown(turn.toolRuns));
+    if (turn.content.trim()) out.push('', turn.error ? `**${turn.content.trim()}**` : turn.content.trim());
     if (turn.meta) out.push('', ...turn.meta.split('\n').map((l) => `*${l.trim()}*  `));
     if (turn.bookProgress?.length) {
       out.push('', t('export.books'), '');
@@ -66,6 +67,23 @@ export function chatToMarkdown(turns: Turn[], info: ExportInfo): string {
     if (turn.notice) out.push('', `*${turn.notice}*`);
   }
   return out.join('\n').trimEnd() + '\n';
+}
+
+/** The tool calls of one answer (tool chat): title and result line, then their items as a list. */
+export function toolRunsToMarkdown(runs: ToolRun[]): string[] {
+  const out: string[] = [];
+  for (const run of runs) {
+    if (out.length) out.push('');
+    out.push(`**${t('export.tool', { title: run.title })}**${run.status ? ` – ${run.status}` : ''}`);
+    if (run.items?.length) {
+      out.push('');
+      for (const item of run.items) {
+        const label = item.url ? `[${item.label}](${item.url})` : item.label;
+        out.push(`- ${item.badge ? `*${item.badge}* ` : ''}${label}${item.detail ? ` – ${item.detail}` : ''}`);
+      }
+    }
+  }
+  return out;
 }
 
 /** File name without characters Windows or macOS reject. */

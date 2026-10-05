@@ -3,7 +3,7 @@
  * writes the chat history as Markdown.
  */
 import { chatToMarkdown, exportFileName } from '../core/export';
-import type { ChatSession } from '../core/session';
+import type { Turn } from '../core/turn';
 import { readPrefs } from '../prefs';
 import { logError } from '../util/log';
 import { t } from '../i18n';
@@ -33,7 +33,7 @@ export async function withFeedback(btn: HTMLButtonElement, action: () => Promise
   }, 2000);
 }
 
-export async function saveChat(session: ChatSession, subject: string, win: any): Promise<void> {
+export async function saveChat(session: { turns: Turn[] }, subject: string, win: any): Promise<void> {
   try {
     const date = new Date();
     const text = chatToMarkdown(session.turns, { subject, model: readPrefs().model, date });
