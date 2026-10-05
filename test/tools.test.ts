@@ -2,9 +2,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { setLocale } from '../src/i18n';
 import {
-  ollamaMessages, openAiMessages, parseOllamaLine, parseSseLine, parseToolArguments, ToolCallAccumulator,
+  openAiMessages, parseSseLine, parseToolArguments, ToolCallAccumulator,
 } from '../src/core/llm/stream-parsers';
-import { OllamaClient } from '../src/core/llm/ollama-client';
 import { OpenAiClient } from '../src/core/llm/openai-client';
 import type { ChatRequest, ChatResult, LlmClient } from '../src/core/llm/types';
 import {
@@ -24,11 +23,6 @@ import { ZOTERO_DEPS } from '../src/core/tools/import-references/tool';
 setLocale('de');
 
 // --- stream parsers and wire formats ---
-
-test('Ollama line with tool calls: arguments as object, no id', () => {
-  const ev = parseOllamaLine(JSON.stringify({ message: { role: 'assistant', content: '', tool_calls: [{ function: { name: 'import_references', arguments: { references: [{ text: 'x' }] } } }] }, done: false }));
-  assert.deepEqual(ev?.toolCalls, [{ id: '', name: 'import_references', arguments: { references: [{ text: 'x' }] } }]);
-});
 
 test('OpenAI tool call fragments are joined per index', () => {
   const acc = new ToolCallAccumulator();
@@ -58,17 +52,12 @@ test('tool arguments: objects pass, JSON strings are parsed, garbage is kept raw
   assert.deepEqual(parseToolArguments('[1]'), { _raw: '[1]' });
 });
 
-test('messages with tool calls and results in both wire formats', () => {
+test('messages with tool calls and results in the OpenAI wire format', () => {
   const msgs = [
     { role: 'user' as const, content: 'q' },
     { role: 'assistant' as const, content: '', toolCalls: [{ id: 'c1', name: 't', arguments: { a: 1 } }] },
     { role: 'tool' as const, content: 'ok', toolCallId: 'c1', toolName: 't' },
   ];
-  assert.deepEqual(ollamaMessages(msgs), [
-    { role: 'user', content: 'q' },
-    { role: 'assistant', content: '', tool_calls: [{ function: { name: 't', arguments: { a: 1 } } }] },
-    { role: 'tool', content: 'ok', tool_name: 't' },
-  ]);
   assert.deepEqual(openAiMessages(msgs), [
     { role: 'user', content: 'q' },
     { role: 'assistant', content: null, tool_calls: [{ id: 'c1', type: 'function', function: { name: 't', arguments: '{"a":1}' } }] },
@@ -93,18 +82,19 @@ async function withFetch(body: string, fn: (calls: any[]) => Promise<void>): Pro
 const LOCAL = { baseUrl: 'http://127.0.0.1:11434', allowedRemoteHosts: [] };
 const TOOL = { name: 't', description: 'd', parameters: { type: 'object', properties: {} } };
 
-test('Ollama client sends tools and returns numbered tool calls', async () => {
+test('OpenAI client sends tools and returns the joined tool calls', async () => {
   const body = [
-    { message: { content: 'Ok. ' }, done: false },
-    { message: { content: '', tool_calls: [{ function: { name: 't', arguments: { a: 1 } } }] }, done: false },
-    { message: { content: '', tool_calls: [{ function: { name: 't', arguments: { a: 2 } } }] }, done: false },
-    { message: { content: '' }, done: true },
-  ].map((x) => JSON.stringify(x)).join('\n') + '\n';
+    { choices: [{ delta: { content: 'Ok. ' } }] },
+    { choices: [{ delta: { tool_calls: [{ index: 0, id: 'a', function: { name: 't', arguments: '{"a":1}' } }] } }] },
+    { choices: [{ delta: { tool_calls: [{ index: 1, function: { name: 't', arguments: '{"a":2}' } }] } }] },
+    { choices: [{ delta: {}, finish_reason: 'tool_calls' }] },
+  ].map((x) => `data: ${JSON.stringify(x)}\n\n`).join('');
   await withFetch(body, async (calls) => {
-    const out = await new OllamaClient(LOCAL).streamTurn({ model: 'm', messages: [{ role: 'user', content: 'q' }], temperature: 0, maxTokens: 10, tools: [TOOL] }, () => {});
+    const out = await new OpenAiClient(LOCAL).streamTurn({ model: 'm', messages: [{ role: 'user', content: 'q' }], temperature: 0, maxTokens: 10, tools: [TOOL] }, () => {});
     assert.equal(out.text, 'Ok. ');
-    assert.deepEqual(out.toolCalls.map((c) => [c.id, c.arguments.a]), [['call_0', 1], ['call_1', 2]]);
+    assert.deepEqual(out.toolCalls.map((c) => [c.id, c.arguments.a]), [['a', 1], ['call_1', 2]]);
     assert.deepEqual(calls[0].body.tools, [{ type: 'function', function: TOOL }]);
+    assert.equal(calls[0].url, 'http://127.0.0.1:11434/v1/chat/completions');
   });
 });
 

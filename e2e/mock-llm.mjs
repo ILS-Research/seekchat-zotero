@@ -1,5 +1,7 @@
-// Minimal Ollama stand-in for E2E tests: /api/tags, streaming /api/chat,
-// GET /__requests (all chat requests so far) and GET /__last.
+// Minimal stand-in for Ollama's OpenAI interface in E2E tests: /v1/models, streaming /v1/chat/completions (SSE),
+// read-only /api/show and /api/ps (the context window, as Ollama answers them), GET /__requests (all chat requests
+// so far, tool calls with parsed arguments and tool results with tool_name for the replies below) and GET /__last.
+// The native /api/chat is gone on purpose: SeekChat must never use it.
 // Replies by request kind (from the system prompt): language detection -> "de",
 // search terms -> JSON keyword list, library search plan -> JSON plan, pre-reading
 // a book -> the first page of the document as passage, library chat ("<sources>")
@@ -27,25 +29,50 @@ export const IMPORT_REFS = [
   },
 ];
 
+/** One SSE event of /v1/chat/completions. */
+function sse(res, data) {
+  res.write(`data: ${JSON.stringify(data)}\n\n`);
+}
+
 async function toolCall(res, name, args, text = 'Ich importiere die Quellen. ') {
   return toolCalls(res, [[name, args]], text);
 }
 
 /** Several tool calls in one answer, as real models do (e.g. six get_item at once). */
 async function toolCalls(res, calls, text = '') {
-  res.writeHead(200, { 'Content-Type': 'application/x-ndjson' });
-  if (text) res.write(JSON.stringify({ message: { role: 'assistant', content: text }, done: false }) + '\n');
-  res.write(JSON.stringify({ message: { role: 'assistant', content: '', tool_calls: calls.map(([name, args]) => ({ function: { name, arguments: args } })) }, done: false }) + '\n');
-  res.end(JSON.stringify({ message: { role: 'assistant', content: '' }, done: true }) + '\n');
+  res.writeHead(200, { 'Content-Type': 'text/event-stream' });
+  if (text) sse(res, { choices: [{ delta: { role: 'assistant', content: text } }] });
+  calls.forEach(([name, args], index) => sse(res, { choices: [{ delta: { tool_calls: [{ index, id: `call_${index}`, type: 'function', function: { name, arguments: JSON.stringify(args) } }] } }] }));
+  sse(res, { choices: [{ delta: {}, finish_reason: 'tool_calls' }] });
+  res.end('data: [DONE]\n\n');
 }
 
 async function stream(res, text) {
-  res.writeHead(200, { 'Content-Type': 'application/x-ndjson' });
+  res.writeHead(200, { 'Content-Type': 'text/event-stream' });
   for (const word of text.split(/(?<= )/)) {
-    res.write(JSON.stringify({ message: { role: 'assistant', content: word }, done: false }) + '\n');
+    sse(res, { choices: [{ delta: { content: word } }] });
     await new Promise((r) => setTimeout(r, 15));
   }
-  res.end(JSON.stringify({ message: { role: 'assistant', content: '' }, done: true }) + '\n');
+  sse(res, { choices: [{ delta: {}, finish_reason: 'stop' }] });
+  res.end('data: [DONE]\n\n');
+}
+
+/** The request as the replies below read it: tool call arguments as objects, tool results with their tool's name. */
+function normalized(body) {
+  const names = {};
+  const messages = (body.messages || []).map((m) => {
+    if (m.tool_calls) {
+      return { ...m, tool_calls: m.tool_calls.map((c) => {
+        names[c.id] = c.function?.name;
+        let args = c.function?.arguments;
+        try { args = JSON.parse(args); } catch { /* kept as text */ }
+        return { ...c, function: { ...c.function, arguments: args } };
+      }) };
+    }
+    if (m.role === 'tool') return { ...m, tool_name: names[m.tool_call_id] };
+    return m;
+  });
+  return { ...body, messages };
 }
 
 async function handle(req, res) {
@@ -53,7 +80,7 @@ async function handle(req, res) {
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify(data));
   };
-  if (req.method === 'GET' && req.url === '/api/tags') return json({ models: [{ name: 'mock-model' }] });
+  if (req.method === 'GET' && req.url === '/v1/models') return json({ object: 'list', data: [{ id: 'mock-model', object: 'model', owned_by: 'library' }] });
   // Like a Modelfile without num_ctx: only the model's maximum context (auto limits: 80 % of it).
   if (req.method === 'POST' && req.url === '/api/show') {
     return json({ parameters: 'temperature 1', model_info: { 'mock.context_length': 20480, 'mock.rope.scaling.original_context_length': 4096 } });
@@ -67,10 +94,10 @@ async function handle(req, res) {
   if (req.method === 'GET' && req.url === '/api/ps') return json({ models: [{ name: 'mock-model', model: 'mock-model', context_length: 20480 }] });
   if (req.method === 'GET' && req.url === '/__requests') return json(requests);
   if (req.method === 'GET' && req.url === '/__last') return json(requests[requests.length - 1] ?? null);
-  if (req.method === 'POST' && req.url === '/api/chat') {
+  if (req.method === 'POST' && req.url === '/v1/chat/completions') {
     let body = '';
     for await (const chunk of req) body += chunk;
-    const parsed = JSON.parse(body);
+    const parsed = normalized(JSON.parse(body));
     requests.push(parsed);
     const system = parsed.messages?.[0]?.content || '';
     const last = parsed.messages?.[parsed.messages.length - 1] || {};

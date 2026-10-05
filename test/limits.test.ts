@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { describeSource, limitsFromContext } from '../src/core/limits';
-import { parseOllamaPs, parseOllamaShow } from '../src/core/llm/ollama-client';
+import { parseOllamaPs, parseOllamaShow } from '../src/core/llm/ollama-probe';
 import { setLocale } from '../src/i18n';
 
 // The expectations below are the German UI texts; English is covered in i18n.test.ts.
@@ -31,9 +31,9 @@ test('OpenAI-compatible: configured context wins over the model maximum', () => 
 });
 
 test('Ollama: the window it really uses – loaded model, Modelfile, default; never the model maximum', () => {
-  assert.deepEqual(describeSource({ loadedContext: 65536, configuredContext: 131072, maxContext: 262144 }, 'ollama'), { context: 65536, detail: 'Kontext 65536 des geladenen Modells' });
-  assert.equal(describeSource({ configuredContext: 131072, maxContext: 262144 }, 'ollama').context, 131072);
-  assert.deepEqual(describeSource({ maxContext: 262144 }, 'ollama'), { context: 4096, detail: 'Kontext 4096 (Ollama-Standard, angenommen)' });
+  assert.deepEqual(describeSource({ ollama: true, loadedContext: 65536, configuredContext: 131072, maxContext: 262144 }), { context: 65536, detail: 'Kontext 65536 des geladenen Modells' });
+  assert.equal(describeSource({ ollama: true, configuredContext: 131072, maxContext: 262144 }).context, 131072);
+  assert.deepEqual(describeSource({ ollama: true, maxContext: 262144 }), { context: 4096, detail: 'Kontext 4096 (Ollama-Standard, angenommen)' });
 });
 
 test('ollama /api/ps: context_length of the model, with or without :latest', () => {

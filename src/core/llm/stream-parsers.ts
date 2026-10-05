@@ -5,9 +5,7 @@ export interface StreamEvent {
   delta?: string;
   done?: boolean;
   error?: string;
-  /** Ollama: complete tool calls (arguments as object). */
-  toolCalls?: ToolCall[];
-  /** OpenAI: fragments of tool calls, joined by ToolCallAccumulator. */
+  /** Fragments of tool calls, joined by ToolCallAccumulator. */
   toolDeltas?: ToolCallDelta[];
 }
 
@@ -51,17 +49,6 @@ export class ToolCallAccumulator {
 /** Tools in the `{ type: 'function', function }` form both APIs accept. */
 export function toolsPayload(tools: ToolSpec[] | undefined): object {
   return tools?.length ? { tools: tools.map((t) => ({ type: 'function', function: t })) } : {};
-}
-
-/** Messages for Ollama's /api/chat (tool calls with object arguments, tool results with tool_name). */
-export function ollamaMessages(messages: ChatMessage[]): object[] {
-  return messages.map((m) => {
-    if (m.role === 'tool') return { role: 'tool', content: m.content, ...(m.toolName ? { tool_name: m.toolName } : {}) };
-    if (m.toolCalls?.length) {
-      return { role: m.role, content: m.content, tool_calls: m.toolCalls.map((c) => ({ function: { name: c.name, arguments: c.arguments } })) };
-    }
-    return { role: m.role, content: m.content };
-  });
 }
 
 /** Messages for /chat/completions (tool calls with JSON string arguments, tool results with tool_call_id). */
@@ -124,34 +111,6 @@ export function parseSseLine(line: string): StreamEvent | null {
       name: c.function?.name || undefined,
       arguments: typeof c.function?.arguments === 'string' ? c.function.arguments
         : c.function?.arguments ? JSON.stringify(c.function.arguments) : undefined,
-    }));
-  }
-  return ev;
-}
-
-/** One line of Ollama's NDJSON /api/chat stream. */
-export function parseOllamaLine(line: string): StreamEvent | null {
-  const trimmed = line.trim();
-  if (!trimmed) return null;
-  let json: any;
-  try {
-    json = JSON.parse(trimmed);
-  } catch {
-    return null;
-  }
-  if (json.error) return { error: String(json.error) };
-  const delta = json.message?.content;
-  const calls = json.message?.tool_calls;
-  const ev: StreamEvent = {
-    delta: typeof delta === 'string' && delta ? delta : undefined,
-    done: json.done === true ? true : undefined,
-  };
-  if (Array.isArray(calls) && calls.length) {
-    ev.toolCalls = calls.filter((c: any) => c?.function?.name).map((c: any) => ({
-      // Ollama sends ids only in newer versions; the client numbers calls without one.
-      id: c.id ? String(c.id) : '',
-      name: String(c.function.name),
-      arguments: parseToolArguments(c.function.arguments),
     }));
   }
   return ev;

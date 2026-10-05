@@ -519,9 +519,6 @@ const EN = {
 
   // Settings pane
   'prefs.server': 'Chat server',
-  'prefs.provider': 'Interface:',
-  'prefs.providerOllama': 'Ollama (native, context window adjustable)',
-  'prefs.providerOpenai': 'OpenAI-compatible (/v1)',
   'prefs.baseUrl': 'Server URL:',
   'prefs.apiKey': 'API key (optional):',
   'prefs.certCheck': 'Check certificate',
@@ -555,8 +552,8 @@ const EN = {
     'entered: you decide whether to trust it (list "Certificates" below).',
   'prefs.test': 'Test connection',
   'prefs.model': 'Chat model:',
-  'prefs.serverHelp': 'Ollama: server root, e.g. https://ollama.example.local. OpenAI-compatible: base including /v1, ' +
-    'e.g. https://llm.example.local/v1. The API key is stored unencrypted in the Zotero settings.',
+  'prefs.serverHelp': 'Any server with an OpenAI-compatible interface (Ollama, vLLM, llama.cpp, LM Studio …): the server ' +
+    'root, e.g. https://ollama.example.local (SeekChat adds /v1), or the full base, e.g. https://llm.example.local/v1. The API key is stored unencrypted in the Zotero settings.',
   'prefs.remoteTitle': 'Allowed remote hosts (caution)',
   'prefs.remoteHelp': 'Without an entry SeekChat only talks to a server on this computer (127.0.0.1, localhost). ' +
     'Hosts listed here (comma-separated, without http:// and port, e.g. ollama.example.local) receive with every ' +
@@ -1110,9 +1107,6 @@ const DE: Record<Key, string> = {
   'limits.share': '{detail}, davon {percent} %',
 
   'prefs.server': 'Chat-Server',
-  'prefs.provider': 'Schnittstelle:',
-  'prefs.providerOllama': 'Ollama (nativ, Kontextfenster einstellbar)',
-  'prefs.providerOpenai': 'OpenAI-kompatibel (/v1)',
   'prefs.baseUrl': 'Server-URL:',
   'prefs.apiKey': 'API-Key (optional):',
   'prefs.certCheck': 'Zertifikat prüfen',
@@ -1146,8 +1140,8 @@ const DE: Record<Key, string> = {
     'Servers in einem Dialog: du entscheidest, ob du ihm vertraust (Liste „Zertifikate“ unten).',
   'prefs.test': 'Verbindung testen',
   'prefs.model': 'Chat-Modell:',
-  'prefs.serverHelp': 'Ollama: Server-Wurzel, z. B. https://ollama.example.local. OpenAI-kompatibel: Basis inkl. /v1, ' +
-    'z. B. https://llm.example.local/v1. Der API-Key wird unverschlüsselt in den Zotero-Einstellungen gespeichert.',
+  'prefs.serverHelp': 'Jeder Server mit OpenAI-kompatibler Schnittstelle (Ollama, vLLM, llama.cpp, LM Studio …): die ' +
+    'Server-Wurzel, z. B. https://ollama.example.local (SeekChat ergänzt /v1), oder die volle Basis, z. B. https://llm.example.local/v1. Der API-Key wird unverschlüsselt in den Zotero-Einstellungen gespeichert.',
   'prefs.remoteTitle': 'Erlaubte entfernte Hosts (Vorsicht)',
   'prefs.remoteHelp': 'Ohne Eintrag spricht SeekChat nur mit einem Server auf diesem Rechner (127.0.0.1, localhost). ' +
     'Hier eingetragene Hosts (kommagetrennt, ohne http:// und Port, z. B. ollama.example.local) erhalten bei jeder ' +

@@ -54,7 +54,7 @@ The speech bubble with a plus in the items toolbar (no ZotSeek needed) opens a *
 Zotero tools**: you ask in plain language, the model decides which tools to call, one after the other.
 
 > **Model requirement:** the tool chat needs a **strong open-weights model with good native tool calling**
-> (function calling through the Ollama or OpenAI API, not tool calls written as text). Small models call tools
+> (function calling through the OpenAI-compatible API, not tool calls written as text). Small models call tools
 > unreliably, invent arguments or stop half way. We use **`qwen3.8:27b`**, which needs **about 40 GB of RAM/VRAM**
 > on the model server. The PDF and library chats work with smaller models.
 
@@ -101,10 +101,11 @@ How it behaves:
 
 **Settings → SeekChat**
 
-1. Choose the interface: **Ollama** or **OpenAI-compatible**.
-2. Enter the server address and click **Verbindung testen** (test connection).
-3. Pick a chat model from the list.
-4. A server that is not on your own computer must be added under **Erlaubte entfernte Hosts** (allowed remote hosts)
+1. Enter the server address – the root of an Ollama server (e.g. `https://ollama.example.local`, SeekChat adds `/v1`)
+   or the full `/v1` base of any OpenAI-compatible server (vLLM, llama.cpp, LM Studio …) – and click
+   **Verbindung testen** (test connection).
+2. Pick a chat model from the list.
+3. A server that is not on your own computer must be added under **Erlaubte entfernte Hosts** (allowed remote hosts)
    – it then receives the PDF text and your questions.
 
 For the library chat also switch on Zotero’s local HTTP server (Settings → Advanced) and, in ZotSeek,
@@ -136,7 +137,10 @@ mirror; releases are published on both.
 - If the whole PDF fits into the budget (“PDF-Text pro Frage”) it is sent in full; otherwise page 1 plus the pages
   that best match the question (BM25; evenly spread pages for questions without terms).
 - `[S. N]` is the physical page number, not the printed label.
-- Ollama is called through `/api/chat` so `num_ctx` can be set (its `/v1` endpoint cannot).
+- The model server is used only through its OpenAI-compatible interface (`/v1/models`, `/v1/chat/completions`), so
+  Ollama, vLLM and other servers work alike. SeekChat never sends a context size; the text budget follows the window
+  the server reports (vLLM: `max_model_len` in `/v1/models`). Ollama does not report it there, so SeekChat asks its
+  native API read-only (`/api/ps`, `/api/show`) – the only Ollama-specific call.
 - Library chat: a planning call writes search queries (and page/document requests for follow-ups); ZotSeek
   (`/zotseek/search`) and SeekBook (`/seekbook/search`) are searched with them; books SeekBook has indexed are not
   read by keywords again; ZotSeek book passages that SeekBook covers are dropped. Everything is merged into
@@ -150,7 +154,7 @@ mirror; releases are published on both.
 
 | Path | Purpose |
 |---|---|
-| `src/core/llm/` | Model clients (Ollama, OpenAI-compatible), stream parsers, HTTP with host check, call logging |
+| `src/core/llm/` | OpenAI-compatible client, read-only Ollama window probe, stream parsers, HTTP with host check, call logging |
 | `src/core/host-guard.ts` | Loopback + explicit allow-list, same rules as the ILS ZotSeek fork |
 | `src/core/context/` | `ContextProvider` interface; `pdf-context.ts` (PDF pages), `page-selection.ts` |
 | `src/core/prompt.ts`, `citations.ts` | Prompt building, citation parsing |

@@ -1,18 +1,18 @@
 import { logger } from '../../util/log';
 import { parseAllowedHosts } from '../host-guard';
 import type { SeekChatPrefs } from '../../prefs';
-import { OllamaClient } from './ollama-client';
 import { OpenAiClient } from './openai-client';
 import type { LlmClient } from './types';
 
-export function createClient(prefs: Pick<SeekChatPrefs, 'provider' | 'baseUrl' | 'apiKey' | 'allowedRemoteHosts'>): LlmClient {
+/** The model server, always through its OpenAI-compatible interface (openai-client.ts). */
+export function createClient(prefs: Pick<SeekChatPrefs, 'baseUrl' | 'apiKey' | 'allowedRemoteHosts'>): LlmClient {
   if (!prefs.baseUrl) throw new Error('No chat server configured (SeekChat settings).');
   const cfg = {
     baseUrl: prefs.baseUrl,
     apiKey: prefs.apiKey || undefined,
     allowedRemoteHosts: parseAllowedHosts(prefs.allowedRemoteHosts),
   };
-  return logged(prefs.provider === 'openai' ? new OpenAiClient(cfg) : new OllamaClient(cfg));
+  return logged(new OpenAiClient(cfg));
 }
 
 const L = logger('LLM');

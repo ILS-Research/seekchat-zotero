@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.0.0-rc.2 – 2026-10-05 (XPI version 1.0.0rc2)
+
+- **Only the OpenAI-compatible interface:** chat, model list and tools go through `/v1/models` and
+  `/v1/chat/completions` for every server, so vLLM (and llama.cpp, LM Studio …) work like Ollama. The setting
+  "Interface" is gone: the server URL is the root of an Ollama server (SeekChat adds `/v1`) or the full `/v1` base.
+- **Context window:** taken from `/v1/models` (vLLM `max_model_len`); Ollama does not report it there, so SeekChat asks
+  its native API read-only (`/api/ps`, `/api/show`) – the only Ollama-specific call, ignored on other servers.
+  SeekChat still never sends a context size.
+- **Thinking switch** in the OpenAI form: `reasoning_effort: "none"` (Ollama) and
+  `chat_template_kwargs.enable_thinking` (vLLM/SGLang); a server that refuses them is asked without them.
+- README: the outdated note on `/api/chat` and `num_ctx` is corrected.
+
 ## 1.0.0-rc.1 – 2026-10-05 (XPI version 1.0.0rc1)
 
 - **Certificates:** when a chat server is entered in the settings (server URL or allowed hosts changed, or "Check

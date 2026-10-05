@@ -66,33 +66,6 @@ test('API key: https required for remote hosts, loopback may stay http', async (
   assert.doesNotThrow(() => assertSecureTransport(new URL('http://ollama.ils.local'), ''));
 });
 
-test('Ollama drops `think` only on HTTP 400 "does not support thinking"', async () => {
-  const { OllamaClient } = await import('../src/core/llm/ollama-client');
-  const ok = () => new Response('{"message":{"content":"hi"},"done":true}\n', { status: 200 });
-  const run = async (first: () => Response) => {
-    const bodies: any[] = [];
-    const orig = globalThis.fetch;
-    globalThis.fetch = (async (_u: string, init: any) => {
-      bodies.push(JSON.parse(init.body));
-      return bodies.length === 1 ? first() : ok();
-    }) as any;
-    try {
-      const c = new OllamaClient({ baseUrl: 'http://127.0.0.1:11434', allowedRemoteHosts: [] });
-      const req = { model: 'm', messages: [], temperature: 0, maxTokens: 10, think: true };
-      const out = await c.streamChat(req, () => {}).catch((e) => `ERR ${e.message}`);
-      return { out, bodies };
-    } finally {
-      globalThis.fetch = orig;
-    }
-  };
-  const a = await run(() => new Response('{"error":"\\"m\\" does not support thinking"}', { status: 400 }));
-  assert.equal(a.out, 'hi');
-  assert.equal('think' in a.bodies[1], false);
-  const b = await run(() => new Response('{"error":"model qwen3-thinking not found"}', { status: 404 }));
-  assert.match(String(b.out), /^ERR HTTP 404/);
-  assert.equal(b.bodies.length, 1, 'no retry');
-});
-
 test('noteText decodes numeric and named entities once', async () => {
   const { noteText, decodeEntities } = await import('../src/core/context/notes');
   assert.equal(noteText('<p>A&#8211;B &#x2014; &ndash; &auml;&nbsp;x</p><p>&amp;lt; &#39;q&#39; &foo;</p>'), 'A–B — – ä x\n&lt; \'q\' &foo;');

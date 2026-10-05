@@ -56,7 +56,6 @@ async function mockRequests(): Promise<any[]> {
 function useLiveServer(ctx: E2EContext): void {
   const url: string = Zotero.Prefs.get('seekchat.e2e.liveUrl') || '';
   if (!url) throw new SkipError('E2E_LIVE_URL not set');
-  setPref('provider', Zotero.Prefs.get('seekchat.e2e.liveProvider') || 'ollama');
   setPref('baseUrl', url);
   setPref('model', Zotero.Prefs.get('seekchat.e2e.liveModel') || '');
   setPref('apiKey', Zotero.Prefs.get('seekchat.e2e.liveApiKey') || '');
@@ -311,7 +310,6 @@ export const scenarios: Scenario[] = [
   }],
 
   ['chat session streams an answer from the model server', async (ctx) => {
-    setPref('provider', 'ollama');
     setPref('baseUrl', MOCK);
     setPref('model', 'mock-model');
     const session = getSession(new PdfContextProvider(ctx.attachment));
@@ -322,9 +320,9 @@ export const scenarios: Scenario[] = [
     assert(answer.meta?.includes('vollständiger Text'), `unexpected meta: ${answer.meta}`);
     const req = await mockLastRequest();
     assert(req.model === 'mock-model', 'wrong model sent');
-    // Auto limits from the mock's /api/ps (loaded window 20480): 80 % -> 16384, answer 1638, text -> 46000 chars.
-    // num_ctx is never sent: any other value than the loaded one makes Ollama reload the model.
-    assert(!('num_ctx' in (req.options || {})) && req.options?.num_predict === 1638, `auto limits not applied: ${JSON.stringify(req.options)}`);
+    // Auto limits from the mock's /api/ps (loaded window 20480; /v1/models reports none): 80 % -> 16384, answer 1638,
+    // text -> 46000 chars. Only the OpenAI interface: max_tokens, no Ollama options, never num_ctx.
+    assert(req.max_tokens === 1638 && !('options' in req) && !JSON.stringify(req).includes('num_ctx'), `auto limits not applied: ${JSON.stringify({ max_tokens: req.max_tokens, options: req.options })}`);
     assert(req.messages[0].content.includes('[Page 2]'), 'document pages missing in system prompt');
     session.clear();
   }],
@@ -1406,7 +1404,6 @@ export const scenarios: Scenario[] = [
   // otherwise the plugin's automatic update check fails.
   ['tool chat: button without ZotSeek, references imported after confirmation, duplicates offered unchecked', async (ctx) => {
     const win = Zotero.getMainWindow();
-    setPref('provider', 'ollama');
     setPref('baseUrl', MOCK);
     setPref('model', 'mock-model');
     const button = await waitFor('tools button', () => getToolsToolbarButton(), 5000);
@@ -1509,7 +1506,6 @@ export const scenarios: Scenario[] = [
   }],
 
   ['tool chat: tool list switches tools off; parser option uses zotero-reference only when installed', async (ctx) => {
-    setPref('provider', 'ollama');
     setPref('baseUrl', MOCK);
     setPref('model', 'mock-model');
     openToolsChat();
@@ -1594,7 +1590,6 @@ export const scenarios: Scenario[] = [
   }],
 
   ['documents: web page, EPUB and text file are chatted with like a PDF, without page citations', async (ctx) => {
-    setPref('provider', 'ollama');
     setPref('baseUrl', MOCK);
     setPref('model', 'mock-model');
     const win = Zotero.getMainWindow();
@@ -1660,7 +1655,6 @@ export const scenarios: Scenario[] = [
   }],
 
   ['tool chat: library tools search with Zotero, ZotSeek and SeekBook (as set), read items, selection, collections, tags', async (ctx) => {
-    setPref('provider', 'ollama');
     setPref('baseUrl', MOCK);
     setPref('model', 'mock-model');
     const win = Zotero.getMainWindow();
@@ -1856,7 +1850,6 @@ export const scenarios: Scenario[] = [
   }],
 
   ['tool chat: update_item changes type, fields and tags after confirmation (mapped fields kept, dropped ones reported); read_document reads pages; search pages with fields', async (ctx) => {
-    setPref('provider', 'ollama');
     setPref('baseUrl', MOCK);
     setPref('model', 'mock-model');
     const lib = Zotero.Libraries.userLibraryID;
@@ -1962,7 +1955,6 @@ export const scenarios: Scenario[] = [
   }],
 
   ['tool chat: tool calls sit in one closed block that opens only while the user is asked; create_note writes a child note after confirmation', async (ctx) => {
-    setPref('provider', 'ollama');
     setPref('baseUrl', MOCK);
     setPref('model', 'mock-model');
     const lib = Zotero.Libraries.userLibraryID;
@@ -2010,7 +2002,6 @@ export const scenarios: Scenario[] = [
   }],
 
   ['tool chat: subagent works through a collection in packages with read-only tools, returns only its result; its stop button keeps the results so far', async (ctx) => {
-    setPref('provider', 'ollama');
     setPref('baseUrl', MOCK);
     setPref('model', 'mock-model');
     const lib = Zotero.Libraries.userLibraryID;
@@ -2084,7 +2075,6 @@ export const scenarios: Scenario[] = [
   }],
 
   ['tool chat: patterns of real models – several calls per answer, two confirmations in a row, long subagent reading shortened, JSON with words around it, field names Zotero does not use', async (ctx) => {
-    setPref('provider', 'ollama');
     setPref('baseUrl', MOCK);
     setPref('model', 'mock-model');
     const lib = Zotero.Libraries.userLibraryID;
@@ -2170,10 +2160,10 @@ export const scenarios: Scenario[] = [
     }
   }],
 
-  ['no model request ever sets num_ctx (Ollama would reload the model)', async () => {
+  ['only the OpenAI interface: no request sets num_ctx or Ollama options (Ollama would reload the model)', async () => {
     const all = await mockRequests();
     assert(all.length > 10, `only ${all.length} requests`);
-    const withCtx = all.filter((r) => r.options && 'num_ctx' in r.options);
+    const withCtx = all.filter((r) => JSON.stringify(r).includes('num_ctx') || 'options' in r);
     assert(!withCtx.length, `${withCtx.length} of ${all.length} requests set num_ctx`);
   }],
 

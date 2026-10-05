@@ -1,7 +1,7 @@
 # SeekChat (Zotero plugin)
 
 Chat with a PDF (item pane section) and with the library via ZotSeek (own window, button next to
-ZotSeek's) in Zotero 7–10, using a self-hosted model (Ollama native API or any OpenAI-compatible server). Plan and status: `../ideas-zotseek.md` (German) — keep it updated
+ZotSeek's) in Zotero 7–10, using a self-hosted model through its OpenAI-compatible interface only (Ollama `/v1`, vLLM, …). Plan and status: `../ideas-zotseek.md` (German) — keep it updated
 when scope or decisions change. User-facing UI text is English with a German translation: every string goes through `t()` in `src/i18n.ts`
 (add the key to both tables); prompts to the model are English in code. Section header and context menu use Fluent (`locale/*.ftl`).
 
@@ -50,7 +50,7 @@ they use `docker` or fall back to `sudo docker`, and run containers with the cal
 | `src/index.ts` | Plugin object `Zotero.SeekChat`: window hooks (FTL + `content/chat.css`), section + pref pane registration |
 | `src/prefs.ts` | Typed prefs `extensions.zotero.seekchat.*` (defaults in `prefs.js`) |
 | `src/core/host-guard.ts`, `src/core/tls.ts` | Loopback + explicit allow-list for model hosts (same rules as `../zotseek-src` fork); with an API key https only (except loopback); "Accept invalid certificate" = session cert override (copy of SeekBook's `tls.ts`) |
-| `src/core/llm/` | `OllamaClient` (`/api/chat`, sets `num_ctx`), `OpenAiClient` (`/chat/completions`), stream parsers, HTTP with host check and `redirect: 'error'` |
+| `src/core/llm/` | `OpenAiClient` (the only client: `/v1/models`, `/v1/chat/completions`; bare server URL gets `/v1`), `ollama-probe.ts` (read-only `/api/show` + `/api/ps` for the window), stream parsers, HTTP with host check and `redirect: 'error'` |
 | `src/core/context/` | `ContextProvider` interface; `pdf-context.ts` (`PdfContextProvider` = document chat for one attachment, `kind` pdf/html/epub/text; PDF worker text split on `\f`), `document.ts` (non-PDF kinds: text from Zotero's `.zotero-ft-cache` or the file, `splitSections` ≈ 3000 chars, no citations), `page-selection.ts` (full text or page 1 + BM25 pages/sections) |
 | `src/core/prompt.ts`, `citations.ts` | Messages (system prompt + document), `[S. N]` citation parsing |
 | `src/core/seekbook/client.ts`, `src/core/library/source-rules.ts` | SeekBook over REST (`/seekbook/stats`, `/search`, `/books`, `/pages`); which sources may be combined (SeekBook locked while ZotSeek includes it) |
@@ -118,9 +118,12 @@ Extending: new sources are new `ContextProvider`s; session, prompt and turn rend
 - **Never send `num_ctx`** (user decision): Ollama reloads the model whenever it differs from the loaded one
   (5–6 s each, shared server). The text budget follows the window Ollama really uses (`limits.ts`: `/api/ps`
   `context_length` of the loaded model → Modelfile `num_ctx` → Ollama default 4096; never the model maximum).
-  E2E "no model request ever sets num_ctx" checks every request. Thinking models reason by default and Ollama hides
-  that in `message.thinking`: helper calls send `think: false`, answers `think: prefs.thinking` (default off).
-- Keep Ollama on the native API (`/api/chat`): `/api/show` and `/api/ps` tell the window, `/v1` does not.
+  E2E "only the OpenAI interface …" checks every request. Thinking: helper calls switch it off, answers follow
+  `prefs.thinking` (default off), sent as `reasoning_effort: "none"` (Ollama) and `chat_template_kwargs.enable_thinking`
+  (vLLM/SGLang); a 400 about these fields drops them for that server and model (`thinkingFields`, `noThink`).
+- **OpenAI interface only** (user decision, 1.0.0rc2, so vLLM works too): chat, models and tools go through `/v1`.
+  The one Ollama-specific part is the read-only window probe (`/api/show`, `/api/ps`), used only when `/v1/models`
+  reports no window (vLLM reports `max_model_len`); on other servers it gets a 404 and is ignored. No `/api/chat`.
 - Log lines must go to `Services.console` (see `src/util/log.ts`): a sandbox's `console`, even the main window's
   called from the sandbox, never reaches the Browser Console. E2E "logging reaches the Browser Console" checks it.
 - Live run with a real book index: `E2E_SEEKBOOK_XPI=../seekbook-zotero_src/dist/seekbook-<v>.xpi E2E_TIMEOUT=3000
@@ -129,8 +132,9 @@ Extending: new sources are new `ContextProvider`s; session, prompt and turn rend
   sets `"search": true` (mock: `e2e/mock-*.mjs` decides by the question's words).
 - Test PDFs must not start every page with the same sentence (it counts as a running header and is removed):
   `e2e/make-pdf.mjs` rotates its filler sentences; `seekchat-headers.pdf` has a real header, footer and page labels.
-- LLM clients: `streamTurn` returns text and tool calls (Ollama: complete calls with object arguments, no ids;
-  OpenAI: fragments joined by `ToolCallAccumulator`); `ChatMessage` with `toolCalls`/`toolCallId` is mapped per wire format.
+- LLM client: `streamTurn` returns text and tool calls (SSE fragments joined by `ToolCallAccumulator`); `ChatMessage`
+  with `toolCalls`/`toolCallId` maps to the OpenAI wire format. The E2E mock speaks only `/v1` (plus `/api/show`,
+  `/api/ps`) and records requests normalized (arguments parsed, `tool_name` on tool results).
 - `Zotero.Utilities.extractIdentifiers` takes any bare number for a PMID (page "1" → PubMed article 1): from free text
   only labelled PMIDs count (`trustedTextIdentifiers`).
 - PDFs: `attachPdf` = `Zotero.Attachments.addAvailableFile` ("Find Full Text"), which forces every URL to https; plain
@@ -160,7 +164,7 @@ Extending: new sources are new `ContextProvider`s; session, prompt and turn rend
 - Scenarios run against the mock. The last ones are **optional live scenarios** against a real server,
   skipped (reported as `skip`) unless `E2E_LIVE_URL` is set:
   `E2E_LIVE_URL=https://ollama.ils.local E2E_LIVE_MODEL=qwen3_8_27b_128k:latest ./e2e/run.sh`
-  (optional `E2E_LIVE_PROVIDER=openai`, `E2E_LIVE_API_KEY=…` for servers with a bearer key)
+  (any OpenAI-compatible server: root or `/v1` base; `E2E_LIVE_API_KEY=…` for servers with a bearer key)
   (timeout then defaults to 600 s; answers land in `e2e/out/live-report.json`). Optional scenarios
   throw `SkipError` from `test/e2e/harness.ts` when a prerequisite is missing.
 - Live tool chat with real plugins and real documents (zotero-reference's `test/assets`, mounted as `/refassets`):

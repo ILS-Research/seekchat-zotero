@@ -3,7 +3,6 @@
 
 // "ollama" (native /api/chat, lets us set the context window) or
 // "openai" (any OpenAI-compatible /v1/chat/completions server).
-pref("extensions.zotero.seekchat.provider", "ollama");
 // Ollama: server root, e.g. https://ollama.example.local
 // OpenAI-compatible: base including /v1, e.g. https://llm.example.local/v1
 pref("extensions.zotero.seekchat.baseUrl", "http://127.0.0.1:11434");

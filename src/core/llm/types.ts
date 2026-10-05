@@ -53,6 +53,8 @@ export interface ModelInfo {
   maxContext?: number;
   /** Configured answer length (Ollama: num_predict in the Modelfile). */
   numPredict?: number;
+  /** The server answered Ollama's native API (ollama-probe.ts): without a reported window Ollama uses its default. */
+  ollama?: boolean;
 }
 
 export interface LlmClient {

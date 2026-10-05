@@ -57,7 +57,6 @@ if [ -n "${E2E_LIVE_URL:-}" ]; then
   cat >> "$PROFILE/user.js" <<PREFS
 user_pref("extensions.zotero.seekchat.e2e.liveUrl", "$E2E_LIVE_URL");
 user_pref("extensions.zotero.seekchat.e2e.liveModel", "${E2E_LIVE_MODEL:-}");
-user_pref("extensions.zotero.seekchat.e2e.liveProvider", "${E2E_LIVE_PROVIDER:-ollama}");
 user_pref("extensions.zotero.seekchat.e2e.liveApiKey", "$(printf '%s' "${E2E_LIVE_API_KEY:-}" | sed 's/[\\"]/\\&/g')");
 PREFS
 fi

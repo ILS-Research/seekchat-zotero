@@ -22,11 +22,6 @@ export function onPrefsLoad(win: Window): void {
   const status = $('status');
   const setStatus = (text: string) => { if (status) status.textContent = text; };
 
-  const provider = $<HTMLSelectElement>('provider');
-  if (provider) {
-    provider.value = readPrefs().provider;
-    provider.addEventListener('change', () => setPref('provider', provider.value));
-  }
   for (const key of TEXT_PREFS) {
     const input = $<HTMLInputElement>(key);
     if (!input) continue;

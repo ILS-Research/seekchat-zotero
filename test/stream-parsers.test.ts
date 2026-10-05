@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { LineBuffer, parseOllamaLine, parseSseLine, stripThinking } from '../src/core/llm/stream-parsers';
+import { LineBuffer, parseSseLine, stripThinking } from '../src/core/llm/stream-parsers';
 import { setLocale } from '../src/i18n';
 
 // The expectations below are the German UI texts; English is covered in i18n.test.ts.
@@ -20,13 +20,6 @@ test('SSE lines yield deltas, done and errors', () => {
   assert.equal(parseSseLine(': keep-alive'), null);
   assert.equal(parseSseLine('data: {"choices":[{"delta":{},"finish_reason":"stop"}]}')?.done, true);
   assert.equal(parseSseLine('data: {"error":{"message":"boom"}}')?.error, 'boom');
-});
-
-test('Ollama NDJSON lines yield deltas, done and errors', () => {
-  assert.deepEqual(parseOllamaLine('{"message":{"role":"assistant","content":"Hallo"},"done":false}'), { delta: 'Hallo', done: undefined });
-  assert.equal(parseOllamaLine('{"message":{"content":""},"done":true}')?.done, true);
-  assert.equal(parseOllamaLine('{"error":"model not found"}')?.error, 'model not found');
-  assert.equal(parseOllamaLine(''), null);
 });
 
 test('thinking blocks are hidden, also while still open', () => {

@@ -1,9 +1,6 @@
 /** Typed access to extensions.zotero.seekchat.* (defaults in prefs.js). */
 
-export type Provider = 'ollama' | 'openai';
-
 export interface SeekChatPrefs {
-  provider: Provider;
   baseUrl: string;
   apiKey: string;
   model: string;
@@ -45,7 +42,6 @@ function str(key: string): string {
 
 export function readPrefs(): SeekChatPrefs {
   return {
-    provider: str('provider') === 'openai' ? 'openai' : 'ollama',
     baseUrl: str('baseUrl'),
     apiKey: str('apiKey'),
     model: str('model'),
