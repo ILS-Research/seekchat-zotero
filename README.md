@@ -119,6 +119,12 @@ For the library chat also switch on Zotero’s local HTTP server (Settings → A
   by `[SeekChat`. Every step is logged with its duration: searches, each model call (size, time to first token,
   total time), which books were read and why.
 
+## Issues and ideas
+
+Please report bugs and wishes as **work items on gitlab.com**:
+https://gitlab.com/ils-research/zotero-plugins/seekchat-zotero/-/work_items. Issues are switched off on the GitHub
+mirror; releases are published on both.
+
 ---
 
 ## For developers
