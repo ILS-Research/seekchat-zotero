@@ -43,3 +43,11 @@ test('ollama /api/ps: context_length of the model, with or without :latest', () 
   assert.equal(parseOllamaPs(ps, 'other'), undefined);
   assert.equal(parseOllamaPs({}, 'x'), undefined);
 });
+
+test('a context window below 16k gets a warning, unknown or large ones not', async () => {
+  const { contextWarning, MIN_CONTEXT } = await import('../src/core/limits');
+  assert.equal(MIN_CONTEXT, 16384);
+  assert.match(contextWarning({ context: 4096 }) || '', /4096/);
+  assert.equal(contextWarning({ context: 16384 }), null);
+  assert.equal(contextWarning({ context: undefined }), null);
+});

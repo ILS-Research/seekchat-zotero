@@ -398,3 +398,39 @@ test('zotero-reference resolver: model fields win, DOI found -> Zotero lookup, e
   delete (globalThis as any).Zotero;
   await assert.rejects(r.resolve({ text: 'z' }, new AbortController().signal), /not installed/);
 });
+
+// --- tool chat: the conversation is kept inside the context window ---
+
+test('fitToContext keeps system prompts, drops history, then cuts the question hard', async () => {
+  const { fitToContext, MIN_QUESTION_CHARS } = await import('../src/core/tools/agent/plan');
+  const system = 'S'.repeat(1000);
+  const messages: import('../src/core/llm/types').ChatMessage[] = [
+    { role: 'system', content: system },
+    { role: 'user', content: 'old question '.repeat(50) },
+    { role: 'assistant', content: 'old answer '.repeat(50) },
+    { role: 'user', content: 'Q'.repeat(5000) },
+  ];
+  fitToContext(messages, 2000, 3);
+  assert.equal(messages[0].content, system);
+  assert.equal(messages.length, 2);
+  assert.equal(messages[1].role, 'user');
+  assert.ok(messages[1].content.startsWith('Q'.repeat(MIN_QUESTION_CHARS)));
+  assert.ok(messages[1].content.length < 1100, String(messages[1].content.length));
+  assert.match(messages[1].content, /question cut/);
+});
+
+test('fitToContext changes nothing that fits, and at last shortens even the newest tool results', async () => {
+  const { fitToContext } = await import('../src/core/tools/agent/plan');
+  const small: import('../src/core/llm/types').ChatMessage[] = [{ role: 'system', content: 'S' }, { role: 'user', content: 'q' }];
+  fitToContext(small, 1000, 1);
+  assert.deepEqual(small, [{ role: 'system', content: 'S' }, { role: 'user', content: 'q' }]);
+  const big: import('../src/core/llm/types').ChatMessage[] = [
+    { role: 'system', content: 'S'.repeat(500) },
+    { role: 'user', content: 'q' },
+    { role: 'assistant', content: '', toolCalls: [{ id: 'c1', name: 'read_document', arguments: {} }] },
+    { role: 'tool', content: 'T'.repeat(20000), toolCallId: 'c1' },
+  ];
+  fitToContext(big, 2000, 1);
+  assert.equal(big[0].content.length, 500);
+  assert.ok(big[3].content.length < 1000);
+});

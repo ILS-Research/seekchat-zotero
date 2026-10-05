@@ -1,5 +1,5 @@
 /** Settings pane logic: fields <-> prefs, connection test and model list. */
-import { clearLimitsCache, resolveLimits } from '../core/limits';
+import { clearLimitsCache, contextWarning, resolveLimits } from '../core/limits';
 import { formatCount } from '../core/context/fit';
 import { createClient } from '../core/llm';
 import { parseAllowedHosts } from '../core/host-guard';
@@ -98,6 +98,11 @@ export function onPrefsLoad(win: Window): void {
     set('auto-contextChars', t('prefs.chars', { n: formatCount(l.contextChars), tokens: formatCount(l.contextChars / 3.5) }));
     set('auto-maxTokens', t('prefs.tokens', { n: formatCount(l.maxTokens) }));
     set('auto-detail', t(l.source === 'auto' ? 'prefs.detected' : 'prefs.notDetected', { detail: l.detail }));
+    const warning = $('auto-warning');
+    if (warning) {
+      warning.textContent = contextWarning(l) || '';
+      warning.hidden = !contextWarning(l);
+    }
   };
   const selectTab = (mode: 'auto' | 'manual') => {
     setPref('limitsMode', mode);

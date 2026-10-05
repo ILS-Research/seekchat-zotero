@@ -24,8 +24,18 @@ export interface Limits {
 
 export interface ResolvedLimits extends Limits {
   source: 'auto' | 'manual' | 'fallback';
+  /** The context window of the server in tokens (auto: as reported; manual: as set), unknown in "fallback". */
+  context?: number;
   /** For settings and meta line, e.g. "num_ctx 131072 aus der Modelldatei". */
   detail: string;
+}
+
+/** Smaller context windows get a warning: documents, tool results and history then have to be cut hard. */
+export const MIN_CONTEXT = 16384;
+
+/** The warning for a context window below MIN_CONTEXT, or null. */
+export function contextWarning(l: Pick<ResolvedLimits, 'context'>): string | null {
+  return l.context && l.context < MIN_CONTEXT ? t('limits.tooSmall', { n: l.context, min: MIN_CONTEXT }) : null;
 }
 
 /** Share of the model's context actually used. */
@@ -90,12 +100,12 @@ export function manualLimits(prefs: SeekChatPrefs): Limits {
 }
 
 export async function resolveLimits(prefs: SeekChatPrefs): Promise<ResolvedLimits> {
-  if (prefs.limitsMode === 'manual') return { ...manualLimits(prefs), source: 'manual', detail: t('limits.manual') };
+  if (prefs.limitsMode === 'manual') return { ...manualLimits(prefs), source: 'manual', context: prefs.numCtx, detail: t('limits.manual') };
   if (!prefs.baseUrl || !prefs.model) {
     return { ...manualLimits(prefs), source: 'fallback', detail: t('limits.noModel') };
   }
   const info = await modelInfo(prefs);
   const { context, detail } = info ? describeSource(info, prefs.provider) : describeSource({});
   if (!context) return { ...manualLimits(prefs), source: 'fallback', detail: t('limits.fallback', { detail: info ? detail : t('limits.unreachable') }) };
-  return { ...limitsFromContext(context, info?.numPredict), source: 'auto', detail: t('limits.share', { detail, percent: Math.round(HEADROOM * 100) }) };
+  return { ...limitsFromContext(context, info?.numPredict), source: 'auto', context, detail: t('limits.share', { detail, percent: Math.round(HEADROOM * 100) }) };
 }

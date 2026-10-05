@@ -42,6 +42,34 @@ export function shortenOldToolResults(messages: ChatMessage[], budgetChars: numb
   }
 }
 
+/** Shortest a question is cut to; below that it would lose its meaning. */
+export const MIN_QUESTION_CHARS = 600;
+
+/**
+ * Tool chat: keeps the conversation under `budgetChars` so that the system prompts (rules, tools) always reach the
+ * model – a server with a small window would otherwise cut its front. In this order, until it fits: old tool results
+ * shortened, earlier exchanges (history) dropped oldest first, the question cut hard, at last all tool results
+ * shortened. System messages are never touched. `questionIndex`: the user's question of this answer.
+ */
+export function fitToContext(messages: ChatMessage[], budgetChars: number, questionIndex: number): void {
+  const total = () => messages.reduce((n, m) => n + size(m), 0);
+  shortenOldToolResults(messages, budgetChars);
+  let q = questionIndex;
+  while (total() > budgetChars) {
+    const i = messages.findIndex((m, k) => k < q && m.role !== 'system');
+    if (i < 0) break;
+    messages.splice(i, 1);
+    q--;
+  }
+  const question = messages[q];
+  const over = total() - budgetChars;
+  if (over > 0 && question?.role === 'user' && question.content.length > MIN_QUESTION_CHARS) {
+    const keep = Math.max(MIN_QUESTION_CHARS, question.content.length - over - 100);
+    question.content = `${question.content.slice(0, keep)} … [question cut: too long for the model's context window]`;
+  }
+  if (total() > budgetChars) shortenOldToolResults(messages, budgetChars, 0);
+}
+
 /**
  * The JSON in a model's result: the whole text, else a fenced block anywhere in it, else the span from the first
  * bracket to the last (models put words before and after). Undefined when there is none.

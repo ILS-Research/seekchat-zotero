@@ -7,8 +7,8 @@ import { createClient } from '../llm';
 import type { ChatMessage } from '../llm/types';
 import { t } from '../../i18n';
 import { UserFacingError } from '../errors';
-import { resolveLimits } from '../limits';
-import { historyPairs, type ToolRun, type Turn } from '../turn';
+import { contextWarning, resolveLimits } from '../limits';
+import { addNotice, historyPairs, type ToolRun, type Turn } from '../turn';
 import { readPrefs } from '../../prefs';
 import { newAbortController } from '../../util/env';
 import { content, logError, logger } from '../../util/log';
@@ -17,7 +17,7 @@ import { ToolRegistry } from './registry';
 import { effectiveOptions, isToolUsable } from './settings';
 import type { ToolTarget } from './types';
 import { defaultRegistry } from './index';
-import { UNTRUSTED_RULE } from './agent/plan';
+import { fitToContext, UNTRUSTED_RULE } from './agent/plan';
 import { recordingClient } from '../helper-calls';
 
 const L = logger('ToolChat');
@@ -48,6 +48,8 @@ export function toolSystemPrompt(today = new Date()): string {
 
 export class ToolChatSession {
   turns: Turn[] = [];
+  /** The warning about a too small context window was shown in this chat. */
+  private contextWarned = false;
   private abortCtrl: AbortController | null = null;
   private listeners = new Set<() => void>();
   /** Runs waiting for the user's confirmation and how to continue them. */
@@ -91,6 +93,7 @@ export class ToolChatSession {
   clear(): void {
     this.stop();
     this.turns = [];
+    this.contextWarned = false;
     this.notify();
   }
 
@@ -134,6 +137,11 @@ export class ToolChatSession {
     try {
       if (!prefs.model) throw new UserFacingError(t('error.noModel'));
       const limits = await resolveLimits(prefs);
+      const warning = this.contextWarned ? null : contextWarning(limits);
+      if (warning) {
+        this.contextWarned = true;
+        addNotice(answer, warning);
+      }
       const registry = this.enabledTools();
       const messages: ChatMessage[] = [{ role: 'system', content: toolSystemPrompt() }, ...history, { role: 'user', content: q }];
       L.info(`tools: ${registry.specs().map((x) => x.name).join(', ') || 'none'}`);
@@ -148,10 +156,12 @@ export class ToolChatSession {
         think: prefs.thinking,
         signal: ctrl.signal,
       };
+      const questionIndex = messages.length - 1;
       await runToolLoop({
         client,
         request,
         messages,
+        compact: (m) => fitToContext(m, limits.contextChars, questionIndex),
         registry,
         answer,
         notify: () => this.notify(),

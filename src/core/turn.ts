@@ -90,6 +90,11 @@ export interface BookProgress {
   totalPages?: number;
 }
 
+/** Adds a fixed hint to the notices shown after an answer. */
+export function addNotice(turn: Turn, text: string): void {
+  turn.notice = turn.notice ? `${turn.notice}\n\n${text}` : text;
+}
+
 /** `url` if it is an http(s) web address, else undefined: links in tool runs come from model and web data. */
 export function webUrl(url: string | undefined): string | undefined {
   return url && /^https?:\/\/[^\s]+$/i.test(url.trim()) ? url.trim() : undefined;

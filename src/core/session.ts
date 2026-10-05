@@ -21,9 +21,9 @@ import type { SourceNumbers } from './library/sources';
 import { LibraryContextProvider } from './library/library-context';
 import { LibraryPipeline, type PipelineHost } from './library/pipeline';
 import { expandKeywords, recordingClient, resolveLanguage, type LanguageCache } from './helper-calls';
-import { historyPairs, SKIPPABLE, type BookTarget, type Turn } from './turn';
+import { addNotice, historyPairs, SKIPPABLE, type BookTarget, type Turn } from './turn';
 import { readPrefs, type SeekChatPrefs } from '../prefs';
-import { resolveLimits } from './limits';
+import { contextWarning, resolveLimits } from './limits';
 import { newAbortController } from '../util/env';
 import { LruMap } from '../util/lru';
 import { content, logError, logger } from '../util/log';
@@ -53,6 +53,8 @@ export class ChatSession {
   private runningTurn: Turn | null = null;
   private bookCtrls = new Map<number, AbortController>();
   private listeners = new Set<() => void>();
+  /** The warning about a too small context window was shown in this chat. */
+  private contextWarned = false;
 
   constructor(public readonly provider: ContextProvider) {}
 
@@ -115,6 +117,7 @@ export class ChatSession {
     this.stop();
     this.turns = [];
     this.sourceNumbers = new Map();
+    this.contextWarned = false;
     this.notify();
   }
 
@@ -161,18 +164,33 @@ export class ChatSession {
         await this.run(answer, ctrl, () => new LibraryPipeline(this.pipelineHost()).answer(answer, library, q, history, ctrl, { zotseek: opts.zotseek !== false, seekbook: !!opts.seekbook, books, skipIndexedBooks: split }));
         // After the first answer: say once that follow-ups can load pages and search in named documents (7e-2).
         const answers = this.turns.filter((x) => x.role === 'assistant' && !x.error);
-        if (!answer.error && answers.length === 1 && !this.turns.some((x) => x.notice)) answer.notice = t('lib.followupHint');
+        const hint = t('lib.followupHint');
+        if (!answer.error && answers.length === 1 && !this.turns.some((x) => x.notice?.includes(hint))) addNotice(answer, hint);
       } else {
         // Follow-ups ("und in Kapitel 3?") retrieve with the previous question as well.
         const lastQuestion = [...history].reverse().find((t) => t.role === 'user')?.content || '';
         await this.run(answer, ctrl, () => this.answerInto(answer, this.provider, q, lastQuestion, history, ctrl));
       }
+      await this.warnContext(answer);
     } finally {
       for (const b of answer.bookProgress || []) if (SKIPPABLE.includes(b.state)) b.state = 'skipped';
       this.abortCtrl = null;
       this.runningTurn = null;
       this.bookCtrls.clear();
       this.notify();
+    }
+  }
+
+  /** Once per chat: a hint after the answer when the server's context window is too small (limits.ts). */
+  private async warnContext(answer: Turn): Promise<void> {
+    if (this.contextWarned) return;
+    try {
+      const warning = contextWarning(await resolveLimits(readPrefs()));
+      if (!warning) return;
+      this.contextWarned = true;
+      addNotice(answer, warning);
+    } catch (e) {
+      logError(e);
     }
   }
 

@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.26.0 – 2026-10-05
+
+- **Warning for a small context window:** below 16,384 tokens (Ollama: loaded model, else Modelfile `num_ctx`, else the
+  default 4096; manual limits: the value set) the settings show a warning, and every chat shows it once after its first
+  answer, with how to raise the window.
+- **Tool chat stays inside the context window:** before each model round old tool results are shortened, earlier
+  questions and answers dropped and, if still needed, the question cut hard – the system prompt with the tool rules is
+  never cut. Before, a server with a small window cut the front of the conversation, i.e. the rules.
+
 ## 0.25.3 – 2026-10-05
 
 - **Memory:** of the up to 500 chats kept while Zotero runs, only the 75 used last keep the recorded model requests

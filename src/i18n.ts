@@ -509,6 +509,9 @@ const EN = {
   'limits.maximum': 'context {n} (model maximum)',
   'limits.none': 'server reports no context size',
   'limits.manual': 'set manually',
+  'limits.tooSmall': '⚠ The model server uses a context window of only {n} tokens (at least {min} recommended): documents, ' +
+    'tool results and earlier messages are cut hard, a long question too. For Ollama raise num_ctx in the Modelfile or ' +
+    'OLLAMA_CONTEXT_LENGTH on the server.',
   'limits.noModel': 'no model selected, manual values',
   'limits.unreachable': 'server not reachable',
   'limits.fallback': '{detail}, manual values',
@@ -1073,6 +1076,9 @@ const DE: Record<Key, string> = {
   'limits.maximum': 'Kontext {n} (Maximum des Modells)',
   'limits.none': 'Server meldet keine Kontextgröße',
   'limits.manual': 'manuell festgelegt',
+  'limits.tooSmall': '⚠ Der Modellserver nutzt ein Kontextfenster von nur {n} Tokens (mindestens {min} empfohlen): Dokumente, ' +
+    'Werkzeugergebnisse und frühere Nachrichten werden stark gekürzt, eine lange Frage ebenso. Bei Ollama num_ctx in der ' +
+    'Modelldatei oder OLLAMA_CONTEXT_LENGTH auf dem Server erhöhen.',
   'limits.noModel': 'kein Modell gewählt, manuelle Werte',
   'limits.unreachable': 'Server nicht erreichbar',
   'limits.fallback': '{detail}, manuelle Werte',
