@@ -320,12 +320,27 @@ export class ChatSession {
 
 const sessions = new LruMap<string, ChatSession>(500, (s) => s.busy);
 
+/**
+ * Sessions that keep the model requests of their answers (whole prompts with document text, for the Markdown
+ * export). Older ones drop them to save memory; their chat stays, its export lacks the request blocks.
+ */
+export const KEEP_REQUESTS_SESSIONS = 75;
+
+/** Drops the recorded requests of all but the `keep` most recently used sessions (oldest first in `ordered`); running ones keep theirs. */
+export function dropOldRequests(ordered: { busy: boolean; turns: Turn[] }[], keep = KEEP_REQUESTS_SESSIONS): void {
+  for (const s of ordered.slice(0, Math.max(0, ordered.length - keep))) {
+    if (s.busy) continue;
+    for (const turn of s.turns) delete turn.requests;
+  }
+}
+
 export function getSession(provider: ContextProvider): ChatSession {
   let s = sessions.get(provider.key);
   if (!s) {
     s = new ChatSession(provider);
     sessions.set(provider.key, s);
   }
+  dropOldRequests([...sessions.values()]);
   return s;
 }
 

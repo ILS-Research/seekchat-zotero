@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.25.3 – 2026-10-05
+
+- **Memory:** of the up to 500 chats kept while Zotero runs, only the 75 used last keep the recorded model requests
+  (whole prompts with document text). Older chats stay visible; their Markdown export then lacks the request blocks.
+
 ## 0.25.2 – 2026-10-05
 
 Fixes from the code review of 2026-10-05:

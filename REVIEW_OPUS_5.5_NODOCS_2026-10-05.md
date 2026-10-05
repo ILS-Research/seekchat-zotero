@@ -63,7 +63,7 @@ Einstellungen den SHA-256-Fingerprint anzuzeigen oder festzulegen (Pinning), sta
 - ~~`helper-calls.ts`, `expandKeywords`: Dort steht eine leere Zeile mit Leerzeichen im Objektliteral, vermutlich ein Rest des entfernten `numCtx`.~~ (erledigt in 0.25.2)
 - ~~`session.ts`, `answerPrefs()` gibt `numCtx` in den Prefs weiter, obwohl kein Client es nutzt. Wer später Optionen „aus den Prefs“ durchreicht, könnte es versehentlich doch senden. Lieber nicht mehr in das Prefs-Objekt mischen.~~ (erledigt in 0.25.2)
 - ~~`parseSseLine` beendet den Stream beim ersten `finish_reason`. Server, die danach noch einen `usage`-Chunk senden, sind damit abgedeckt. Server, die `finish_reason` pro Choice bei `n>1` senden, sind irrelevant (`n` wird nie gesetzt).~~ (nur Feststellung, keine Änderung nötig)
-- `LruMap` mit 500 Sitzungen: Jede Sitzung hält Turns mit vollständigen `requests` (ganze Prompts mit Dokumenttext). 500 × mehrere hundert KB ist im ungünstigen Fall viel Speicher. Eine kleinere Grenze für Sitzungen mit `requests` wäre sinnvoll, oder `requests` erst beim Export behalten. *(offen, wird noch geprüft)*
+- ~~`LruMap` mit 500 Sitzungen: Jede Sitzung hält Turns mit vollständigen `requests` (ganze Prompts mit Dokumenttext). 500 × mehrere hundert KB ist im ungünstigen Fall viel Speicher. Eine kleinere Grenze für Sitzungen mit `requests` wäre sinnvoll, oder `requests` erst beim Export behalten.~~ (erledigt in 0.25.3: nur die 75 zuletzt genutzten Sitzungen behalten ihre `requests`)
 - ~~`tools-window.ts:286` öffnet nur `http(s)`-URLs, das ist gut. Die Prüfung sollte trotzdem auch dort sitzen, wo `ToolRunItem.url` gesetzt wird, damit keine `javascript:`/`file:`-URL aus Modelldaten in die Liste kommt.~~ (erledigt in 0.25.2)
 
 ## ~~Prompt-Injection~~ – erledigt in 0.25.2
