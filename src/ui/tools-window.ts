@@ -5,6 +5,7 @@
  */
 import { getToolSession, type ToolChatSession } from '../core/tools/session';
 import type { ToolTarget } from '../core/tools/types';
+import { webUrl } from '../core/turn';
 import { readPrefs } from '../prefs';
 import { logError } from '../util/log';
 import { TurnListView } from './turn-view';
@@ -283,7 +284,8 @@ export class ToolsChatView {
       onToolToggle: (run, i, checked) => s.toggleItem(run, i, checked),
       onToolCancel: (run) => s.cancelRun(run),
       onOpenUrl: (url) => {
-        if (/^https?:\/\//i.test(url)) Zotero.launchURL(url);
+        const web = webUrl(url);
+        if (web) Zotero.launchURL(web);
       },
       onShowItem: (id) => {
         const main = Zotero.getMainWindow();

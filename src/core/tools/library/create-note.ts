@@ -20,6 +20,7 @@ export function noteHtml(title: string, markdown: string): string {
 }
 
 export const createNoteTool = (): Tool => ({
+  writes: true,
   spec: {
     name: 'create_note',
     description:

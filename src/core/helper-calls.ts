@@ -73,7 +73,6 @@ export async function expandKeywords(
         messages: buildKeywordMessages({ question, previousQuestion, docTitle: provider.describe(), language }),
         temperature: 0.2,
         maxTokens: 512,
-       
         think: false,
         signal,
       },

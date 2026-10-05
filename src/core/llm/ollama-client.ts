@@ -3,6 +3,12 @@ import { ollamaMessages, parseOllamaLine, toolsPayload } from './stream-parsers'
 import type { ChatRequest, ChatResult, ClientConfig, LlmClient, ModelInfo, ToolCall } from './types';
 
 /**
+ * Models that rejected the `think` field (not a thinking model), per server: asked without it from then on. Module-wide,
+ * since a new client is made for nearly every question.
+ */
+const noThink = new Set<string>();
+
+/**
  * Ollama's native API. SeekChat never sends num_ctx: every other value makes Ollama reload the model (seconds),
  * so the server's own context window is used and the text budget follows it (limits.ts).
  */
@@ -31,15 +37,13 @@ export class OllamaClient implements LlmClient {
     return info;
   }
 
-  /** Models that rejected the `think` field (not a thinking model); asked without it from then on. */
-  private noThink = new Set<string>();
-
   async streamChat(req: ChatRequest, onDelta: (text: string) => void): Promise<string> {
     return (await this.streamTurn(req, onDelta)).text;
   }
 
   async streamTurn(req: ChatRequest, onDelta: (text: string) => void): Promise<ChatResult> {
-    const think = req.think !== undefined && !this.noThink.has(req.model) ? { think: req.think } : {};
+    const thinkKey = `${this.cfg.baseUrl}|${req.model}`;
+    const think = req.think !== undefined && !noThink.has(thinkKey) ? { think: req.think } : {};
     const body = {
       model: req.model,
       messages: ollamaMessages(req.messages),
@@ -58,7 +62,7 @@ export class OllamaClient implements LlmClient {
       // HTTP 400 "… does not support thinking": ask again without the field. Other errors that merely mention
       // "think" (a model name like qwen3-thinking, a proxy message) must not switch thinking off for good.
       if (!('think' in think) || !(e instanceof HttpError && e.status === 400) || !/support[^\n]*think/i.test(e.message)) throw e;
-      this.noThink.add(req.model);
+      noThink.add(thinkKey);
       return this.streamTurn(req, onDelta);
     }
     let full = '';

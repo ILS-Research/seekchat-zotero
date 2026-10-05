@@ -15,6 +15,7 @@ const L = logger('Library');
 export const MAX_SAVE_ITEMS = 100;
 
 export const saveToCollectionTool = (): Tool => ({
+  writes: true,
   spec: {
     name: 'save_to_collection',
     description:

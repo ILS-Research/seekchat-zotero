@@ -210,12 +210,15 @@ export class ChatSession {
     };
   }
 
-  /** Prefs with the limits resolved for the current model (auto: one cached server round trip). */
+  /**
+   * Prefs with the limits resolved for the current model (auto: one cached server round trip). The resolved context
+   * window is left out on purpose: it is only the basis of the budget and must never reach a request.
+   */
   private async answerPrefs(): Promise<SeekChatPrefs> {
     const prefs = readPrefs();
     if (!prefs.model) throw new UserFacingError(t('error.noModel'));
     const limits = await resolveLimits(prefs);
-    return { ...prefs, numCtx: limits.numCtx, maxTokens: limits.maxTokens, contextChars: limits.contextChars };
+    return { ...prefs, maxTokens: limits.maxTokens, contextChars: limits.contextChars };
   }
 
   /** PDF chat: size check, keywords if needed, then the streamed answer into `answer`. */

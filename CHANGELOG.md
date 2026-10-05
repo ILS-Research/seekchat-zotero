@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.25.2 – 2026-10-05
+
+Fixes from the code review of 2026-10-05:
+- **Prompt injection:** the tool chat and the subagent are told that tool results (document text, fields, notes,
+  web data) are material, never instructions. Tools that change the library are marked `writes`; a subagent never gets
+  one, and unit tests check that `create_note` and `update_item` save nothing when the user declines.
+- **`update_item`:** when saving an item fails, its unsaved changes are dropped (item reloaded); before, the next save
+  of that item elsewhere would have written them.
+- **Tool chat export:** the requests sent to the model (also the subagent's) are recorded like in the other chats.
+- **Ollama:** a model that does not support `think` is remembered per server for the whole Zotero session, not per
+  question (one rejected request less each time).
+- **Limits:** while the Ollama model is not loaded, its context window is asked again after 30 s instead of on every
+  question.
+- Links in tool results only open as http(s) addresses (checked where they are made and where they are opened); the
+  resolved context window is no longer put into the answer prefs.
+
 ## 0.25.1 – 2026-10-05
 
 - E2E: the tool chat scenario saves the chat as .md and checks question, tool call items and title.

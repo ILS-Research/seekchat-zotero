@@ -16,7 +16,7 @@ import { effectiveOptions } from '../settings';
 import type { Tool, ToolContext } from '../types';
 import { collectionPaths, cut, findCollection, stringArg } from '../library/summary';
 import { collectionNodes, itemByKey, summarize } from '../library/zotero-library';
-import { chunk, joinResults, shortenOldToolResults, SUBAGENT_TOOLS } from './plan';
+import { chunk, joinResults, shortenOldToolResults, SUBAGENT_TOOLS, UNTRUSTED_RULE } from './plan';
 
 const L = logger('Subagent');
 
@@ -30,6 +30,7 @@ const SUBAGENT_PROMPT = [
   'You are a subagent of SeekChat inside the reference manager Zotero. You work through one task on your own: nobody',
   'answers questions, so do not ask any. Use the read-only tools you have; read only what the task needs (use offset',
   'and limit, read a few pages, not whole documents). Never invent items, keys or facts.',
+  UNTRUSTED_RULE,
   'Read several items in one round (several tool calls at once) and read each document only once.',
   'When you are done, answer with the result only, exactly in the requested format, without explanations around it.',
   'If you could not finish, say what is missing in one short line at the end.',
@@ -48,7 +49,7 @@ function collectionKeys(libraryID: number, ref: string): { keys: string[]; path:
 
 /** The read-only tools of the main chat that are switched on (never this tool itself, never changing tools). */
 function subagentTools(ctx: ToolContext): ToolRegistry {
-  return new ToolRegistry((ctx.tools?.all() || []).filter((tool) => SUBAGENT_TOOLS.includes(tool.spec.name)));
+  return new ToolRegistry((ctx.tools?.all() || []).filter((tool) => !tool.writes && SUBAGENT_TOOLS.includes(tool.spec.name)));
 }
 
 export const delegateTaskTool = (): Tool => ({

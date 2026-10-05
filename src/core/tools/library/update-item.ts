@@ -132,6 +132,7 @@ function problemsOf(plans: Plan[]): { key: string; problem: string }[] {
 }
 
 export const updateItemTool = (): Tool => ({
+  writes: true,
   spec: {
     name: 'update_item',
     description:
@@ -234,6 +235,13 @@ export const updateItemTool = (): Tool => ({
         changed.push({ key: p.change.key, label: p.label, before });
       } catch (e: any) {
         L.error(`update ${p.change.key}: ${e?.message || e}`);
+        // The item object is cached: drop the unsaved changes, or the next save elsewhere would write them.
+        try {
+          await p.item.reload(null, true);
+          p.item._clearChanged?.();
+        } catch (re: any) {
+          L.error(`reload ${p.change.key}: ${re?.message || re}`);
+        }
         row.badge = t('update.badge.failed');
         row.detail = `${row.detail}\n${String(e?.message || e)}`;
         failed.push({ key: p.change.key, error: String(e?.message || e) });

@@ -90,6 +90,11 @@ export interface BookProgress {
   totalPages?: number;
 }
 
+/** `url` if it is an http(s) web address, else undefined: links in tool runs come from model and web data. */
+export function webUrl(url: string | undefined): string | undefined {
+  return url && /^https?:\/\/[^\s]+$/i.test(url.trim()) ? url.trim() : undefined;
+}
+
 /** Books in these states can still be skipped. */
 export const SKIPPABLE: BookState[] = ['waiting', 'language', 'keywords', 'reading'];
 

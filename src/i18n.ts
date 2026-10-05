@@ -499,6 +499,8 @@ const EN = {
   'purpose.keywords': 'Search terms',
   'purpose.plan': 'Search preparation',
   'purpose.bookAnswer': 'Answer from the book',
+  'purpose.tools': 'Tool chat',
+  'purpose.subagent': 'Subagent',
 
   // Limits
   'limits.configured': 'context {n} from the server configuration',
@@ -1062,6 +1064,8 @@ const DE: Record<Key, string> = {
   'purpose.keywords': 'Suchbegriffe',
   'purpose.plan': 'Suchvorbereitung',
   'purpose.bookAnswer': 'Antwort aus dem Buch',
+  'purpose.tools': 'Tool-Chat',
+  'purpose.subagent': 'Subagent',
 
   'limits.configured': 'Kontext {n} laut Server-Konfiguration',
   'limits.loaded': 'Kontext {n} des geladenen Modells',

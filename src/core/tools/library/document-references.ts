@@ -8,7 +8,7 @@
 import { t, tn } from '../../../i18n';
 import { getFindRefsListApi, type FindRefsDocumentReference } from '../../findrefs/client';
 import { docKind } from '../../context/document';
-import type { ToolRunItem } from '../../turn';
+import { webUrl, type ToolRunItem } from '../../turn';
 import type { Tool, ToolContext } from '../types';
 import { cut, stringArg } from './summary';
 import { itemByKey, summarize } from './zotero-library';
@@ -174,7 +174,7 @@ export const showReferencesTool = (): Tool => ({
           out.push({ n, status: 'already in the library', key: inLibrary.key });
         } else {
           const link = referenceLink(ref);
-          items.push({ label, badge: t(`refs.badge.${link.via}`), detail: reason, url: link.url });
+          items.push({ label, badge: t(`refs.badge.${link.via}`), detail: reason, url: webUrl(link.url) });
           out.push({ n, status: 'linked', link: link.url, via: link.via });
         }
       }

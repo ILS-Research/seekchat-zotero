@@ -17,6 +17,8 @@ import { ToolRegistry } from './registry';
 import { effectiveOptions, isToolUsable } from './settings';
 import type { ToolTarget } from './types';
 import { defaultRegistry } from './index';
+import { UNTRUSTED_RULE } from './agent/plan';
+import { recordingClient } from '../helper-calls';
 
 const L = logger('ToolChat');
 
@@ -35,6 +37,7 @@ export const TOOL_SYSTEM_PROMPT = [
   'Name only items a tool returned; refer to them by author, year and title (the user sees them linked in the tool results).',
   'When the user gives literature references to add (citations, a bibliography, DOIs, ISBNs, URLs), call import_references once with all of them.',
   'Never claim that something was done unless a tool result says so. After a tool result, tell the user in a few words what happened.',
+  UNTRUSTED_RULE,
   'Answer in the language of the user.',
 ].join('\n');
 
@@ -134,7 +137,10 @@ export class ToolChatSession {
       const registry = this.enabledTools();
       const messages: ChatMessage[] = [{ role: 'system', content: toolSystemPrompt() }, ...history, { role: 'user', content: q }];
       L.info(`tools: ${registry.specs().map((x) => x.name).join(', ') || 'none'}`);
-      const client = createClient(prefs);
+      // Every request goes into the answer (Markdown export); the subagent's under its own purpose.
+      const base = createClient(prefs);
+      const client = recordingClient(base, answer, () => t('purpose.tools'));
+      const subClient = recordingClient(base, answer, () => t('purpose.subagent'));
       const request = {
         model: prefs.model,
         temperature: prefs.temperature,
@@ -156,7 +162,7 @@ export class ToolChatSession {
           run,
           update: () => this.notify(),
           tools: registry,
-          llm: { client, request, contextChars: limits.contextChars },
+          llm: { client: subClient, request, contextChars: limits.contextChars },
           cancellable: () => {
             const own = newAbortController();
             if (ctrl.signal.aborted) own.abort();

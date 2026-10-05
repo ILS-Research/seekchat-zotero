@@ -108,6 +108,7 @@ export const ZOTERO_DEPS: ImportDeps = {
 
 export function importReferencesTool(deps: ImportDeps = ZOTERO_DEPS): Tool {
   return {
+    writes: true,
     spec: IMPORT_REFERENCES_SPEC,
     label: () => t('import.label'),
     description: () => t('import.description'),

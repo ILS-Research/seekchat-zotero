@@ -57,6 +57,11 @@ export interface ToolOption {
 
 export interface Tool {
   spec: ToolSpec;
+  /**
+   * Changes the library. Such a tool must show a preview and change nothing unless `ctx.confirm()` resolved true
+   * (tool results can carry text from documents, so the model's wish alone is never enough); never given to a subagent.
+   */
+  writes?: boolean;
   /** Name and one-line description in the tool list, in the UI language. */
   label(): string;
   description(): string;

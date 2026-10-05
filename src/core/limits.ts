@@ -58,7 +58,10 @@ export function describeSource(info: ModelInfo, provider: 'ollama' | 'openai' = 
   return { detail: t('limits.none') };
 }
 
-const cache = new Map<string, Promise<ModelInfo | null>>();
+/** Ollama model not loaded yet: its window is asked again after this time, not on every question. */
+export const NOT_LOADED_TTL_MS = 30_000;
+
+const cache = new Map<string, { info: Promise<ModelInfo | null>; expires: number }>();
 
 export function clearLimitsCache(): void {
   cache.clear();
@@ -66,20 +69,20 @@ export function clearLimitsCache(): void {
 
 function modelInfo(prefs: SeekChatPrefs): Promise<ModelInfo | null> {
   const key = `${prefs.provider}|${prefs.baseUrl}|${prefs.model}`;
-  let p = cache.get(key);
-  if (!p) {
-    p = createClient(prefs).modelInfo(prefs.model).then((info) => {
-      // Ollama's window is known once the model is loaded: ask again next time until it is.
-      if (prefs.provider === 'ollama' && !info.loadedContext) cache.delete(key);
-      return info;
-    }, (e) => {
-      logError(e);
-      cache.delete(key);
-      return null;
-    });
-    cache.set(key, p);
-  }
-  return p;
+  const hit = cache.get(key);
+  if (hit && hit.expires > Date.now()) return hit.info;
+  const entry = { info: null as unknown as Promise<ModelInfo | null>, expires: Infinity };
+  entry.info = createClient(prefs).modelInfo(prefs.model).then((info) => {
+    // Ollama's window is known once the model is loaded: until it is, ask again after a short while.
+    if (prefs.provider === 'ollama' && !info.loadedContext) entry.expires = Date.now() + NOT_LOADED_TTL_MS;
+    return info;
+  }, (e) => {
+    logError(e);
+    if (cache.get(key) === entry) cache.delete(key);
+    return null;
+  });
+  cache.set(key, entry);
+  return entry.info;
 }
 
 export function manualLimits(prefs: SeekChatPrefs): Limits {
