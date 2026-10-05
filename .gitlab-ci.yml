@@ -4,7 +4,8 @@
 #
 # Everything runs in Docker-in-Docker, like ./build.sh and ./e2e/run.sh locally. The dind daemon cannot see the job's
 # files, so sources go into the containers with `docker cp` (no bind mounts) and results come back the same way.
-# Written for our GitLab gitlab.ils-geomonitoring.de (project ils-research/seekchat-zotero, remote "origin").
+# Runs on gitlab.com (ils-research/zotero-plugins/seekchat-zotero, remote "gitlab"; releases and updates come from
+# there) and on gitlab.ils-geomonitoring.de (remote "origin").
 # Needs a runner there with the docker executor and privileged mode (for dind) and access to Docker Hub
 # (node, docker, Zotero download) and registry.gitlab.com (release-cli). If the runner has tags, add them under
 # `default: tags:`. Live tests against ollama.ils.local stay local (./e2e/run.sh with E2E_LIVE_URL).
@@ -125,17 +126,20 @@ release:
   image: registry.gitlab.com/gitlab-org/release-cli:latest
   needs: [unit, e2e]
   rules:
-    - if: '$CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+$/'
+    # vX.Y.Z and pre-releases vX.Y.Z-rc.N (package.json semver; the XPI carries Mozilla's form X.Y.ZrcN).
+    - if: '$CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+(-[a-z]+\.\d+)?$/'
   script:
     - apk add --no-cache curl jq
-    - VERSION="${CI_COMMIT_TAG#v}"
+    - SEMVER="${CI_COMMIT_TAG#v}"
     # The tag must match package.json (the only source of the version).
-    - test "$(jq -r .version package.json)" = "$VERSION" || { echo "tag $CI_COMMIT_TAG does not match package.json"; exit 1; }
+    - test "$(jq -r .version package.json)" = "$SEMVER" || { echo "tag $CI_COMMIT_TAG does not match package.json"; exit 1; }
+    - VERSION="$(echo "$SEMVER" | sed -E 's/-([a-z]+)\.?([0-9]+)$/\1\2/')"
     - XPI="dist/seekchat-$VERSION.xpi"
     - test -f "$XPI"
+    # Installed plugins update from updates.json in the repository (manifest.json update_url), which links this URL.
     - URL="$CI_API_V4_URL/projects/$CI_PROJECT_ID/packages/generic/seekchat/$VERSION/seekchat-$VERSION.xpi"
     - 'curl --fail --header "JOB-TOKEN: $CI_JOB_TOKEN" --upload-file "$XPI" "$URL"'
     - >
       release-cli create --name "SeekChat $VERSION" --tag-name "$CI_COMMIT_TAG"
-      --description "$(awk -v v="## $VERSION " 'index($0, v) == 1 {on=1; next} /^## / {on=0} on' CHANGELOG.md)"
+      --description "$(awk -v v="## $SEMVER " 'index($0, v) == 1 {on=1; next} /^## / {on=0} on' CHANGELOG.md)"
       --assets-link "{\"name\":\"seekchat-$VERSION.xpi\",\"url\":\"$URL\",\"link_type\":\"package\"}"

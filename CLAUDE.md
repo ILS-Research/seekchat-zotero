@@ -22,16 +22,17 @@ they use `docker` or fall back to `sudo docker`, and run containers with the cal
 | E2E run (real Zotero under Xvfb + mock LLM) | `./e2e/run.sh` | `logs/e2e.log`, `e2e/out/` |
 | Shell in build container | `./build.sh shell` | |
 | Publish built xpi to the portal downloads | `scripts/publish.py ../zotero_selfhost_src/data/downloads` | |
-| Release on gitlab.com (updates come from there) | `GITLAB_TOKEN=… scripts/publish-gitlab.py` | |
+| Add the version to `updates.json` (release itself: gitlab.com CI on the tag) | `scripts/publish-gitlab.py` | |
 | Publish the tutorial (slides, PDFs, pictures) to the portal | `scripts/publish-tutorial.py ../zotero_selfhost_src/data/downloads` | |
 
 - Scripts write their **full output** to `logs/*.log` (tee, line-buffered). Run them with output
   discarded and read the log tail: `./e2e/run.sh >/dev/null 2>&1; tail -12 logs/e2e.log`.
 - The version comes from `package.json` only; `manifest.json` keeps `0.0.0` and is stamped at build.
 - Since 1.0.0rc1 updates come from **gitlab.com releases** (user decision): `manifest.json` has `homepage_url` →
-  the gitlab.com project and `update_url` → raw `updates.json` on its `master`. `GITLAB_TOKEN=… scripts/publish-gitlab.py`
-  (after pushing the tag to remote `gitlab`) uploads the xpi to the generic package registry, creates the release and
-  adds the version to `updates.json` in the repo root; then commit that and push `master` to `gitlab`.
+  the gitlab.com project and `update_url` → raw `updates.json` on its `master`. The release comes from the
+  gitlab.com CI on the tag (job `release`: xpi into the generic package registry, release). Before tagging,
+  `scripts/publish-gitlab.py` adds the version to `updates.json` in the repo root (link to that package URL); commit it,
+  tag, push `master` and the tag to remote `gitlab`.
   `scripts/publish.py` still copies the xpi to the portal downloads (links to the portal, `PORTAL_BASE`) and
   regenerates the portal's `updates.json` for installations from before 1.0.0rc1. The E2E profile disables updates.
 - Pre-releases: `package.json` semver `1.0.0-rc.1`, XPI version `1.0.0rc1` (build.mjs, both publish scripts), tag `v1.0.0-rc.1`.

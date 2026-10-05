@@ -14,7 +14,7 @@
   trusted once (visible in the list).
 - **Homepage and updates on gitlab.com:** the plugin's metadata link to
   https://gitlab.com/ils-research/zotero-plugins/seekchat-zotero, and updates now come from the releases there
-  (`update_url` → `updates.json` in that repository; `scripts/publish-gitlab.py` makes a release). The portal still
+  (`update_url` → `updates.json` in that repository, release by the CI on the tag). The portal still
   offers the download and updates installations from before this version.
 - Pre-releases: `package.json` holds semver (`1.0.0-rc.1`), the XPI Mozilla's form (`1.0.0rc1`, before `1.0.0`);
   `scripts/publish.py` sorts them so. E2E: the mock also serves https with a self-signed certificate;
