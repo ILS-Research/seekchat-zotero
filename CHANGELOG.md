@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.0.0-rc.4 – 2026-10-07 (XPI version 1.0.0rc4)
+
+- **New name:** the tool chat is now called **"Chat with your Literature" / „Chatte mit deiner Literatur“** (button,
+  window title, menu, export heading).
+- **Tools menu:** "SeekChat: Chat with your Literature" opens it from Zotero's Tools menu, in every Zotero version.
+- **Library chat disabled:** no toolbar button next to ZotSeek's, no "Chat with this selection" in the item context
+  menu, no menu entry. The code is commented out, not removed; the window itself still works and stays tested.
+
 ## 1.0.0-rc.3 – 2026-10-05 (XPI version 1.0.0rc3)
 
 - **Server error 5xx: one more try.** A request that the model server answers with HTTP 5xx before anything was

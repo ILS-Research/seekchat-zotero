@@ -776,16 +776,14 @@ export const scenarios: Scenario[] = [
     session.clear();
   }],
 
-  ['library window: the button appears only next to ZotSeek\'s', async () => {
-    const doc = Zotero.getMainWindow().document;
+  ['library window: no button, not even next to ZotSeek\'s (library chat disabled since 1.0.0-rc.4)', async () => {
     assert(!getToolbarButton(), 'SeekChat button shown without ZotSeek');
     const zs = installZotSeek();
     try {
       zs.addButton();
-      const ours = await waitFor('SeekChat button', () => getToolbarButton(), 5000);
-      assert(ours.previousElementSibling?.id === 'zotseek-toolbar-button', `placed after ${ours.previousElementSibling?.id}`);
-      doc.getElementById('zotseek-toolbar-button').remove();
-      await waitFor('SeekChat button removed', () => !getToolbarButton(), 5000);
+      await Zotero.Promise.delay(500);
+      assert(!getToolbarButton(), 'library chat button shown next to ZotSeek');
+      assert(getToolsToolbarButton()?.previousElementSibling?.id === 'zotseek-toolbar-button', 'tool chat button not after ZotSeek\'s');
     } finally {
       zs.uninstall();
     }
@@ -806,8 +804,7 @@ export const scenarios: Scenario[] = [
       win.Zotero_Tabs.select('zotero-pane');
       await win.ZoteroPane.collectionsView.selectLibrary(Zotero.Libraries.userLibraryID);
       await win.ZoteroPane.selectItems([a.id, b.id]);
-      const button = await waitFor('SeekChat button', () => getToolbarButton(), 5000);
-      button.doCommand();
+      openLibraryChat(); // no button since 1.0.0-rc.4: the window itself stays tested
       const cw = await waitFor('chat window loaded', () => {
         const w = getLibraryChatWindow();
         return w?.document?.querySelector('.seekchat-library-row') ? w : null;
@@ -876,7 +873,7 @@ export const scenarios: Scenario[] = [
       // Opening again with a different selection switches the scope in the same window.
       win.Zotero_Tabs.select('zotero-pane');
       await win.ZoteroPane.selectItems([a.id]);
-      button.doCommand();
+      openLibraryChat();
       await waitFor('library scope', () => scopeText()?.startsWith('Bibliothek „'), 5000);
       // Picking a scope in the window switches the chat.
       const select = doc.querySelector('.seekchat-library-scope') as HTMLSelectElement;
@@ -982,12 +979,12 @@ export const scenarios: Scenario[] = [
 
     await win.ZoteroPane.selectItems([a.id, b.id]);
     let state = menuState();
-    assert(!state.file && state.selection && !state.selectionEnabled, `two items without ZotSeek: ${JSON.stringify(state)}`);
+    assert(!state.file && !state.selection && !state.selectionEnabled, `two items without ZotSeek: ${JSON.stringify(state)}`);
     const zs = installZotSeek();
     try {
       zs.addButton();
       state = menuState();
-      assert(state.selectionEnabled, 'selection entry not enabled with ZotSeek');
+      assert(!state.selection, 'selection entry shown (library chat disabled since 1.0.0-rc.4)');
       chatWithSelection();
       const cw = await waitFor('chat window with the selection', () => {
         const w = getLibraryChatWindow();
@@ -1400,6 +1397,17 @@ export const scenarios: Scenario[] = [
     }
   }],
 
+  ['Tools menu: general chat (library chat disabled)', async () => {
+    const doc = Zotero.getMainWindow().document;
+    const popup = doc.getElementById('menu_ToolsPopup');
+    const tools = await waitFor('tools menu entry', () => doc.getElementById('seekchat-tools-menu-tools-chat'), 5000);
+    assert(tools.parentElement === popup, 'entry not in the Tools menu');
+    assert(!doc.getElementById('seekchat-tools-menu-library-chat'), 'library chat entry (disabled since 1.0.0-rc.4)');
+    tools.doCommand();
+    const toolsWin = await waitFor('tool chat window', () => getToolsChatWindow(), 10000);
+    toolsWin.close();
+  }],
+
   // Zotero's own connection (NSS store of the profile) must accept the portal's certificate, signed by the in-house CA:
   // otherwise the plugin's automatic update check fails.
   ['tool chat: button without ZotSeek, references imported after confirmation, duplicates offered unchecked', async (ctx) => {
@@ -1575,7 +1583,7 @@ export const scenarios: Scenario[] = [
         }
       }, 5000);
       setSaveChatTestPath(null);
-      assert(exported.startsWith('# SeekChat – Werkzeug-Chat (') && exported.includes('> Bitte importiere diese Quellen')
+      assert(exported.startsWith('# SeekChat – Chatte mit deiner Literatur (') && exported.includes('> Bitte importiere diese Quellen')
         && exported.includes('Klimawandel im urbanen Bereich (OpenAlex)'), `export: ${exported.slice(0, 600)}`);
     } finally {
       delete (Zotero as any).FindOnlineReferences;
@@ -2180,7 +2188,8 @@ export const scenarios: Scenario[] = [
       throw e;
     }
     const updates = Object.values<any>(json.addons)[0].updates;
-    assert(updates.length && updates[updates.length - 1].update_link.startsWith('https://zotero.ils.local/'), JSON.stringify(json).slice(0, 200));
+    // Since 1.0.0rc1 the portal copy of updates.json points at the releases on gitlab.com (old installations update there).
+    assert(updates.length && /^https:\/\/(zotero\.ils\.local|gitlab\.com)\//.test(updates[updates.length - 1].update_link), JSON.stringify(json).slice(0, 200));
   }],
 
   ['certificates: a self-signed server is refused until trusted, pinned, refused again when not trusted', async () => {

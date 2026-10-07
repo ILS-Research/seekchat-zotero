@@ -40,7 +40,7 @@ export function menuState(items?: any[]): { file: boolean; selection: boolean; s
     const list = items ?? selectedItems();
     return {
       file: list.length === 1 && hasPdf(list[0]),
-      selection: list.length > 1,
+      selection: false, // Library chat disabled (1.0.0-rc.4); was: list.length > 1,
       selectionEnabled: !!(Zotero as any).ZotSeek,
     };
   } catch (e) {

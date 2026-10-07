@@ -12,6 +12,7 @@ import {
 import { addToolbarButton, removeToolbarButton } from './ui/toolbar-button';
 import { closeToolsChat, onToolsWindowLoad, onToolsWindowUnload, openToolsChat } from './ui/tools-window';
 import { stopToolSession } from './core/tools/session';
+import { addToolsMenu, removeToolsMenu } from './ui/tools-menu';
 import { addLegacyMenu, registerMenus, removeLegacyMenu, unregisterMenus } from './ui/context-menu';
 import { log, logError } from './util/log';
 
@@ -56,6 +57,7 @@ class SeekChatPlugin {
       }
       addToolbarButton(win);
       addLegacyMenu(win);
+      addToolsMenu(win);
     } catch (e) {
       logError(e);
     }
@@ -64,6 +66,7 @@ class SeekChatPlugin {
   onMainWindowUnload(win: any): void {
     removeToolbarButton(win);
     removeLegacyMenu(win);
+    removeToolsMenu(win);
     win.document.getElementById(CSS_ID)?.remove();
     win.document.querySelector(`link[href="${FTL}"]`)?.remove();
   }

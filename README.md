@@ -32,6 +32,9 @@ They have no page numbers, so answers refer to the document as a whole (as a ref
 pages. Long ones are cut into sections and searched by keywords like long PDFs.
 
 ### Chat with your library
+> **Disabled since 1.0.0-rc.4:** the library chat has no button or menu entry for now (the code stays, commented
+> out). Use *Chat with your Literature* below; it can search the library too.
+
 The speech-bubble button next to ZotSeek’s toolbar button opens a chat over **the current selection, a collection
 or a whole library**. You choose where the answers come from:
 
@@ -49,8 +52,8 @@ or a whole library**. You choose where the answers come from:
   *“What exactly is on page 45 of [2]?”*, *“search also for …”*; for a new topic start a new chat.
 - Save a chat as Markdown or as a Zotero note.
 
-### Tool chat: let SeekChat act in Zotero
-The speech bubble with a plus in the items toolbar (no ZotSeek needed) opens a **general chat whose model can use
+### Chat with your Literature (tool chat): let SeekChat act in Zotero
+The speech bubble with a plus in the items toolbar (no ZotSeek needed), or **Tools → SeekChat: Chat with your Literature**, opens a **general chat whose model can use
 Zotero tools**: you ask in plain language, the model decides which tools to call, one after the other.
 
 > **Model requirement:** the tool chat needs a **strong open-weights model with good native tool calling**

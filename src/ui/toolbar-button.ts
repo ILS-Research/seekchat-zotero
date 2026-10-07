@@ -6,7 +6,7 @@
  * Zotero's lookup button), so all look the same.
  */
 import { logError } from '../util/log';
-import { openLibraryChat } from './library-window';
+// import { openLibraryChat } from './library-window'; // library chat disabled (1.0.0-rc.4)
 import { openToolsChat } from './tools-window';
 import { t } from '../i18n';
 
@@ -14,7 +14,7 @@ const BUTTON_ID = 'seekchat-toolbar-button';
 const TOOLS_BUTTON_ID = 'seekchat-tools-toolbar-button';
 const TOOLS_ICON = 'chrome://seekchat/content/icons/seekchat-tools.svg';
 const ZOTSEEK_BUTTON_ID = 'zotseek-toolbar-button';
-const ICON = 'chrome://seekchat/content/icons/seekchat.svg';
+// const ICON = 'chrome://seekchat/content/icons/seekchat.svg'; // library chat disabled (1.0.0-rc.4)
 
 const observers = new WeakMap<any, MutationObserver>();
 
@@ -41,11 +41,13 @@ function sync(win: any): void {
   const doc = win.document;
   const zotseek = doc.getElementById(ZOTSEEK_BUTTON_ID);
   const ours = doc.getElementById(BUTTON_ID);
-  if (!zotseek) {
-    ours?.remove();
-  } else if (!ours || ours.previousElementSibling !== zotseek) {
-    zotseek.after(ours || createButton(doc, BUTTON_ID, 'SeekChat', t('lib.tooltip'), ICON, () => openLibraryChat()));
-  }
+  ours?.remove();
+  // Library chat disabled (1.0.0-rc.4): no button next to ZotSeek's. To bring it back, restore this block.
+  // if (!zotseek) {
+  //   ours?.remove();
+  // } else if (!ours || ours.previousElementSibling !== zotseek) {
+  //   zotseek.after(ours || createButton(doc, BUTTON_ID, 'SeekChat', t('lib.tooltip'), ICON, () => openLibraryChat()));
+  // }
   const tools = doc.getElementById(TOOLS_BUTTON_ID);
   const anchor = doc.getElementById(BUTTON_ID) || zotseek || doc.getElementById('zotero-tb-lookup');
   if (tools && (anchor ? tools.previousElementSibling === anchor : tools.parentElement)) return;
