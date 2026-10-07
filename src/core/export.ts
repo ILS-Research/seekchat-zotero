@@ -34,7 +34,7 @@ function quote(text: string): string {
 
 export function chatToMarkdown(turns: Turn[], info: ExportInfo): string {
   const out: string[] = [
-    `# SeekChat – ${info.subject}`,
+    `# SeekChatZot – ${info.subject}`,
     '',
     t('export.exported', { date: formatDateTime(info.date) }) + (info.model ? t('export.model', { model: info.model }) : ''),
   ];
@@ -91,7 +91,7 @@ export function exportFileName(subject: string, date: Date): string {
   const safe = subject.replace(/[\\/:*?"<>|„“”]/g, '').replace(/\s+/g, ' ').trim().slice(0, 80) || 'Chat';
   // No colon in the time: Windows rejects it in file names.
   const stamp = `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}-${pad(date.getMinutes())}`;
-  return `SeekChat ${stamp} ${safe}.md`;
+  return `SeekChatZot ${stamp} ${safe}.md`;
 }
 
 /** Longest run of backticks in a text, so the fence around it can be one longer. */

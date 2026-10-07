@@ -21,7 +21,7 @@ test('note: PDF chat with page links, library chat with source links and list', 
     { role: 'user', content: 'Frage <1>' },
     { role: 'assistant', content: 'Antwort [S. 2].', meta: 'm · vollständiger Text' },
   ], { subject: 'PDF X', model: 'm', date }, { page: (p) => `zotero://open-pdf/library/items/ATT?page=${p}` });
-  assert.ok(pdf.startsWith('<div data-schema-version="9"><h1>SeekChat – PDF X</h1>'));
+  assert.ok(pdf.startsWith('<div data-schema-version="9"><h1>SeekChatZot – PDF X</h1>'));
   assert.ok(pdf.includes('<blockquote><p>Frage &lt;1&gt;</p></blockquote>'));
   assert.ok(pdf.includes('<p>Antwort <a href="zotero://open-pdf/library/items/ATT?page=2">[S. 2]</a>.</p>'));
 

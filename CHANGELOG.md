@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.0.0-rc.5 – 2026-10-07 (XPI version 1.0.0rc5)
+
+- **Renamed to SeekChatZot** (the name SeekChat is taken): name in Zotero, menus, window titles, settings, export
+  headings and the XPI file (`seekchatzot-<version>.xpi`). Add-on id `seekchat@ils-forschung.de`, the settings and
+  the update address stay, so installed copies update and keep their settings; the repositories keep their names.
+
 ## 1.0.0-rc.4 – 2026-10-07 (XPI version 1.0.0rc4)
 
 - **New name:** the tool chat is now called **"Chat with your Literature" / „Chatte mit deiner Literatur“** (button,

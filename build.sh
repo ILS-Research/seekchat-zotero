@@ -4,7 +4,7 @@
 #   ./build.sh          install deps, test, typecheck, build and pack the .xpi (dist/)
 #   ./build.sh test     tests only
 #   ./build.sh build    build + pack only (no tests)
-#   ./build.sh e2e      build the E2E variant (dist/seekchat-<version>-e2e.xpi), see e2e/run.sh
+#   ./build.sh e2e      build the E2E variant (dist/seekchatzot-<version>-e2e.xpi), see e2e/run.sh
 #   ./build.sh shell    interactive shell in the build container
 #
 # Uses `docker` if the current user may, otherwise `sudo docker`. The container

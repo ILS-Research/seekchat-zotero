@@ -38,7 +38,7 @@ class SeekChatPlugin {
     const paneID = Zotero.PreferencePanes.register({
       pluginID: info.id,
       src: `${info.rootURI}content/preferences.xhtml`,
-      label: 'SeekChat',
+      label: 'SeekChatZot',
       image: `${info.rootURI}content/icons/seekchat.svg`,
     });
     Promise.resolve(paneID).then((id: any) => setPrefsPaneID(typeof id === 'string' ? id : null)).catch(logError);

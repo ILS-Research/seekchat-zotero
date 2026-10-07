@@ -20,7 +20,7 @@ test('chat export: questions quoted, answers as Markdown, meta and sources', () 
     { role: 'assistant', content: '', pending: true },
   ], { subject: 'Bibliothek „Meine“', model: 'qwen3', date });
   assert.equal(md, [
-    '# SeekChat – Bibliothek „Meine“', '', 'Exportiert am 28.09.2026, 14:05 · Modell: qwen3',
+    '# SeekChatZot – Bibliothek „Meine“', '', 'Exportiert am 28.09.2026, 14:05 · Modell: qwen3',
     '', '## Frage 1', '', '> Was steht zu Hitze?', '> Und zu Regen?',
     '', 'Hitze **steigt** [1, S. 27].', '', '*mock · Bibliothek*  ', '*Suchbegriffe: Hitze*  ',
     '', 'Quellen:', '', '1. Muster 2021 – Buch – S. 3, 27',
@@ -29,8 +29,8 @@ test('chat export: questions quoted, answers as Markdown, meta and sources', () 
 });
 
 test('export file name is safe for all systems', () => {
-  assert.equal(exportFileName('PDF Muster 2021 – Titel: "A/B"?', date), 'SeekChat 2026-09-28 14-05 PDF Muster 2021 – Titel AB.md');
-  assert.equal(exportFileName('Bibliothek „Meine Bibliothek“', date), 'SeekChat 2026-09-28 14-05 Bibliothek Meine Bibliothek.md');
+  assert.equal(exportFileName('PDF Muster 2021 – Titel: "A/B"?', date), 'SeekChatZot 2026-09-28 14-05 PDF Muster 2021 – Titel AB.md');
+  assert.equal(exportFileName('Bibliothek „Meine Bibliothek“', date), 'SeekChatZot 2026-09-28 14-05 Bibliothek Meine Bibliothek.md');
 });
 
 test('model requests are exported verbatim in collapsible blocks', () => {
@@ -79,7 +79,7 @@ test('chat export: tool calls with result line and items before the answer', () 
     },
   ], { subject: 'Werkzeug-Chat (Meine Bibliothek)', model: '', date });
   assert.equal(md, [
-    '# SeekChat – Werkzeug-Chat (Meine Bibliothek)', '', 'Exportiert am 28.09.2026, 14:05',
+    '# SeekChatZot – Werkzeug-Chat (Meine Bibliothek)', '', 'Exportiert am 28.09.2026, 14:05',
     '', '## Frage 1', '', '> Importiere das.',
     '', '**Werkzeug: 2 Literaturangaben importieren** – 1 gespeichert', '',
     '- *gespeichert* Muster 2021 – Buch', '- [Web](https://x.org)',

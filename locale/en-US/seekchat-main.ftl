@@ -5,4 +5,4 @@ seekchat-section-sidenav =
 seekchat-menu-chat-file =
     .label = Chat with this file
 seekchat-menu-chat-selection =
-    .label = Chat with this selection (SeekChat)
+    .label = Chat with this selection (SeekChatZot)

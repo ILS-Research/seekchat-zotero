@@ -24,7 +24,7 @@ function link(text: string, href: string | null): string {
 
 export function chatToNoteHtml(turns: Turn[], info: ExportInfo, links: NoteLinks): string {
   const out: string[] = [
-    `<h1>SeekChat – ${escapeHtml(info.subject)}</h1>`,
+    `<h1>SeekChatZot – ${escapeHtml(info.subject)}</h1>`,
     `<p><em>${escapeHtml(formatDateTime(info.date))}${info.model ? escapeHtml(t('export.model', { model: info.model })) : ''}</em></p>`,
   ];
   let n = 0;

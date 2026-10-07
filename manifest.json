@@ -1,6 +1,6 @@
 {
   "manifest_version": 2,
-  "name": "SeekChat",
+  "name": "SeekChatZot",
   "version": "0.0.0",
   "description": "Chat with your PDFs in Zotero using a self-hosted LLM (Ollama or OpenAI-compatible).",
   "author": "ILS",

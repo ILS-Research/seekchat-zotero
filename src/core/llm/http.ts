@@ -46,7 +46,7 @@ export async function request(
     if (init.signal?.aborted || url.protocol !== 'https:') throw e;
     // The certificate may have changed since the check: check again next time.
     if (typeof Zotero !== 'undefined') forgetServer(url.hostname, Number(url.port) || 443);
-    throw new Error(`${e?.message || e} (certificate problem? see "Certificates" in the SeekChat settings)`);
+    throw new Error(`${e?.message || e} (certificate problem? see "Certificates" in the SeekChatZot settings)`);
   }
   if (!resp.ok) {
     let detail = '';

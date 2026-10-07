@@ -23,7 +23,7 @@ const EN = {
   'common.noteSaved': 'Note saved ✓',
   'common.saveFailed': 'Saving failed',
   'common.saveMdTitle': 'Save chat as Markdown',
-  'common.noModel': 'No model selected – see Settings → SeekChat',
+  'common.noModel': 'No model selected – see Settings → SeekChatZot',
   'common.model': 'Model: {model}',
   'common.error': 'Error: {message}',
   'common.cancelled': '[cancelled]',
@@ -174,7 +174,7 @@ const EN = {
   'book.progress': 'Books ({done} of {n} done)',
 
   // Errors
-  'error.noModel': 'No chat model selected (SeekChat settings).',
+  'error.noModel': 'No chat model selected (SeekChatZot settings).',
   'error.noChapters': 'No chapters selected. Please tick chapters in the table of contents above.',
   'error.librarySearch': 'ZotSeek cannot search this library.',
   'error.noItems': 'No items selected.',
@@ -204,7 +204,7 @@ const EN = {
   'lib.collection': 'Collection "{name}"',
   'lib.items.one': '{n} selected item',
   'lib.items.other': '{n} selected items',
-  'lib.windowTitle': 'SeekChat – {scope}',
+  'lib.windowTitle': 'SeekChatZot – {scope}',
   'lib.placeholder': 'Question for the selection above … (Enter to send, Shift+Enter for a new line)',
   'lib.placeholderFollowup': 'Follow-up on the result above – or "search also for …" (Enter to send)',
   'lib.checking': 'Checking ZotSeek …',
@@ -249,7 +249,7 @@ const EN = {
     'cited above and do not search everything again – that keeps them fast. You can load more: "What exactly is on p. 45 of [1]?", ' +
     '"Read pp. 10–12 of the book again", "What does Muster 2021 say about methods?". For a new aspect say so ("search also for …"); ' +
     'for a new topic start a new chat. Pages are physical PDF pages, as in the citations.',
-  'lib.tooltip': 'SeekChat: chat with the library (with ZotSeek)',
+  'lib.tooltip': 'SeekChatZot: chat with the library (with ZotSeek)',
 
   // Tool chat window
   'doc.target': '{kind}: {label}',
@@ -410,15 +410,15 @@ const EN = {
   'refs.badge.url': 'web',
   'refs.badge.isbn': 'ISBN',
   'refs.badge.search': 'search',
-  'tools.windowTitle': 'SeekChat – Chat with your Literature',
+  'tools.windowTitle': 'SeekChatZot – Chat with your Literature',
   'tools.buttonLabel': 'Chat with your Literature',
-  'menu.toolsChat': 'SeekChat: Chat with your Literature',
-  'menu.libraryChat': 'SeekChat: library chat',
-  'tools.tooltip': 'SeekChat: Chat with your Literature – can also act in Zotero (e.g. import references)',
+  'menu.toolsChat': 'SeekChatZot: Chat with your Literature',
+  'menu.libraryChat': 'SeekChatZot: library chat',
+  'tools.tooltip': 'SeekChatZot: Chat with your Literature – can also act in Zotero (e.g. import references)',
   'tools.target': 'Library',
   'tools.targetCollection': 'Collection “{name}”',
   'tools.placeholder': 'Ask or paste references to import … (Enter to send, Shift+Enter for a new line)',
-  'tools.intro': 'Chat with your Literature: a chat with tools for Zotero. Ask about your library ("Which papers on heat islands do I have since 2020?", "What does the selected item say about methods?") – SeekChat searches it and links what it finds. Or paste references (citations, a bibliography, DOIs, ISBNs, URLs) and ask to import them: SeekChat looks them up, shows a preview and saves only what you confirm. The library or collection chosen above is searched and receives new items.',
+  'tools.intro': 'Chat with your Literature: a chat with tools for Zotero. Ask about your library ("Which papers on heat islands do I have since 2020?", "What does the selected item say about methods?") – SeekChatZot searches it and links what it finds. Or paste references (citations, a bibliography, DOIs, ISBNs, URLs) and ask to import them: SeekChatZot looks them up, shows a preview and saves only what you confirm. The library or collection chosen above is searched and receives new items.',
   'tools.thinking': 'Thinking …',
   'tools.confirm': 'Import selected',
   'tools.cancel': 'Cancel',
@@ -530,10 +530,10 @@ const EN = {
   'prefs.certUnreachable': 'Server not reachable – certificate not checked.',
   'prefs.certHostNotAllowed': 'Certificate not checked: add the host under "Allowed remote hosts" first.',
   'prefs.certTrusted': 'Certificate not trusted by the system, trusted by you (see Certificates).',
-  'prefs.certRefusedStatus': 'Certificate marked "not trusted" – SeekChat does not connect (see Certificates).',
+  'prefs.certRefusedStatus': 'Certificate marked "not trusted" – SeekChatZot does not connect (see Certificates).',
   'prefs.certUnknownStatus': 'The system does not trust the certificate – click "Check certificate" to decide.',
-  'prefs.certDialogTitle': 'SeekChat: certificate not trusted',
-  'prefs.certDialogText': 'The system does not trust the certificate of {host}{reason}.\n\nOnly trust it if you know this server and the SHA-256 fingerprint matches what its administrator tells you. Otherwise someone in between could read the documents, questions and API key SeekChat sends.\n\n{details}',
+  'prefs.certDialogTitle': 'SeekChatZot: certificate not trusted',
+  'prefs.certDialogText': 'The system does not trust the certificate of {host}{reason}.\n\nOnly trust it if you know this server and the SHA-256 fingerprint matches what its administrator tells you. Otherwise someone in between could read the documents, questions and API key SeekChatZot sends.\n\n{details}',
   'prefs.certReason': ' ({error})',
   'prefs.certDetails': 'Subject: {subject}\nIssuer: {issuer}\nValid: {from} – {to}\nSHA-256: {sha}',
   'prefs.certTrust': 'Trust',
@@ -547,24 +547,24 @@ const EN = {
   'prefs.certUntrustedOpt': 'not trusted',
   'prefs.certCopy': 'Copy (PEM)',
   'prefs.certRemove': 'Remove',
-  'cert.unknown': 'The system does not trust the certificate of {host}, and you have not decided about it yet. In the SeekChat settings click "Check certificate".',
-  'cert.refused': 'The certificate of {host} is marked "not trusted" in the SeekChat settings (Certificates).',
+  'cert.unknown': 'The system does not trust the certificate of {host}, and you have not decided about it yet. In the SeekChatZot settings click "Check certificate".',
+  'cert.refused': 'The certificate of {host} is marked "not trusted" in the SeekChatZot settings (Certificates).',
   'prefs.httpsHelp': 'With an API key, a server on another computer must be reached over https://, so the key and the PDF ' +
     'text are encrypted on the way. A certificate the system does not trust is shown in a dialog when the server is ' +
     'entered: you decide whether to trust it (list "Certificates" below).',
   'prefs.test': 'Test connection',
   'prefs.model': 'Chat model:',
   'prefs.serverHelp': 'Any server with an OpenAI-compatible interface (Ollama, vLLM, llama.cpp, LM Studio …): the server ' +
-    'root, e.g. https://ollama.example.local (SeekChat adds /v1), or the full base, e.g. https://llm.example.local/v1. The API key is stored unencrypted in the Zotero settings.',
+    'root, e.g. https://ollama.example.local (SeekChatZot adds /v1), or the full base, e.g. https://llm.example.local/v1. The API key is stored unencrypted in the Zotero settings.',
   'prefs.remoteTitle': 'Allowed remote hosts (caution)',
-  'prefs.remoteHelp': 'Without an entry SeekChat only talks to a server on this computer (127.0.0.1, localhost). ' +
+  'prefs.remoteHelp': 'Without an entry SeekChatZot only talks to a server on this computer (127.0.0.1, localhost). ' +
     'Hosts listed here (comma-separated, without http:// and port, e.g. ollama.example.local) receive with every ' +
     'question the text of the PDF or the selected pages, the question and the chat history. Whoever runs or ' +
     'administers this host or can read its logs can read these contents; with http:// instead of https:// also ' +
     'anyone on the network in between. Only list hosts in your own, trusted network that may receive this data.',
   'prefs.remoteHosts': 'Allowed hosts:',
   'prefs.remoteOn': 'Allowed: {hosts}. PDF text and questions to these hosts leave this computer.',
-  'prefs.remoteOff': 'No remote hosts allowed: SeekChat stays on this computer.',
+  'prefs.remoteOff': 'No remote hosts allowed: SeekChatZot stays on this computer.',
   'prefs.connecting': 'Connecting …',
   'prefs.connected': 'Connected, {n} model(s).',
   'prefs.connectedEmpty': 'Connected, but the server reports no models.',
@@ -583,7 +583,7 @@ const EN = {
   'prefs.notDetected': 'Not detectable ({detail}).',
   'prefs.tokens': '{n} tokens',
   'prefs.chars': '{n} characters (~{tokens} tokens)',
-  'prefs.autoHelp': 'SeekChat never sets the context window (Ollama would reload the model each time) and asks the server ' +
+  'prefs.autoHelp': 'SeekChatZot never sets the context window (Ollama would reload the model each time) and asks the server ' +
     'which one it uses: for Ollama the window of the loaded model, else num_ctx from the Modelfile, else Ollama\'s default ' +
     '(4096); for OpenAI-compatible servers max_model_len or the model\'s maximum. It uses 80 % of that; the answer length is a tenth of it (at most ' +
     '12,288, and at most 80 % of num_predict), the rest minus room for prompt and history goes to the document text ' +
@@ -591,7 +591,7 @@ const EN = {
   'prefs.numCtxManual': 'Context window (tokens):',
   'prefs.contextCharsManual': 'PDF text per question (characters):',
   'prefs.maxTokensManual': 'Max. answer length (tokens):',
-  'prefs.manualHelp': 'Context window: the size the server actually uses (SeekChat never sends it; for Ollama set it in the ' +
+  'prefs.manualHelp': 'Context window: the size the server actually uses (SeekChatZot never sends it; for Ollama set it in the ' +
     'Modelfile or with OLLAMA_CONTEXT_LENGTH). ' +
     'Rule of thumb: PDF text (characters) ÷ 3.5 + answer length + history must fit into the context window. ' +
     'Longer PDFs are cut down to the pages that best match the question.',
@@ -599,7 +599,7 @@ const EN = {
   'prefs.library': 'Library chat (with ZotSeek)',
   'prefs.libraryTopK': 'Passages per question from ZotSeek:',
   'prefs.libraryHelp': 'How many matching passages ZotSeek returns per question (1–100). What fits into "PDF text per ' +
-    'question" is sent. For collections and selected items SeekChat always fetches 100 and keeps the matching ones. ' +
+    'question" is sent. For collections and selected items SeekChatZot always fetches 100 and keeps the matching ones. ' +
     'The library chat needs ZotSeek with "AI Agent Access" and Zotero\'s local HTTP server.',
 
   // Citation marker the model is asked to use and that links show
@@ -621,7 +621,7 @@ const DE: Record<Key, string> = {
   'common.noteSaved': 'Notiz gespeichert ✓',
   'common.saveFailed': 'Fehler beim Speichern',
   'common.saveMdTitle': 'Chat als Markdown speichern',
-  'common.noModel': 'Kein Modell gewählt – siehe Einstellungen → SeekChat',
+  'common.noModel': 'Kein Modell gewählt – siehe Einstellungen → SeekChatZot',
   'common.model': 'Modell: {model}',
   'common.error': 'Fehler: {message}',
   'common.cancelled': '[abgebrochen]',
@@ -768,7 +768,7 @@ const DE: Record<Key, string> = {
   'book.skipTitle': 'Dieses Buch überspringen, mit den anderen weitermachen',
   'book.progress': 'Bücher ({done} von {n} fertig)',
 
-  'error.noModel': 'Kein Chat-Modell gewählt (SeekChat-Einstellungen).',
+  'error.noModel': 'Kein Chat-Modell gewählt (SeekChatZot-Einstellungen).',
   'error.noChapters': 'Keine Kapitel ausgewählt. Bitte oben im Inhaltsverzeichnis Kapitel ankreuzen.',
   'error.librarySearch': 'Diese Bibliothek kann ZotSeek nicht durchsuchen.',
   'error.noItems': 'Keine Einträge ausgewählt.',
@@ -796,7 +796,7 @@ const DE: Record<Key, string> = {
   'lib.collection': 'Collection „{name}“',
   'lib.items.one': '{n} ausgewählter Eintrag',
   'lib.items.other': '{n} ausgewählte Einträge',
-  'lib.windowTitle': 'SeekChat – {scope}',
+  'lib.windowTitle': 'SeekChatZot – {scope}',
   'lib.placeholder': 'Frage an die Auswahl oben … (Enter senden, Shift+Enter neue Zeile)',
   'lib.placeholderFollowup': 'Folgefrage zum Ergebnis oben – oder „suche auch nach …“ (Enter senden)',
   'lib.checking': 'Prüfe ZotSeek …',
@@ -843,7 +843,7 @@ const DE: Record<Key, string> = {
     'oben zitierten Stellen und durchsuchen nicht alles neu – so bleiben sie schnell. Nachladen geht jederzeit: „Was steht genau ' +
     'auf S. 45 von [1]?“, „Lies S. 10–12 des Buchs noch einmal“, „Was sagt Muster 2021 zu den Methoden?“. Für einen neuen Aspekt ' +
     'sag es („suche auch nach …“); für ein neues Thema starte einen neuen Chat. Seiten sind die PDF-Seiten wie in den Zitaten.',
-  'lib.tooltip': 'SeekChat: Chat über die Bibliothek (mit ZotSeek)',
+  'lib.tooltip': 'SeekChatZot: Chat über die Bibliothek (mit ZotSeek)',
 
   // Tool chat window
   'doc.target': '{kind}: {label}',
@@ -1004,15 +1004,15 @@ const DE: Record<Key, string> = {
   'refs.badge.url': 'Web',
   'refs.badge.isbn': 'ISBN',
   'refs.badge.search': 'Suche',
-  'tools.windowTitle': 'SeekChat – Chatte mit deiner Literatur',
+  'tools.windowTitle': 'SeekChatZot – Chatte mit deiner Literatur',
   'tools.buttonLabel': 'Chatte mit deiner Literatur',
-  'menu.toolsChat': 'SeekChat: Chatte mit deiner Literatur',
-  'menu.libraryChat': 'SeekChat: Chat über die Bibliothek',
-  'tools.tooltip': 'SeekChat: Chatte mit deiner Literatur – kann auch in Zotero handeln (z. B. Quellen importieren)',
+  'menu.toolsChat': 'SeekChatZot: Chatte mit deiner Literatur',
+  'menu.libraryChat': 'SeekChatZot: Chat über die Bibliothek',
+  'tools.tooltip': 'SeekChatZot: Chatte mit deiner Literatur – kann auch in Zotero handeln (z. B. Quellen importieren)',
   'tools.target': 'Bibliothek',
   'tools.targetCollection': 'Sammlung „{name}“',
   'tools.placeholder': 'Frage stellen oder Quellen zum Importieren einfügen … (Enter senden, Shift+Enter neue Zeile)',
-  'tools.intro': 'Chatte mit deiner Literatur: ein Chat mit Werkzeugen für Zotero. Frag nach deiner Bibliothek („Welche Paper zu Hitzeinseln habe ich seit 2020?“, „Was sagt der ausgewählte Eintrag zur Methode?“) – SeekChat durchsucht sie und verlinkt, was es findet. Oder füge Quellenangaben ein (Zitate, ein Literaturverzeichnis, DOIs, ISBNs, URLs) und bitte um den Import: SeekChat sucht sie, zeigt eine Vorschau und speichert nur, was du bestätigst. Oben gewählte Bibliothek bzw. Sammlung wird durchsucht und nimmt neue Einträge auf.',
+  'tools.intro': 'Chatte mit deiner Literatur: ein Chat mit Werkzeugen für Zotero. Frag nach deiner Bibliothek („Welche Paper zu Hitzeinseln habe ich seit 2020?“, „Was sagt der ausgewählte Eintrag zur Methode?“) – SeekChatZot durchsucht sie und verlinkt, was es findet. Oder füge Quellenangaben ein (Zitate, ein Literaturverzeichnis, DOIs, ISBNs, URLs) und bitte um den Import: SeekChatZot sucht sie, zeigt eine Vorschau und speichert nur, was du bestätigst. Oben gewählte Bibliothek bzw. Sammlung wird durchsucht und nimmt neue Einträge auf.',
   'tools.thinking': 'Denke nach …',
   'tools.confirm': 'Ausgewählte importieren',
   'tools.cancel': 'Abbrechen',
@@ -1120,10 +1120,10 @@ const DE: Record<Key, string> = {
   'prefs.certUnreachable': 'Server nicht erreichbar – Zertifikat nicht geprüft.',
   'prefs.certHostNotAllowed': 'Zertifikat nicht geprüft: zuerst den Host unter „Erlaubte entfernte Hosts“ eintragen.',
   'prefs.certTrusted': 'Zertifikat vom System nicht anerkannt, von dir als vertrauenswürdig markiert (siehe Zertifikate).',
-  'prefs.certRefusedStatus': 'Zertifikat als „nicht vertrauen“ markiert – SeekChat verbindet sich nicht (siehe Zertifikate).',
+  'prefs.certRefusedStatus': 'Zertifikat als „nicht vertrauen“ markiert – SeekChatZot verbindet sich nicht (siehe Zertifikate).',
   'prefs.certUnknownStatus': 'Das System vertraut dem Zertifikat nicht – „Zertifikat prüfen“ klicken, um zu entscheiden.',
-  'prefs.certDialogTitle': 'SeekChat: Zertifikat nicht vertrauenswürdig',
-  'prefs.certDialogText': 'Das System vertraut dem Zertifikat von {host} nicht{reason}.\n\nVertraue ihm nur, wenn du den Server kennst und der SHA-256-Fingerabdruck mit dem übereinstimmt, den dir sein Betreiber nennt. Sonst könnte jemand dazwischen die Dokumente, Fragen und den API-Key mitlesen, die SeekChat sendet.\n\n{details}',
+  'prefs.certDialogTitle': 'SeekChatZot: Zertifikat nicht vertrauenswürdig',
+  'prefs.certDialogText': 'Das System vertraut dem Zertifikat von {host} nicht{reason}.\n\nVertraue ihm nur, wenn du den Server kennst und der SHA-256-Fingerabdruck mit dem übereinstimmt, den dir sein Betreiber nennt. Sonst könnte jemand dazwischen die Dokumente, Fragen und den API-Key mitlesen, die SeekChatZot sendet.\n\n{details}',
   'prefs.certReason': ' ({error})',
   'prefs.certDetails': 'Inhaber: {subject}\nAussteller: {issuer}\nGültig: {from} – {to}\nSHA-256: {sha}',
   'prefs.certTrust': 'Vertrauen',
@@ -1137,17 +1137,17 @@ const DE: Record<Key, string> = {
   'prefs.certUntrustedOpt': 'nicht vertrauen',
   'prefs.certCopy': 'Kopieren (PEM)',
   'prefs.certRemove': 'Entfernen',
-  'cert.unknown': 'Das System vertraut dem Zertifikat von {host} nicht, und du hast darüber noch nicht entschieden. In den SeekChat-Einstellungen „Zertifikat prüfen“ klicken.',
-  'cert.refused': 'Das Zertifikat von {host} ist in den SeekChat-Einstellungen (Zertifikate) als „nicht vertrauen“ markiert.',
+  'cert.unknown': 'Das System vertraut dem Zertifikat von {host} nicht, und du hast darüber noch nicht entschieden. In den SeekChatZot-Einstellungen „Zertifikat prüfen“ klicken.',
+  'cert.refused': 'Das Zertifikat von {host} ist in den SeekChatZot-Einstellungen (Zertifikate) als „nicht vertrauen“ markiert.',
   'prefs.httpsHelp': 'Mit API-Key muss ein Server auf einem anderen Rechner per https:// angesprochen werden, damit Key und ' +
     'PDF-Text verschlüsselt übertragen werden. Ein Zertifikat, dem das System nicht vertraut, erscheint beim Eintragen des ' +
     'Servers in einem Dialog: du entscheidest, ob du ihm vertraust (Liste „Zertifikate“ unten).',
   'prefs.test': 'Verbindung testen',
   'prefs.model': 'Chat-Modell:',
   'prefs.serverHelp': 'Jeder Server mit OpenAI-kompatibler Schnittstelle (Ollama, vLLM, llama.cpp, LM Studio …): die ' +
-    'Server-Wurzel, z. B. https://ollama.example.local (SeekChat ergänzt /v1), oder die volle Basis, z. B. https://llm.example.local/v1. Der API-Key wird unverschlüsselt in den Zotero-Einstellungen gespeichert.',
+    'Server-Wurzel, z. B. https://ollama.example.local (SeekChatZot ergänzt /v1), oder die volle Basis, z. B. https://llm.example.local/v1. Der API-Key wird unverschlüsselt in den Zotero-Einstellungen gespeichert.',
   'prefs.remoteTitle': 'Erlaubte entfernte Hosts (Vorsicht)',
-  'prefs.remoteHelp': 'Ohne Eintrag spricht SeekChat nur mit einem Server auf diesem Rechner (127.0.0.1, localhost). ' +
+  'prefs.remoteHelp': 'Ohne Eintrag spricht SeekChatZot nur mit einem Server auf diesem Rechner (127.0.0.1, localhost). ' +
     'Hier eingetragene Hosts (kommagetrennt, ohne http:// und Port, z. B. ollama.example.local) erhalten bei jeder ' +
     'Frage den Text des PDFs bzw. der ausgewählten Seiten, die Frage und den bisherigen Chatverlauf. Wer diesen Host ' +
     'betreibt, administriert oder seine Logs lesen kann, kann diese Inhalte lesen; bei http:// statt https:// ' +
@@ -1155,7 +1155,7 @@ const DE: Record<Key, string> = {
     'Daten gehen dürfen.',
   'prefs.remoteHosts': 'Erlaubte Hosts:',
   'prefs.remoteOn': 'Freigegeben: {hosts}. PDF-Text und Fragen an diese Hosts verlassen diesen Rechner.',
-  'prefs.remoteOff': 'Keine entfernten Hosts freigegeben: SeekChat bleibt auf diesem Rechner.',
+  'prefs.remoteOff': 'Keine entfernten Hosts freigegeben: SeekChatZot bleibt auf diesem Rechner.',
   'prefs.connecting': 'Verbinde …',
   'prefs.connected': 'Verbunden, {n} Modell(e).',
   'prefs.connectedEmpty': 'Verbunden, aber der Server meldet keine Modelle.',
@@ -1174,7 +1174,7 @@ const DE: Record<Key, string> = {
   'prefs.notDetected': 'Nicht ermittelbar ({detail}).',
   'prefs.tokens': '{n} Tokens',
   'prefs.chars': '{n} Zeichen (~{tokens} Tokens)',
-  'prefs.autoHelp': 'SeekChat setzt das Kontextfenster nie selbst (Ollama würde das Modell jedes Mal neu laden) und fragt ' +
+  'prefs.autoHelp': 'SeekChatZot setzt das Kontextfenster nie selbst (Ollama würde das Modell jedes Mal neu laden) und fragt ' +
     'den Server, welches er nutzt: bei Ollama das des geladenen Modells, sonst num_ctx aus der Modelldatei, sonst den ' +
     'Ollama-Standard (4096); bei OpenAI-kompatiblen Servern max_model_len oder das Maximum des Modells. Davon nutzt es 80 %; die Antwortlänge ist ein Zehntel davon ' +
     '(höchstens 12.288 und höchstens 80 % von num_predict), der Rest abzüglich Platz für Prompt und Verlauf geht an den ' +
@@ -1183,7 +1183,7 @@ const DE: Record<Key, string> = {
   'prefs.numCtxManual': 'Kontextfenster (Tokens):',
   'prefs.contextCharsManual': 'PDF-Text pro Frage (Zeichen):',
   'prefs.maxTokensManual': 'Max. Antwortlänge (Tokens):',
-  'prefs.manualHelp': 'Kontextfenster: die Größe, die der Server tatsächlich nutzt (SeekChat sendet sie nie; bei Ollama in der ' +
+  'prefs.manualHelp': 'Kontextfenster: die Größe, die der Server tatsächlich nutzt (SeekChatZot sendet sie nie; bei Ollama in der ' +
     'Modelldatei oder mit OLLAMA_CONTEXT_LENGTH festlegen). ' +
     'Faustregel: PDF-Text (Zeichen) ÷ 3,5 + Antwortlänge + Verlauf muss ins Kontextfenster passen. ' +
     'Längere PDFs werden auf die zur Frage passendsten Seiten gekürzt.',
@@ -1191,7 +1191,7 @@ const DE: Record<Key, string> = {
   'prefs.library': 'Chat über die Bibliothek (mit ZotSeek)',
   'prefs.libraryTopK': 'Abschnitte pro Frage von ZotSeek:',
   'prefs.libraryHelp': 'Wie viele passende Textabschnitte ZotSeek pro Frage liefert (1–100). Davon geht mit, was in „PDF-Text ' +
-    'pro Frage“ passt. Bei Collections und ausgewählten Einträgen holt SeekChat immer 100 und behält die passenden. ' +
+    'pro Frage“ passt. Bei Collections und ausgewählten Einträgen holt SeekChatZot immer 100 und behält die passenden. ' +
     'Der Chat über die Bibliothek braucht ZotSeek mit „AI Agent Access“ und Zoteros lokalen HTTP-Server.',
 
   'cite.page': 'S.',

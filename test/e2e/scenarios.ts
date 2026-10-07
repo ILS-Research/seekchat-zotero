@@ -862,7 +862,7 @@ export const scenarios: Scenario[] = [
         }
       }, 5000);
       setSaveChatTestPath(null);
-      assert(exported.startsWith('# SeekChat – 2 ausgewählte Einträge') && exported.includes('> Was sagen die beiden')
+      assert(exported.startsWith('# SeekChatZot – 2 ausgewählte Einträge') && exported.includes('> Was sagen die beiden')
         && exported.includes('2. Muster 2021 – SeekChat E2E Langes Buch – S. 27')
         && exported.includes('Anfrage 1 an das Modell: Suchvorbereitung') && exported.includes('Anfrage 2 an das Modell: Antwort') && exported.includes('<sources>'), `export: ${exported.slice(0, 400)}`);
       const cite = answer.querySelectorAll('.seekchat-md .seekchat-cite')[1] as HTMLElement;
@@ -937,7 +937,7 @@ export const scenarios: Scenario[] = [
     const noteID = await waitFor('child note', () => Zotero.Items.get(ctx.parentID).getNotes().length > before
       && Zotero.Items.get(ctx.parentID).getNotes().slice(-1)[0], 5000);
     const html: string = Zotero.Items.get(noteID).getNote();
-    assert(html.includes('SeekChat – PDF') && html.includes(`zotero://open-pdf/library/items/${ctx.attachment.key}?page=2`),
+    assert(html.includes('SeekChatZot – PDF') && html.includes(`zotero://open-pdf/library/items/${ctx.attachment.key}?page=2`),
       `PDF note: ${html.slice(0, 400)}`);
     session.clear();
 
@@ -1583,7 +1583,7 @@ export const scenarios: Scenario[] = [
         }
       }, 5000);
       setSaveChatTestPath(null);
-      assert(exported.startsWith('# SeekChat – Chatte mit deiner Literatur (') && exported.includes('> Bitte importiere diese Quellen')
+      assert(exported.startsWith('# SeekChatZot – Chatte mit deiner Literatur (') && exported.includes('> Bitte importiere diese Quellen')
         && exported.includes('Klimawandel im urbanen Bereich (OpenAlex)'), `export: ${exported.slice(0, 600)}`);
     } finally {
       delete (Zotero as any).FindOnlineReferences;

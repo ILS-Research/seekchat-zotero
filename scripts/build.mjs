@@ -1,5 +1,5 @@
 // Bundles src/ with esbuild and assembles the plugin in build/.
-// `--pack` additionally zips build/ into dist/seekchat-<version>.xpi.
+// `--pack` additionally zips build/ into dist/seekchatzot-<version>.xpi.
 import * as esbuild from 'esbuild';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -42,7 +42,7 @@ await esbuild.build({
 if (pack) {
   const distDir = path.join(root, 'dist');
   fs.mkdirSync(distDir, { recursive: true });
-  const xpi = path.join(distDir, `seekchat-${version}${e2e ? '-e2e' : ''}.xpi`);
+  const xpi = path.join(distDir, `seekchatzot-${version}${e2e ? '-e2e' : ''}.xpi`);
   fs.rmSync(xpi, { force: true });
   execFileSync('zip', ['-qr', xpi, '.'], { cwd: buildDir, stdio: 'inherit' });
   console.log(`Packed ${path.relative(root, xpi)}`);

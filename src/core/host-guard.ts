@@ -47,7 +47,7 @@ export function assertSecureTransport(u: URL, apiKey: string | undefined): void 
   if (apiKey && u.protocol === 'http:' && !isLoopbackHost(u.hostname)) {
     throw new HostRejectedError(
       `An API key is set, so '${u.hostname}' must be reached over https:// ` +
-      `(for a self-signed certificate tick "Accept invalid certificate" in the SeekChat settings).`
+      `(for a self-signed certificate tick "Accept invalid certificate" in the SeekChatZot settings).`
     );
   }
 }
@@ -68,8 +68,8 @@ export function assertAllowedUrl(raw: string, allowedRemoteHosts: string[]): URL
   }
   if (!isLoopbackHost(u.hostname) && !allowedRemoteHosts.includes(u.hostname)) {
     throw new HostRejectedError(
-      `'${u.hostname}' is not allowed. SeekChat only talks to this computer unless the host ` +
-      `is listed under "Allowed remote hosts" in the SeekChat settings ` +
+      `'${u.hostname}' is not allowed. SeekChatZot only talks to this computer unless the host ` +
+      `is listed under "Allowed remote hosts" in the SeekChatZot settings ` +
       `(that sends PDF text and questions to it).`
     );
   }

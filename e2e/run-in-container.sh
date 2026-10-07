@@ -4,7 +4,7 @@
 # writes /out/results.json and quits Zotero.
 set -uo pipefail
 
-XPI=$(ls -t /dist/seekchat-*-e2e.xpi | head -1)
+XPI=$(ls -t /dist/seekchatzot-*-e2e.xpi | head -1)
 WORK=$(mktemp -d)
 export HOME=$WORK/home
 PROFILE=$WORK/profile

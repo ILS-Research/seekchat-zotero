@@ -31,7 +31,7 @@ updates = json.loads(path.read_text()) if path.is_file() else {'addons': {zotero
 entries = [u for u in updates['addons'][zotero['id']]['updates'] if u['version'] != version]
 entries.append({
     'version': version,
-    'update_link': f'{PACKAGES}/{version}/seekchat-{version}.xpi',
+    'update_link': f'{PACKAGES}/{version}/seekchatzot-{version}.xpi',
     'applications': {'zotero': {'strict_min_version': zotero['strict_min_version'], 'strict_max_version': zotero['strict_max_version']}},
 })
 entries.sort(key=lambda u: version_key(u['version']))

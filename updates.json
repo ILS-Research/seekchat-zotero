@@ -41,6 +41,16 @@
               "strict_max_version": "10.0.*"
             }
           }
+        },
+        {
+          "version": "1.0.0rc5",
+          "update_link": "https://gitlab.com/api/v4/projects/87216794/packages/generic/seekchat/1.0.0rc5/seekchatzot-1.0.0rc5.xpi",
+          "applications": {
+            "zotero": {
+              "strict_min_version": "7.0",
+              "strict_max_version": "10.0.*"
+            }
+          }
         }
       ]
     }
