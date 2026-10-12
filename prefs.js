@@ -21,6 +21,8 @@ pref("extensions.zotero.seekchat.contextChars", 40000);
 pref("extensions.zotero.seekchat.historyTurns", 4);
 // Reasoning phase of thinking models (Qwen 3 …) for answers: better on hard questions, much slower. Helper calls never think.
 pref("extensions.zotero.seekchat.thinking", false);
+// User name as plain text in `end_user` (statistics); off: SHA-256 hash only. Only used with ollama.ils.local.
+pref("extensions.zotero.seekchat.sendUserName", true);
 // Empty = built-in default prompt.
 pref("extensions.zotero.seekchat.systemPrompt", "");
 // Comma-separated host names that may serve the chat model in addition to

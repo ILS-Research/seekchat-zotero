@@ -2,6 +2,7 @@
 import { clearLimitsCache, contextWarning, resolveLimits } from '../core/limits';
 import { formatCount } from '../core/context/fit';
 import { createClient } from '../core/llm';
+import { isStatsHost } from '../core/llm/end-user';
 import { assertAllowedUrl, parseAllowedHosts } from '../core/host-guard';
 import { findCert, probeCertificate, readCerts, removeCert, toPem, upsertCert, writeCerts, type CertInfo } from '../core/certs';
 import { decideCertificate, forgetServer } from '../core/tls';
@@ -48,6 +49,19 @@ export function onPrefsLoad(win: Window): void {
   if (thinking) {
     thinking.checked = getPref('thinking') === true;
     thinking.addEventListener('change', () => setPref('thinking', thinking.checked));
+  }
+
+  const sendName = $<HTMLInputElement>('sendUserName');
+  if (sendName) {
+    sendName.checked = getPref('sendUserName') !== false;
+    sendName.addEventListener('change', () => setPref('sendUserName', sendName.checked));
+    // Only meaningful with the ILS server as endpoint.
+    const applies = () => { sendName.disabled = !isStatsHost(String(getPref('baseUrl') ?? '')); };
+    applies();
+    $('baseUrl')?.addEventListener('input', () => {
+      const v = ($('baseUrl') as HTMLInputElement).value;
+      sendName.disabled = !isStatsHost(v);
+    });
   }
 
   const prompt = $<HTMLTextAreaElement>('systemPrompt');

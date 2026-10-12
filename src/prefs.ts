@@ -17,6 +17,8 @@ export interface SeekChatPrefs {
   limitsMode: 'auto' | 'manual';
   /** Library chat: passages requested from ZotSeek per question. */
   libraryTopK: number;
+  /** User name as `end_user` in plain text (default); off: only its hash. Applies to ollama.ils.local only. */
+  sendUserName: boolean;
 }
 
 // Without the `global` flag Zotero prepends "extensions.zotero.", matching prefs.js.
@@ -54,6 +56,7 @@ export function readPrefs(): SeekChatPrefs {
     systemPrompt: str('systemPrompt'),
     allowedRemoteHosts: str('allowedRemoteHosts'),
     libraryTopK: int('libraryTopK', 30, 1, 100),
+    sendUserName: getPref('sendUserName') !== false,
     limitsMode: str('limitsMode') === 'manual' ? 'manual' : 'auto',
   };
 }

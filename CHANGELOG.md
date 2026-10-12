@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.0.0-rc.6 – 2026-10-12 (XPI version 1.0.0rc6)
+
+- **User name for the usage statistics:** with `ollama.ils.local` as endpoint, SeekChatZot sends the Zotero account
+  name as `end_user` in the chat body. New setting "Send my user name …" (default on); off: only the SHA-256 hash of
+  the name is sent. The setting is disabled for any other endpoint, where nothing is sent.
+
 ## 1.0.0-rc.5 – 2026-10-07 (XPI version 1.0.0rc5)
 
 - **Renamed to SeekChatZot** (the name SeekChat is taken): name in Zotero, menus, window titles, settings, export

@@ -66,6 +66,9 @@
   <html:div class="row">
     <html:label><html:input type="checkbox" id="seekchat-thinking"/> <html:span data-i18n="prefs.thinking">Let the model think before answering (thinking models only; slower)</html:span></html:label>
   </html:div>
+  <html:div class="row" id="seekchat-sendUserName-row">
+    <html:label><html:input type="checkbox" id="seekchat-sendUserName"/> <html:span data-i18n="prefs.sendUserName">Send my user name to the model server for usage statistics (off: only a hash; ollama.ils.local only)</html:span></html:label>
+  </html:div>
 
   <html:div class="tabs" role="tablist">
     <html:button id="seekchat-limits-auto" class="tab" role="tab" data-i18n="prefs.limitsAuto">Automatic from the model</html:button>

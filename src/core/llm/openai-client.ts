@@ -1,3 +1,4 @@
+import { endUserValue } from './end-user';
 import { HttpError, readLines, request } from './http';
 import { probeOllama } from './ollama-probe';
 import { openAiMessages, parseSseLine, ToolCallAccumulator, toolsPayload } from './stream-parsers';
@@ -84,6 +85,7 @@ export class OpenAiClient implements LlmClient {
   async streamTurn(req: ChatRequest, onDelta: (text: string) => void, retried = false): Promise<ChatResult> {
     const thinkKey = `${this.api.baseUrl}|${req.model}`;
     const thinking = noThink.has(thinkKey) ? {} : thinkingFields(req.think);
+    const endUser = this.api.endUser ? await endUserValue(this.api.endUser.name, this.api.endUser.plain) : undefined;
     let resp: Response;
     try {
       resp = await request(this.api, '/chat/completions', {
@@ -97,6 +99,7 @@ export class OpenAiClient implements LlmClient {
           temperature: req.temperature,
           max_tokens: req.maxTokens,
           ...thinking,
+          ...(endUser ? { end_user: endUser } : {}),
         },
       });
     } catch (e: any) {

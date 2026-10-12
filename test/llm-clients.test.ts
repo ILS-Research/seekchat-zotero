@@ -144,3 +144,13 @@ test('HTTP 5xx before streaming is tried once more; 4xx and a second 5xx are not
     assert.equal(calls.length, 1);
   });
 });
+
+test('end_user: plain name or hash, only with a name', async () => {
+  const { endUserValue, isStatsHost } = await import('../src/core/llm/end-user');
+  assert.equal(isStatsHost('https://ollama.ils.local'), true);
+  assert.equal(isStatsHost('https://ollama.ils.local:443/v1'), true);
+  assert.equal(isStatsHost('https://other.example'), false);
+  assert.equal(await endUserValue('Jane', true), 'Jane');
+  assert.match((await endUserValue('Jane', false))!, /^[0-9a-f]{64}$/);
+  assert.equal(await endUserValue('  ', true), undefined);
+});

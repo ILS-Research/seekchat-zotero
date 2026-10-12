@@ -1,16 +1,19 @@
 import { logger } from '../../util/log';
 import { parseAllowedHosts } from '../host-guard';
 import type { SeekChatPrefs } from '../../prefs';
+import { currentUserName, isStatsHost } from './end-user';
 import { OpenAiClient } from './openai-client';
 import type { LlmClient } from './types';
 
 /** The model server, always through its OpenAI-compatible interface (openai-client.ts). */
-export function createClient(prefs: Pick<SeekChatPrefs, 'baseUrl' | 'apiKey' | 'allowedRemoteHosts'>): LlmClient {
+export function createClient(prefs: Pick<SeekChatPrefs, 'baseUrl' | 'apiKey' | 'allowedRemoteHosts'> & Partial<Pick<SeekChatPrefs, 'sendUserName'>>): LlmClient {
   if (!prefs.baseUrl) throw new Error('No chat server configured (SeekChat settings).');
   const cfg = {
     baseUrl: prefs.baseUrl,
     apiKey: prefs.apiKey || undefined,
     allowedRemoteHosts: parseAllowedHosts(prefs.allowedRemoteHosts),
+    // Only on the ILS server; the option defaults to on when the caller does not pass prefs (model list, limits).
+    endUser: isStatsHost(prefs.baseUrl) ? { name: currentUserName(), plain: prefs.sendUserName !== false } : undefined,
   };
   return logged(new OpenAiClient(cfg));
 }
