@@ -4,6 +4,9 @@
 <html:style>
   #seekchat-preferences .row { display: grid; grid-template-columns: 170px 1fr; gap: 6px 10px; align-items: center; max-width: 640px; }
   #seekchat-preferences .row input, #seekchat-preferences .row select { width: 100%; box-sizing: border-box; }
+  #seekchat-preferences .row.check { display: block; }
+  #seekchat-preferences .row.check label { display: flex; align-items: flex-start; gap: 8px; }
+  #seekchat-preferences .row.check input { width: auto; margin: 2px 0 0; flex: none; }
   #seekchat-preferences .help { font-size: 11px; color: var(--fill-secondary); margin: 2px 0 8px 0; }
   #seekchat-preferences .seekchat-context-warning { color: var(--accent-orange, #c77700); font-weight: 600; }
   #seekchat-preferences textarea { width: 100%; max-width: 640px; box-sizing: border-box; min-height: 6em; font: inherit; }
@@ -63,10 +66,10 @@
     <html:label for="seekchat-historyTurns" data-i18n="prefs.history">Previous questions sent:</html:label>
     <html:input type="number" id="seekchat-historyTurns" min="0" max="50"/>
   </html:div>
-  <html:div class="row">
+  <html:div class="row check">
     <html:label><html:input type="checkbox" id="seekchat-thinking"/> <html:span data-i18n="prefs.thinking">Let the model think before answering (thinking models only; slower)</html:span></html:label>
   </html:div>
-  <html:div class="row" id="seekchat-sendUserName-row">
+  <html:div class="row check" id="seekchat-sendUserName-row">
     <html:label><html:input type="checkbox" id="seekchat-sendUserName"/> <html:span data-i18n="prefs.sendUserName">Send my user name to the model server for usage statistics (off: only a hash; ollama.ils.local only)</html:span></html:label>
   </html:div>
 
