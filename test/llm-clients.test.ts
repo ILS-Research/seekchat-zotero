@@ -154,3 +154,16 @@ test('end_user: plain name or hash, only with a name', async () => {
   assert.match((await endUserValue('Jane', false))!, /^[0-9a-f]{64}$/);
   assert.equal(await endUserValue('  ', true), undefined);
 });
+
+test('chat body carries the user (OpenAI `user` field), plain or hashed; none without the option', async () => {
+  const ok = () => stream(['data: {"choices":[{"delta":{"content":"x"}}]}\n\ndata: [DONE]\n\n']);
+  await withFetch([ok(), ok(), ok()], async (calls) => {
+    await new OpenAiClient({ ...LOCAL, endUser: { name: 'Jane', plain: true } }).streamChat(req, () => {});
+    await new OpenAiClient({ ...LOCAL, endUser: { name: 'Jane', plain: false } }).streamChat(req, () => {});
+    await new OpenAiClient(LOCAL).streamChat(req, () => {});
+    const bodies = calls.map((c) => JSON.parse(c.init.body));
+    assert.equal(bodies[0].user, 'Jane');
+    assert.match(bodies[1].user, /^[0-9a-f]{64}$/);
+    assert.ok(!('user' in bodies[2]) && !('end_user' in bodies[2]));
+  });
+});

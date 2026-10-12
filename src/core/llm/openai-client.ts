@@ -99,7 +99,7 @@ export class OpenAiClient implements LlmClient {
           temperature: req.temperature,
           max_tokens: req.maxTokens,
           ...thinking,
-          ...(endUser ? { end_user: endUser } : {}),
+          ...(endUser ? { user: endUser } : {}),
         },
       });
     } catch (e: any) {

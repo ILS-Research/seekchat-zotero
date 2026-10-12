@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.0.0-rc.7 – 2026-10-12 (XPI version 1.0.0rc7)
+
+- **Fix: the user name now reaches LiteLLM.** It is sent in the OpenAI-standard `user` field of the chat body (rc.6
+  used `end_user`, which the proxy ignores); the statistics show it as `end_user`.
+- Settings: checkbox rows ("think before answering", "send my user name") use the full width, the checkbox sits next
+  to its text.
+
 ## 1.0.0-rc.6 – 2026-10-12 (XPI version 1.0.0rc6)
 
 - **User name for the usage statistics:** with `ollama.ils.local` as endpoint, SeekChatZot sends the Zotero account

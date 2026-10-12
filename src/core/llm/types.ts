@@ -70,6 +70,6 @@ export interface ClientConfig {
   baseUrl: string;
   apiKey?: string;
   allowedRemoteHosts: string[];
-  /** Sends the user name as `end_user` (plain or hashed); unset: nothing. Statistics on the ILS server. */
+  /** Sends the user name as `user` (plain or hashed); unset: nothing. Statistics on the ILS server. */
   endUser?: { name: string; plain: boolean };
 }

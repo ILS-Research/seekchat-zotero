@@ -17,7 +17,7 @@ export interface SeekChatPrefs {
   limitsMode: 'auto' | 'manual';
   /** Library chat: passages requested from ZotSeek per question. */
   libraryTopK: number;
-  /** User name as `end_user` in plain text (default); off: only its hash. Applies to ollama.ils.local only. */
+  /** User name as `user` in plain text (default); off: only its hash. Applies to ollama.ils.local only. */
   sendUserName: boolean;
 }
 

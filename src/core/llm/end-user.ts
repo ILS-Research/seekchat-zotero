@@ -1,4 +1,4 @@
-/** `end_user` in the chat body, for the usage statistics of the ILS model server (ollama.ils.local only). */
+/** `user` in the chat body (OpenAI standard; LiteLLM shows it as end_user), for the usage statistics of the ILS model server (ollama.ils.local only). */
 export const STATS_HOST = 'ollama.ils.local';
 
 /** True when the endpoint is the ILS model server; only then the option "send user name" applies. */
