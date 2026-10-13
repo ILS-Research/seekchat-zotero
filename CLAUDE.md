@@ -141,7 +141,7 @@ Extending: new sources are new `ContextProvider`s; session, prompt and turn rend
   only labelled PMIDs count (`trustedTextIdentifiers`).
 - PDFs: `attachPdf` = `Zotero.Attachments.addAvailableFile` ("Find Full Text"), which forces every URL to https; plain
   http PDF links are downloaded with `importFromURL` after a content-type check. E2E: the mock serves `/hitze.pdf`.
-- E2E image: Zotero 7 ships as `.tar.bz2`, 8+ as `.tar.xz`; other versions via `ARG ZOTERO_VERSION` in `e2e/Dockerfile`.
+- E2E image: Zotero 7 ships as `.tar.bz2`, 8+ as `.tar.xz`; default version = current release (`e2e/zotero-versions.sh latest`, also in CI), `ZOTERO_VERSION=<v>` or `all` (newest of every major) picks others; the Dockerfile default is only a fallback.
 - Non-PDF documents (HTML, EPUB, text) have no locators: `buildMessages` sends `noCitationRule`, `formatSections`
   marks gaps "[…]". Semantic search, current reader page and page labels stay PDF-only (`provider.kind === 'pdf'`).
   Zotero reads an HTML file without `<meta charset>` as Latin-1 when indexing (E2E fixture sets it).

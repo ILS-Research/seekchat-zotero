@@ -19,8 +19,8 @@ variables:
   DOCKER_CERT_PATH: /certs/client
   BUILD_IMAGE: seekchat-build:ci
   E2E_IMAGE: seekchat-e2e:ci
-  # Zotero version of the E2E image (e2e/Dockerfile); set in a manual pipeline for 7.0.32, 8.0.4, 9.0.4 …
-  ZOTERO_VERSION: "10.0.3"
+  # Zotero version of the E2E image (e2e/Dockerfile); "latest" = current release (e2e/zotero-versions.sh); set a version in a manual pipeline for older majors
+  ZOTERO_VERSION: "latest"
 
 .dind:
   image: docker:27
@@ -62,6 +62,8 @@ e2e:
   extends: .dind
   needs: [unit]
   script:
+    - apk add --no-cache curl bash >/dev/null
+    - if [ "$ZOTERO_VERSION" = latest ]; then ZOTERO_VERSION=$(bash e2e/zotero-versions.sh latest); fi; echo "Zotero $ZOTERO_VERSION"
     - docker build --build-arg ZOTERO_VERSION="$ZOTERO_VERSION" -t "$E2E_IMAGE" e2e/
     # Like e2e/run.sh, but with docker cp instead of mounts: the E2E build of the plugin in, results out.
     - cid=$(docker create -e E2E_TIMEOUT=600 -e E2E_ONLY="${E2E_ONLY:-}" "$E2E_IMAGE")
@@ -102,6 +104,8 @@ e2e-live:
       done
     - git clone -q --depth 1 --filter=blob:none --sparse https://github.com/jannefleischer/zotero-reference.git refsrc
     - git -C refsrc sparse-checkout set test/assets
+    - apk add --no-cache curl bash >/dev/null
+    - if [ "$ZOTERO_VERSION" = latest ]; then ZOTERO_VERSION=$(bash e2e/zotero-versions.sh latest); fi; echo "Zotero $ZOTERO_VERSION"
     - docker build --build-arg ZOTERO_VERSION="$ZOTERO_VERSION" -t "$E2E_IMAGE" e2e/
     - |
       HOSTS=""

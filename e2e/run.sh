@@ -5,6 +5,14 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
+# ZOTERO_VERSION: default = current release; "all" = newest build of every major (7 … current), one run each.
+if [ "${ZOTERO_VERSION:-}" = all ]; then
+  rc=0
+  for v in $(e2e/zotero-versions.sh); do ZOTERO_VERSION=$v "$0" "$@" || rc=1; done
+  exit $rc
+fi
+ZOTERO_VERSION=${ZOTERO_VERSION:-$(e2e/zotero-versions.sh latest)}
+
 # Full output of every run goes to logs/e2e.log (line-buffered via tee),
 # so a long build can be followed with `tail -f logs/e2e.log`.
 mkdir -p logs
@@ -21,13 +29,14 @@ mkdir -p e2e/out test/assets
 # Optional live scenarios against a real model server, e.g.
 #   E2E_LIVE_URL=https://ollama.ils.local E2E_LIVE_MODEL=qwen3_8_27b_128k:latest ./e2e/run.sh
 # (any OpenAI-compatible server: root or /v1 base; E2E_LIVE_API_KEY for servers that need a bearer key).
+# E2E_USER_AGENT_TAG=name sets the User-Agent tag "SeekChatZot/<v> (name)" (default "e2e") for the server log.
 # Without E2E_LIVE_URL they are skipped.
 LIVE=()
 # The portal (reverse proxy, certificate signed by the in-house CA) must be reachable by name in the container.
 portal_ip=$(getent hosts zotero.ils.local | awk '{print $1; exit}')
 [ -n "$portal_ip" ] && LIVE+=(--add-host "zotero.ils.local:$portal_ip" -e E2E_PORTAL=true)
 if [ -n "${E2E_LIVE_URL:-}" ]; then
-  LIVE=(-e E2E_LIVE_URL -e E2E_LIVE_MODEL -e E2E_LIVE_API_KEY)
+  LIVE=(-e E2E_LIVE_URL -e E2E_LIVE_MODEL -e E2E_LIVE_API_KEY -e E2E_USER_AGENT_TAG)
   # Resolve the host here, in case the container's DNS does not know internal names.
   live_host=$(echo "$E2E_LIVE_URL" | sed -E 's#^[a-z]+://([^/:]+).*#\1#')
   live_ip=$(getent hosts "$live_host" | awk '{print $1; exit}')
