@@ -36,7 +36,11 @@ export class ToolCallAccumulator {
     for (const d of deltas) {
       const c = (this.calls[d.index] ??= { id: '', name: '', args: '' });
       if (d.id) c.id = d.id;
-      if (d.name) c.name += d.name;
+      if (d.name) {
+        // Standard: the name comes once; some servers repeat it in every chunk (qwen3 via Ollama) – appending
+        // would give "search_librarysearch_library". A repeat replaces, a real split ("search_" + "library") appends.
+        c.name = c.name && d.name.startsWith(c.name) ? d.name : c.name + d.name;
+      }
       if (d.arguments) c.args += d.arguments;
     }
   }

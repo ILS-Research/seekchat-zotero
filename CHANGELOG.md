@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.0.0-rc.8 – 2026-10-13 (XPI version 1.0.0rc8)
+
+- **Fix: tool calls failed with servers that repeat the tool name in every stream chunk** (e.g. qwen3 via Ollama):
+  the name was appended each time (`search_librarysearch_library…`), so the tool was "unknown" and every retry failed.
+  A repeated name now replaces instead of appends.
+- Requests carry `User-Agent: SeekChatZot/<version>`, so the server log shows who asked.
+
 ## 1.0.0-rc.7 – 2026-10-12 (XPI version 1.0.0rc7)
 
 - **Fix: the user name now reaches LiteLLM.** It is sent in the OpenAI-standard `user` field of the chat body (rc.6

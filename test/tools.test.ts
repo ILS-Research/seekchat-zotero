@@ -45,6 +45,14 @@ test('OpenAI tool call fragments are joined per index', () => {
   ]);
 });
 
+test('a tool name repeated in every chunk is not appended', () => {
+  const acc = new ToolCallAccumulator();
+  acc.push([{ index: 0, id: 'c1', name: 'search_library', arguments: '{"query"' }]);
+  acc.push([{ index: 0, name: 'search_library', arguments: ':"x"}' }]);
+  acc.push([{ index: 0, name: 'search_library' }]);
+  assert.deepEqual(acc.result(), [{ id: 'c1', name: 'search_library', arguments: { query: 'x' } }]);
+});
+
 test('tool arguments: objects pass, JSON strings are parsed, garbage is kept raw', () => {
   assert.deepEqual(parseToolArguments({ a: 1 }), { a: 1 });
   assert.deepEqual(parseToolArguments('{"a":1}'), { a: 1 });
