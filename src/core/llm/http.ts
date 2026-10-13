@@ -13,9 +13,12 @@ export class HttpError extends Error {
 
 let userAgent = '';
 
-/** "SeekChatZot/<version>" as User-Agent, so the server log shows who asked (otherwise: Zotero's own). */
-export function setUserAgent(version: string): void {
-  userAgent = version ? `SeekChatZot/${version}` : '';
+/**
+ * "SeekChatZot/<version>" as User-Agent, so the server log shows who asked (otherwise: Zotero's own).
+ * `tag` (E2E build only) is appended as "(tag)" to tell test traffic from real use.
+ */
+export function setUserAgent(version: string, tag = ''): void {
+  userAgent = version ? `SeekChatZot/${version}${tag ? ` (${tag})` : ''}` : '';
 }
 
 /** Joins base URL and path without dropping a path prefix such as /v1. */

@@ -172,9 +172,12 @@ test('User-Agent names SeekChatZot once the version is set', async () => {
   const { setUserAgent } = await import('../src/core/llm/http');
   setUserAgent('1.2.3');
   try {
-    await withFetch([() => Response.json({ data: [] })], async (calls) => {
+    await withFetch([() => Response.json({ data: [] }), () => Response.json({ data: [] })], async (calls) => {
       await new OpenAiClient(LOCAL).listModels();
       assert.equal(calls[0].init.headers['User-Agent'], 'SeekChatZot/1.2.3');
+      setUserAgent('1.2.3', 'e2e');
+      await new OpenAiClient(LOCAL).listModels();
+      assert.equal(calls[1].init.headers['User-Agent'], 'SeekChatZot/1.2.3 (e2e)');
     });
   } finally {
     setUserAgent('');

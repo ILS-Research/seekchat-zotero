@@ -2330,6 +2330,77 @@ export const scenarios: Scenario[] = [
     getToolsChatWindow()?.close();
   }],
 
+  // One probe per tool: does the real model call each tool under its right name (regression: names repeated in every
+  // stream chunk were joined to "search_librarysearch_library") and does the call succeed? Run: E2E_ONLY="live all tools".
+  ['live all tools: the model calls every tool under its real name and the call succeeds', async (ctx) => {
+    useLiveServer(ctx);
+    const KNOWN = ['search_library', 'get_item', 'get_selection', 'list_collections', 'list_tags', 'save_to_collection', 'create_note',
+      'read_document', 'update_item', 'import_references', 'get_document_references', 'show_references', 'delegate_task'];
+    const lib = Zotero.Libraries.userLibraryID;
+    const col = new Zotero.Collection({ libraryID: lib, name: 'E2E Alle Werkzeuge' });
+    await col.saveTx();
+    const a = new Zotero.Item('journalArticle');
+    a.setField('title', 'Sozialer Wohnungsbau im Wandel');
+    a.setField('date', '2014');
+    a.setTags(['Wohnungspolitik', 'wohnungspolitik']);
+    a.setCollections([col.id]);
+    await a.saveTx();
+    const b = new Zotero.Item('book');
+    b.setField('title', 'Marktintegrierte Wohnungsversorgung');
+    b.setField('date', '2020');
+    b.setCollections([col.id]);
+    await b.saveTx();
+    let doc: { item: any } | null = null;
+    try { doc = await liveDoc('journalArticle', 'Tent 2024 (Raumforschung und Raumordnung)', 'rur-tent-2024-en.pdf', col.id); } catch (e) { if (!(e instanceof SkipError)) throw e; }
+    const fro = !!(Zotero as any).FindOnlineReferences?.api?.getReferences;
+    const win = Zotero.getMainWindow();
+    win.Zotero_Tabs.select('zotero-pane');
+    await win.ZoteroPane.selectItems([a.id, b.id]);
+    await openLiveToolChat();
+
+    type Probe = { tool: string; ask: string; skip?: string; check?: () => string | null };
+    const probes: Probe[] = [
+      { tool: 'search_library', ask: 'Suche in meiner Bibliothek nach Einträgen zu sozialem Wohnungsbau und nenne die Treffer.' },
+      { tool: 'get_item', ask: `Zeige mir alle Angaben zum Eintrag mit dem Schlüssel ${a.key}.` },
+      { tool: 'get_selection', ask: 'Welche Einträge habe ich gerade markiert?' },
+      { tool: 'list_collections', ask: 'Welche Sammlungen gibt es in meiner Bibliothek?' },
+      { tool: 'list_tags', ask: 'Welche Schlagwörter kommen in meiner Bibliothek vor?' },
+      { tool: 'update_item', ask: `Ändere das Datum des Eintrags ${b.key} auf 2021.`,
+        check: () => (Zotero.Items.get(b.id).getField('date').startsWith('2021') ? null : `date is ${Zotero.Items.get(b.id).getField('date')}`) },
+      { tool: 'save_to_collection', ask: `Lege den Eintrag ${a.key} in eine neue Sammlung „E2E Ziel“.`,
+        check: () => (Zotero.Collections.getByLibrary(lib).some((c: any) => c.name === 'E2E Ziel') ? null : 'collection not created') },
+      { tool: 'read_document', ask: `Lies die erste Seite des Dokuments mit dem Schlüssel ${doc?.item.key} und sag, worum es geht.`, skip: doc ? '' : 'no test assets' },
+      { tool: 'create_note', ask: `Lege am Eintrag ${doc?.item.key} eine Notiz mit dem Text „Probe“ an.`, skip: doc ? '' : 'no test assets',
+        check: () => (doc!.item.getNotes().length ? null : 'no note') },
+      { tool: 'import_references', ask: 'Importiere diese Quelle: Wilkinson, M. D. et al. (2016): The FAIR Guiding Principles for scientific data management and stewardship. Scientific Data 3, 160018. https://doi.org/10.1038/sdata.2016.18' },
+      { tool: 'get_document_references', ask: `Lies die Literaturliste des Dokuments mit dem Schlüssel ${doc?.item.key}.`, skip: doc && fro ? '' : 'no test assets or Find Online References' },
+      { tool: 'delegate_task', ask: `Lass den Subagenten (delegate_task) die Titel aller Einträge in der Sammlung „E2E Alle Werkzeuge“ auflisten.` },
+    ];
+
+    const report: any[] = [];
+    const failures: string[] = [];
+    for (const p of probes) {
+      if (p.skip) { report.push({ tool: p.tool, result: `skipped: ${p.skip}` }); continue; }
+      getToolSession().clear();
+      const t0 = Date.now();
+      const turn = await liveToolAsk(ctx, `live-all-${p.tool}`, p.ask);
+      const runs = turn.toolRuns || [];
+      const unknown = runs.filter((r) => !KNOWN.includes(r.name)).map((r) => r.name);
+      const called = runs.find((r) => r.name === p.tool);
+      let problem = '';
+      if (turn.error) problem = `error: ${turn.content}`;
+      else if (unknown.length) problem = `unknown tool name(s): ${unknown.join(', ')}`;
+      else if (!called) problem = `not called (got: ${runs.map((r) => r.name).join(', ') || 'no tool'})`;
+      else if (called.state !== 'done') problem = `state ${called.state}: ${called.status}`;
+      else if (p.check) problem = p.check() || '';
+      report.push({ tool: p.tool, ms: Date.now() - t0, result: problem || 'ok', answer: turn.content, runs: runsReport(turn) });
+      if (problem) failures.push(`${p.tool}: ${problem}`);
+    }
+    await reportLive(ctx, { step: 'all-tools', report });
+    getToolsChatWindow()?.close();
+    assert(!failures.length, `tools the model could not use:\n${failures.join('\n')}`);
+  }],
+
   // ---- Tutorial screenshots (docs/tutorial.ipynb): a small realistic library, each use case with a real model. ----
   // Run: E2E_ONLY=tutorial with E2E_LIVE_URL and E2E_PLUGINS (see CLAUDE.md); pictures: e2e/out/screenshot-tut-*.png.
 
