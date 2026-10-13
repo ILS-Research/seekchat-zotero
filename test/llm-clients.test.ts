@@ -167,3 +167,16 @@ test('chat body carries the user (OpenAI `user` field), plain or hashed; none wi
     assert.ok(!('user' in bodies[2]) && !('end_user' in bodies[2]));
   });
 });
+
+test('User-Agent names SeekChatZot once the version is set', async () => {
+  const { setUserAgent } = await import('../src/core/llm/http');
+  setUserAgent('1.2.3');
+  try {
+    await withFetch([() => Response.json({ data: [] })], async (calls) => {
+      await new OpenAiClient(LOCAL).listModels();
+      assert.equal(calls[0].init.headers['User-Agent'], 'SeekChatZot/1.2.3');
+    });
+  } finally {
+    setUserAgent('');
+  }
+});

@@ -14,6 +14,7 @@ import { closeToolsChat, onToolsWindowLoad, onToolsWindowUnload, openToolsChat }
 import { stopToolSession } from './core/tools/session';
 import { addToolsMenu, removeToolsMenu } from './ui/tools-menu';
 import { addLegacyMenu, registerMenus, removeLegacyMenu, unregisterMenus } from './ui/context-menu';
+import { setUserAgent } from './core/llm/http';
 import { log, logError } from './util/log';
 
 const FTL = 'seekchat-main.ftl';
@@ -31,6 +32,7 @@ class SeekChatPlugin {
 
   async startup(info: { id: string; version: string; rootURI: string }): Promise<void> {
     this.info = info;
+    setUserAgent(info.version);
     // Zotero 8+: MenuManager; Zotero 7: menu items added per window in onMainWindowLoad.
     registerMenus(info.id, `${info.rootURI}content/icons/seekchat.svg`);
     for (const win of Zotero.getMainWindows()) this.onMainWindowLoad(win);

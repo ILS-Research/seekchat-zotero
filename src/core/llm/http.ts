@@ -11,6 +11,13 @@ export class HttpError extends Error {
   }
 }
 
+let userAgent = '';
+
+/** "SeekChatZot/<version>" as User-Agent, so the server log shows who asked (otherwise: Zotero's own). */
+export function setUserAgent(version: string): void {
+  userAgent = version ? `SeekChatZot/${version}` : '';
+}
+
 /** Joins base URL and path without dropping a path prefix such as /v1. */
 export function joinUrl(base: string, path: string): string {
   return base.replace(/\/+$/, '') + '/' + path.replace(/^\/+/, '');
@@ -31,6 +38,7 @@ export async function request(
   assertSecureTransport(url, cfg.apiKey);
   if (typeof Zotero !== 'undefined') await prepareTls(url);
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  if (userAgent) headers['User-Agent'] = userAgent;
   if (cfg.apiKey) headers['Authorization'] = `Bearer ${cfg.apiKey}`;
   let resp: Response;
   try {
